@@ -6,7 +6,7 @@ import { ConversationProvider } from "@elevenlabs/react";
 import { appendTranscript, createDateSession, endDateSession, getDateSession, getPersonas, useQuery } from "wasp/client/operations";
 import { routes } from "wasp/client/router";
 import type { DateSessionDTO, PersonaWithScenario } from "../server/dto";
-import type { Evaluation } from "../shared/types";
+import type { Evaluation, TranscriptTurn } from "../shared/types";
 import { AppShell } from "@/components/AppShell";
 import { AvatarStage } from "@/components/AvatarStage";
 import { CallButtons, GradePop, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
@@ -19,6 +19,7 @@ import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
 import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
 import { useDateConversation } from "@/client/useDateConversation";
+import { useAvatarSession } from "@/client/useAvatarSession";
 import { getUserId } from "@/client/userId";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -364,17 +365,24 @@ function DateStage({
   onEnded: (evaluation: Evaluation) => void;
 }) {
   const { id: sessionId, persona, scenario } = session;
-  const call = useDateConversation({
+  // Save each turn as it arrives, so a closed tab doesn't lose the date.
+  const onTurn = (turn: TranscriptTurn) => {
+    appendTranscript({ userId: getUserId(), id: sessionId, turns: [turn] }).catch((err) => console.warn("[world] couldn't save a turn:", err));
+  };
+  // HeyGen LiveAvatar when this server has it configured (real video, lip-synced to the ElevenLabs
+  // agent); otherwise ElevenLabs voice-only, or the mock when the session has no agent at all.
+  // Both hooks are always called (rules of hooks); only the active one's start()/end() ever run.
+  const useAvatar = session.avatarEnabled && Boolean(session.agentId);
+  const avatarCall = useAvatarSession({ agentId: session.agentId ?? "", onTurn });
+  const voiceCall = useDateConversation({
     persona,
     scenario,
     agentId: session.agentId,
     userContext: session.userContext,
     sampleTranscript,
-    // Save each turn as it arrives, so a closed tab doesn't lose the date.
-    onTurn: (turn) => {
-      appendTranscript({ userId: getUserId(), id: sessionId, turns: [turn] }).catch((err) => console.warn("[world] couldn't save a turn:", err));
-    },
+    onTurn,
   });
+  const call = useAvatar ? avatarCall : voiceCall;
 
   // The persona's head and chest follow their voice (seen during the push-in).
   useEffect(() => {
@@ -466,6 +474,8 @@ function DateStage({
           <AvatarStage
             persona={persona}
             stream={call.videoStream}
+            attach={useAvatar ? avatarCall.attach : undefined}
+            videoReady={useAvatar ? avatarCall.videoReady : undefined}
             speaking={call.isSpeaking}
             volume={call.getOutputVolume}
             className="size-full rounded-none border-0 shadow-none"
