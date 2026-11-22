@@ -7,18 +7,20 @@ import { cn } from "@/lib/utils";
  * The persona's live video. ElevenLabs agents get their video avatar from a partner
  * (LiveAvatar/HeyGen, Runway or D-ID), which arrives as a WebRTC MediaStream.
  * Pass it as `stream`; until it arrives the persona's initial stands in.
- * `overlay` sits on top of the video (status, timer, name).
+ * `overlay` sits on top of the video (status, timer, name). `volume` (0-1) makes the stand-in's halo follow the voice.
  */
 export function AvatarStage({
   persona,
   stream,
   speaking = false,
+  volume,
   overlay,
   className,
 }: {
   persona: Persona;
   stream: MediaStream | null;
   speaking?: boolean;
+  volume?: () => number;
   overlay?: ReactNode;
   className?: string;
 }) {
@@ -49,7 +51,7 @@ export function AvatarStage({
       />
       {!stream && (
         <div className="absolute inset-0 grid place-items-center">
-          <PersonaAvatar persona={persona} size={168} speaking={speaking} />
+          <PersonaAvatar persona={persona} size={168} speaking={speaking} volume={volume} />
         </div>
       )}
       {overlay}

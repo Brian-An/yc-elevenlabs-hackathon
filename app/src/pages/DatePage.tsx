@@ -161,6 +161,7 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
               persona={persona}
               stream={call.videoStream}
               speaking={call.isSpeaking}
+              volume={call.getOutputVolume}
               className={cn("aspect-video lg:aspect-auto lg:h-full", fullscreen && "aspect-auto h-full rounded-none border-0")}
               overlay={
                 <>
