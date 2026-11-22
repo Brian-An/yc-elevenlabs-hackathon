@@ -1,6 +1,7 @@
 import { ArrowRight, Check, ChevronRight, Clock, Sparkles, TriangleAlert } from "lucide-react";
 import { useNavigate } from "react-router";
 import { Link, routes } from "wasp/client/router";
+import { createDateSession } from "wasp/client/operations";
 import type { Scenario } from "../shared/types";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader, Panel, PanelHeader } from "@/components/Panel";
@@ -10,6 +11,7 @@ import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { DIFFICULTY_LABEL, SKILLS, getMockDashboard, personaFor, scenarios, type SessionSummary } from "@/client/mockData";
+import { getUserId } from "@/client/userId";
 import { formatDate, formatDuration } from "@/lib/format";
 
 const difficultyTone = { easy: "success", medium: "info", hard: "warning" } as const;
@@ -19,10 +21,9 @@ export function DashboardPage() {
   const dashboard = getMockDashboard();
   const navigate = useNavigate();
 
-  function startDate(scenario: Scenario) {
-    // TODO(backend): const { id } = await createSession({ scenarioId: scenario.id })
-    const id = `s-new-${scenario.id}`;
-    navigate(routes.DateRoute.build({ params: { sessionId: id } }));
+  async function startDate(scenario: Scenario) {
+    const session = await createDateSession({ userId: getUserId(), personaId: scenario.personaId });
+    navigate(routes.DateRoute.build({ params: { sessionId: session.id } }));
   }
 
   const { profile, skills, skillDelta, memory, recommended, sessions } = dashboard;
@@ -51,7 +52,7 @@ export function DashboardPage() {
               {recommended.openingLine && <span className="italic">"{recommended.openingLine}"</span>}
             </p>
           </div>
-          <Button size="lg" onClick={() => startDate(recommended)}>
+          <Button size="lg" onClick={() => void startDate(recommended)}>
             Start date <ArrowRight className="size-4" aria-hidden="true" />
           </Button>
         </div>
@@ -94,7 +95,7 @@ export function DashboardPage() {
                   </Badge>
                   <span className="text-xs text-faint">{scenario.setting}</span>
                 </div>
-                <Button className="mt-4" variant="secondary" onClick={() => startDate(scenario)}>
+                <Button className="mt-4" variant="secondary" onClick={() => void startDate(scenario)}>
                   Go on a date with {persona.name}
                 </Button>
               </li>
@@ -109,7 +110,7 @@ export function DashboardPage() {
           <EmptyState
             title="No dates yet"
             description="Your past dates and their feedback will show up here."
-            action={<Button onClick={() => startDate(recommended)}>Start your first date</Button>}
+            action={<Button onClick={() => void startDate(recommended)}>Start your first date</Button>}
           />
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-(--radius-panel) border border-border bg-surface">

@@ -4,17 +4,26 @@ import { cn } from "@/lib/utils";
 
 const HUES: Record<string, number> = { maya: 15, theo: 250, priya: 150 };
 
+// Stand-in realistic photos until each persona has a proper portrait asset.
+const PHOTOS: Record<string, string> = {
+  maya: "https://i.pravatar.cc/300?img=47",
+  theo: "https://i.pravatar.cc/300?img=12",
+  priya: "https://i.pravatar.cc/300?img=32",
+};
+
 function hueFor(persona: Persona) {
   return HUES[persona.id] ?? [...persona.id].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 360;
 }
 
 /**
  * Persona portrait with a "speaking" state (soft rings pulse out while the agent talks).
- * Pass `src` once personas have images; until then it shows the initial on a tinted disc.
+ * Pass `src` to override the default photo; falls back to the initial on a tinted disc
+ * for personas with no photo.
  */
 export function PersonaAvatar({ persona, size = 64, speaking = false, src, className }: { persona: Persona; size?: number; speaking?: boolean; src?: string; className?: string }) {
   const reduce = useReducedMotion();
   const hue = hueFor(persona);
+  const photo = src ?? PHOTOS[persona.id];
   return (
     <span className={cn("relative inline-grid shrink-0 place-items-center", className)} style={{ width: size, height: size }}>
       <AnimatePresence>
@@ -43,7 +52,7 @@ export function PersonaAvatar({ persona, size = 64, speaking = false, src, class
           fontSize: size * 0.4,
         }}
       >
-        {src ? <img src={src} alt="" className="size-full object-cover" /> : persona.name[0]}
+        {photo ? <img src={photo} alt="" className="size-full object-cover" /> : persona.name[0]}
       </span>
       <span className="sr-only">{speaking ? `${persona.name} is speaking` : persona.name}</span>
     </span>

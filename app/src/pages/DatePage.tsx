@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Captions, CaptionsOff, Maximize2, MessageSquare, Mic, MicOff, Minimize2, Pause, Phone, PhoneOff, Play } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 import { routes } from "wasp/client/router";
+import { useQuery, getDateSession, endDateSession } from "wasp/client/operations";
+import { ConversationProvider } from "@elevenlabs/react";
+import type { Persona, Scenario } from "../shared/types";
 import { AppShell } from "@/components/AppShell";
 import { Panel } from "@/components/Panel";
 import { AvatarStage } from "@/components/AvatarStage";
@@ -11,7 +14,8 @@ import { ChatThread, type ChatMessage } from "@/components/arc/chat-thread/chat-
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Alert } from "@/components/arc/alert/alert";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
-import { DIFFICULTY_LABEL, getMockDateSession } from "@/client/mockData";
+import { DIFFICULTY_LABEL } from "@/client/mockData";
+import { getUserId } from "@/client/userId";
 import { useDateConversation, type ConversationStatus, type DateConversation } from "@/client/useDateConversation";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -28,13 +32,33 @@ const SUBTITLES_KEY = "bantr:subtitles";
 
 export function DatePage() {
   const { sessionId = "" } = useParams();
+  const { data: session, isLoading, error: loadError } = useQuery(getDateSession, { id: sessionId, userId: getUserId() });
+
+  if (isLoading || !session) {
+    return (
+      <AppShell variant="focus" wide>
+        <div className="grid h-[32rem] place-items-center">
+          <EmptyState
+            title={loadError ? "Couldn't load this date" : "Loading your date"}
+            description={loadError ? String(loadError) : "Just a moment."}
+          />
+        </div>
+      </AppShell>
+    );
+  }
+
+  return (
+    <ConversationProvider>
+      <DatePageContent sessionId={sessionId} persona={session.persona!} scenario={session.scenario} />
+    </ConversationProvider>
+  );
+}
+
+function DatePageContent({ sessionId, persona, scenario }: { sessionId: string; persona: Persona; scenario: Scenario }) {
   const navigate = useNavigate();
-  // Swap for: const { data: session } = useQuery(getDateSession, { sessionId })
-  const session = getMockDateSession(sessionId);
-  const { persona, scenario } = session;
 
   // ElevenLabs plugs in inside this hook (src/client/useDateConversation.ts).
-  const call = useDateConversation({ persona, scenario, sampleTranscript: session.sampleTranscript });
+  const call = useDateConversation({ persona, scenario });
   const [ending, setEnding] = useState(false);
 
   // Arc ChatThread wants absolute times; anchor turn offsets to a fixed start.
@@ -53,8 +77,7 @@ export function DatePage() {
   async function endDate() {
     setEnding(true);
     const transcript = await call.end();
-    // TODO(backend): await endSession({ sessionId, transcript })  -> runs the evaluator
-    console.info("transcript", transcript);
+    await endDateSession({ id: sessionId, userId: getUserId(), transcript });
     navigate(routes.FeedbackRoute.build({ params: { sessionId } }));
   }
 
