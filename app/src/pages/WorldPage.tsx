@@ -1,12 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Captions, Check, CaptionsOff, MessageSquare, X } from "lucide-react";
+import { ArrowLeft, Check, MessageSquare, Mic, MicOff, Pause, Phone, PhoneOff, Play, X } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { useNavigate } from "react-router";
 import { ConversationProvider } from "@elevenlabs/react";
 import { appendTranscript, createDateSession, endDateSession, getDateSession, getPersonas, useQuery } from "wasp/client/operations";
 import { routes } from "wasp/client/router";
 import type { DateSessionDTO, PersonaWithScenario } from "../server/dto";
 import { AppShell } from "@/components/AppShell";
-import { CallButtons, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
+import { STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
 import { Alert } from "@/components/arc/alert/alert";
 import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
@@ -15,16 +16,16 @@ import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
 import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
 import { useDateConversation } from "@/client/useDateConversation";
+import { movesByTurn } from "@/client/liveMoves";
 import { getUserId } from "@/client/userId";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { createWorldBus, type WorldBus, type WorldDate } from "@/world/bus";
+import { createWorldBus, type DateTalk, type WorldBus, type WorldDate } from "@/world/bus";
 import { isTyping, MOVE_KEYS } from "@/world/controls";
 import { TABLES } from "@/world/layout";
 
 const WorldScene = lazy(() => import("@/world/WorldScene"));
 
-const SUBTITLES_KEY = "bantr:worldSubtitles";
 const CONTROLS_LEARNED_KEY = "bantr:worldControlsLearned";
 /** On touch screens there is nothing to tick off, so the controls hint fades after this long. */
 const TOUCH_HINT_MS = 10_000;
@@ -47,6 +48,7 @@ export function WorldPage() {
   const [nearby, setNearby] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "explore" });
   const [startError, setStartError] = useState<string | null>(null);
+  const [talk, setTalk] = useState<DateTalk | null>(null);
   // Once learned, the controls hint stays gone on this browser, including after a date and on later visits.
   const [hintDone, setHintDone] = useState(() => localStorage.getItem(CONTROLS_LEARNED_KEY) === "1");
   const onHintDone = useCallback(() => {
@@ -106,7 +108,7 @@ export function WorldPage() {
       <div className="relative min-h-0 flex-1 overflow-hidden bg-[#bfe1f2]">
         {!isLoading && (
           <Suspense fallback={null}>
-            <WorldScene personas={list} bus={bus} date={date} nearby={phase.kind === "explore" ? nearby : null} onNearby={setNearby} onReady={onReady} />
+            <WorldScene personas={list} bus={bus} date={date} nearby={phase.kind === "explore" ? nearby : null} onNearby={setNearby} onReady={onReady} talk={phase.kind === "date" ? talk : null} />
           </Suspense>
         )}
 
@@ -130,6 +132,7 @@ export function WorldPage() {
             bus={bus}
             onLeave={() => setPhase({ kind: "explore" })}
             onEnded={() => navigate(routes.FeedbackRoute.build({ params: { sessionId: phase.sessionId } }))}
+            onTalk={setTalk}
           />
         )}
       </div>
@@ -290,7 +293,19 @@ function Kbd({ children, className, done }: { children: ReactNode; className?: s
 }
 
 /** Loads the new session, then runs the call inside the ElevenLabs provider. */
-function DateOverlay({ sessionId, bus, onLeave, onEnded }: { sessionId: string; bus: WorldBus; onLeave: () => void; onEnded: () => void }) {
+function DateOverlay({
+  sessionId,
+  bus,
+  onLeave,
+  onEnded,
+  onTalk,
+}: {
+  sessionId: string;
+  bus: WorldBus;
+  onLeave: () => void;
+  onEnded: () => void;
+  onTalk: (talk: DateTalk | null) => void;
+}) {
   const { data: session, error } = useQuery(getDateSession, { userId: getUserId(), id: sessionId });
   if (error) {
     return (
@@ -309,21 +324,33 @@ function DateOverlay({ sessionId, bus, onLeave, onEnded }: { sessionId: string; 
   if (!session?.persona) return null;
   return (
     <ConversationProvider>
-      <DateHud session={session as DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> }} bus={bus} onLeave={onLeave} onEnded={onEnded} />
+      <DateHud
+        session={session as DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> }}
+        bus={bus}
+        onLeave={onLeave}
+        onEnded={onEnded}
+        onTalk={onTalk}
+      />
     </ConversationProvider>
   );
 }
 
+/**
+ * The date, played out in the scene: the lines appear as speech bubbles over the two of you (see world/DateBubbles),
+ * grades pop over your head, and the screen keeps only a short title at the start and a slim control bar.
+ */
 function DateHud({
   session,
   bus,
   onLeave,
   onEnded,
+  onTalk,
 }: {
   session: DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> };
   bus: WorldBus;
   onLeave: () => void;
   onEnded: () => void;
+  onTalk: (talk: DateTalk | null) => void;
 }) {
   const { id: sessionId, persona, scenario } = session;
   const call = useDateConversation({
@@ -368,71 +395,47 @@ function DateHud({
     }
   }
 
+  // What the scene shows over the two of you.
+  const moves = useMemo(
+    () => movesByTurn(call.transcript, session.transcript, session.moves, session.gradingEnabled),
+    [call.transcript, session.transcript, session.moves, session.gradingEnabled],
+  );
+  const live = call.status === "live";
+  const talk = useMemo<DateTalk>(() => {
+    const lastOf = (speaker: "agent" | "user") => call.transcript.findLast((t) => t.speaker === speaker)?.text ?? null;
+    let grade: DateTalk["grade"] = null;
+    for (const [turnIndex, move] of moves) {
+      if (move !== "failed" && (!grade || turnIndex > grade.turnIndex)) grade = { turnIndex, move: move.classification };
+    }
+    return {
+      personaLine: lastOf("agent"),
+      playerLine: lastOf("user"),
+      lastSpeaker: call.transcript.at(-1)?.speaker ?? null,
+      personaSpeaking: call.isSpeaking,
+      listening: live && !call.isSpeaking && !call.isMuted,
+      grade,
+    };
+  }, [call.transcript, call.isSpeaking, call.isMuted, live, moves]);
+  useEffect(() => onTalk(talk), [talk, onTalk]);
+  useEffect(() => () => onTalk(null), [onTalk]);
+
   const messages = useTranscriptMessages(call, session);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
-  const [subtitles, setSubtitles] = useState(() => localStorage.getItem(SUBTITLES_KEY) !== "off");
-  const toggleSubtitles = () =>
-    setSubtitles((on) => {
-      localStorage.setItem(SUBTITLES_KEY, on ? "off" : "on");
-      return !on;
-    });
-
-  const live = call.status === "live";
-  const lastTurn = call.transcript[call.transcript.length - 1];
-  const turns = call.transcript.length;
-  const hint = call.isSpeaking ? `${persona.name} is talking` : live ? (call.isMuted ? "You're muted" : "Listening") : null;
-  const notStarted = call.status === "idle";
+  const lastTurn = call.transcript.at(-1);
+  const paused = call.status === "paused";
+  const notStarted = call.status === "idle" || call.status === "connecting";
+  const muteLabel = call.isMuted ? "Unmute microphone" : "Mute microphone";
 
   return (
     <>
-      {/* Top: who and where, call status, timer. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-4">
-        <div className="pointer-events-auto min-w-0 rounded-(--radius-panel) border border-border bg-surface/90 px-4 py-3 shadow-(--shadow-resting) backdrop-blur-md">
-          <p className="text-sm font-medium text-foreground">
-            Date with {persona.name}, {persona.age}
-          </p>
-          <p className="mt-0.5 truncate text-xs text-subtle">{scenario.setting}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <Badge size="sm" tone={live ? "success" : call.status === "paused" ? "warning" : "neutral"} dot pill>
-              {STATUS_LABEL[call.status]}
-            </Badge>
-            <Badge size="sm" pill aria-live="off">
-              <span className="tabular-nums">{formatDuration(call.elapsedMs / 1000)}</span>
-            </Badge>
-            {hint && (
-              <span className="text-xs text-faint" aria-live="polite">
-                {hint}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="pointer-events-auto flex shrink-0 items-center gap-2">
-          <Tooltip content={subtitles ? "Hide subtitles" : "Show subtitles"}>
-            <Button size="sm" variant="secondary" onClick={toggleSubtitles} aria-pressed={subtitles} aria-label="Subtitles">
-              {subtitles ? <Captions className="size-4" aria-hidden="true" /> : <CaptionsOff className="size-4" aria-hidden="true" />}
-            </Button>
-          </Tooltip>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => setTranscriptOpen((o) => !o)}
-            aria-expanded={transcriptOpen}
-            aria-controls="world-transcript"
-          >
-            <MessageSquare className="size-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Transcript</span>
-            {turns > 0 && <span className="tabular-nums text-subtle">{turns}</span>}
-          </Button>
-        </div>
-      </div>
+      <OpeningTitle title={`Date with ${persona.name}`} subtitle={scenario.setting} />
 
-      {/* Bottom: subtitles over the controls. */}
+      {/* The bubbles are canvas overlays that screen readers skip; this reads each new line instead. */}
+      <p className="sr-only" aria-live="polite">
+        {lastTurn ? `${lastTurn.speaker === "agent" ? persona.name : "You"}: ${lastTurn.text}` : ""}
+      </p>
+
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-3 sm:p-6">
-        {subtitles && lastTurn && (
-          <p className="max-w-2xl rounded-lg bg-black/70 px-3 py-1.5 text-center text-sm text-white sm:text-base" aria-hidden="true">
-            <span className="font-medium">{lastTurn.speaker === "agent" ? persona.name : "You"}:</span> {lastTurn.text}
-          </p>
-        )}
         {(call.error || saveError) && (
           <div className="pointer-events-auto w-full max-w-md">
             <Alert tone="danger" title={saveError ? "Couldn't save your date" : "Voice connection problem"}>
@@ -440,25 +443,70 @@ function DateHud({
             </Alert>
           </div>
         )}
-        <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-surface/90 p-2 shadow-(--shadow-resting) backdrop-blur-md">
-          <CallButtons call={call} ending={ending} onEnd={() => void endDate()} />
-          {notStarted && (
-            <Button size="lg" variant="ghost" onClick={onLeave}>
-              <ArrowLeft className="size-4" aria-hidden="true" /> Leave the table
-            </Button>
+
+        <div
+          role="toolbar"
+          aria-label="Date controls"
+          className="pointer-events-auto flex items-center gap-1 rounded-full bg-black/60 p-1.5 text-white shadow-lg backdrop-blur-md"
+        >
+          <span className="flex h-10 items-center gap-2 px-3 text-sm tabular-nums" aria-live="off">
+            <span
+              className={cn("size-2 rounded-full", live ? "animate-pulse bg-emerald-400 motion-reduce:animate-none" : paused ? "bg-amber-400" : "bg-white/50")}
+              aria-hidden="true"
+            />
+            {call.status === "connecting" ? "Connecting..." : paused ? `Paused · ${formatDuration(call.elapsedMs / 1000)}` : formatDuration(call.elapsedMs / 1000)}
+            <span className="sr-only">{STATUS_LABEL[call.status]}</span>
+          </span>
+
+          {notStarted ? (
+            <>
+              {call.status === "idle" && (
+                <button type="button" className={hudPill("bg-white text-neutral-900 hover:bg-white/90")} onClick={() => void call.start()}>
+                  <Phone className="size-4" aria-hidden="true" /> Start date
+                </button>
+              )}
+              <button type="button" className={hudPill("hover:bg-white/15")} onClick={onLeave}>
+                <ArrowLeft className="size-4" aria-hidden="true" /> Leave the table
+              </button>
+            </>
+          ) : (
+            <>
+              <HudIconButton label={muteLabel} pressed={call.isMuted} disabled={!live} onClick={call.toggleMute}>
+                {call.isMuted ? <MicOff className="size-[18px]" aria-hidden="true" /> : <Mic className="size-[18px]" aria-hidden="true" />}
+              </HudIconButton>
+              <HudIconButton label={paused ? "Resume" : "Pause"} disabled={!live && !paused} onClick={paused ? call.resume : call.pause}>
+                {paused ? <Play className="size-[18px]" aria-hidden="true" /> : <Pause className="size-[18px]" aria-hidden="true" />}
+              </HudIconButton>
+              <HudIconButton
+                label={transcriptOpen ? "Hide transcript" : "Show transcript"}
+                pressed={transcriptOpen}
+                onClick={() => setTranscriptOpen((o) => !o)}
+                aria-controls="world-transcript"
+              >
+                <MessageSquare className="size-[18px]" aria-hidden="true" />
+              </HudIconButton>
+              <button type="button" className={hudPill("ml-1 bg-danger hover:brightness-110")} onClick={() => void endDate()} disabled={ending}>
+                {ending ? (
+                  <span className="size-4 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none" aria-hidden="true" />
+                ) : (
+                  <PhoneOff className="size-4" aria-hidden="true" />
+                )}
+                {ending ? "Saving..." : "End date"}
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      {/* Transcript drawer, over the right edge (full width on phones). */}
+      {/* The full transcript, on demand, over the right edge (full width on phones). */}
       {transcriptOpen && (
         <section
           id="world-transcript"
-          aria-label="Live transcript"
+          aria-label="Transcript"
           className="absolute inset-y-0 right-0 z-10 flex w-full flex-col border-l border-border bg-surface shadow-(--shadow-resting) sm:w-[400px]"
         >
           <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
-            <h2 className="text-base text-foreground">Live transcript</h2>
+            <h2 className="text-base text-foreground">Transcript</h2>
             <Tooltip content="Close transcript">
               <Button size="sm" variant="ghost" onClick={() => setTranscriptOpen(false)} aria-label="Close transcript">
                 <X className="size-4" aria-hidden="true" />
@@ -477,7 +525,7 @@ function DateHud({
             ) : (
               <ChatThread
                 className="h-full"
-                label="Live transcript"
+                label="Transcript"
                 composer={false}
                 reactable={false}
                 timestamps={false}
@@ -496,5 +544,64 @@ function DateHud({
         </section>
       )}
     </>
+  );
+}
+
+const hudFocus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80";
+const hudPill = (extra: string) =>
+  cn("flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors disabled:opacity-60", hudFocus, extra);
+
+function HudIconButton({
+  label,
+  pressed,
+  disabled,
+  onClick,
+  children,
+  ...aria
+}: {
+  label: string;
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  "aria-controls"?: string;
+}) {
+  return (
+    <Tooltip content={label}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={pressed}
+        disabled={disabled}
+        onClick={onClick}
+        className={cn(
+          "grid size-10 place-items-center rounded-full transition-colors hover:bg-white/15 disabled:opacity-40 disabled:hover:bg-transparent",
+          pressed && "bg-white/20",
+          hudFocus,
+        )}
+        {...aria}
+      >
+        {children}
+      </button>
+    </Tooltip>
+  );
+}
+
+/** "Date with Maya" over the scene as the two of you sit down, then out of the way. */
+function OpeningTitle({ title, subtitle }: { title: string; subtitle: string }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.div
+      className="pointer-events-none absolute inset-x-0 top-6 flex justify-center px-4 sm:top-10"
+      initial={{ opacity: 0, y: reduce ? 0 : -8 }}
+      animate={{ opacity: [0, 1, 1, 0], y: 0 }}
+      transition={{ duration: 5, times: [0, 0.12, 0.8, 1] }}
+      aria-hidden="true"
+    >
+      <div className="rounded-2xl bg-black/50 px-5 py-3 text-center text-white backdrop-blur-md">
+        <p className="font-heading text-xl">{title}</p>
+        <p className="mt-0.5 text-sm text-white/80">{subtitle}</p>
+      </div>
+    </motion.div>
   );
 }
