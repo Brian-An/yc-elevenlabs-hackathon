@@ -435,7 +435,7 @@ function DateStage({
 
   const live = call.status === "live";
   const lastTurn = call.transcript.at(-1);
-  const hint = call.isSpeaking ? `${persona.name} is talking` : live ? (call.isMuted ? "You're muted" : "Listening") : null;
+  const hint = call.isSpeaking ? `${persona.name} is talking` : live && call.isMuted ? "You're muted" : null;
 
   return (
     <>
@@ -461,71 +461,74 @@ function DateStage({
         style={{ pointerEvents: onStage ? "auto" : "none" }}
         aria-hidden={!onStage}
       >
-        <AvatarStage
-          persona={persona}
-          stream={call.videoStream}
-          speaking={call.isSpeaking}
-          className="size-full rounded-none border-0 shadow-none"
-          overlay={
-            <>
-              <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  <p className="font-heading text-lg text-foreground">
-                    {persona.name}, {persona.age}
-                  </p>
-                  <p className="truncate text-sm text-subtle">{scenario.setting}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge size="sm" tone={live ? "success" : call.status === "paused" ? "warning" : "neutral"} dot pill>
-                      {STATUS_LABEL[call.status]}
-                    </Badge>
-                    <Badge size="sm" pill aria-live="off">
-                      <span className="tabular-nums">{formatDuration(call.elapsedMs / 1000)}</span>
-                    </Badge>
-                    {hint && (
-                      <span className="text-xs text-faint" aria-live="polite">
-                        {hint}
-                      </span>
+        {/* Beside the transcript rather than under it, so the avatar and controls center in the space left over. */}
+        <div className={cn("absolute inset-y-0 left-0 right-0", transcriptOpen && "sm:right-[400px]")}>
+          <AvatarStage
+            persona={persona}
+            stream={call.videoStream}
+            speaking={call.isSpeaking}
+            className="size-full rounded-none border-0 shadow-none"
+            overlay={
+              <>
+                <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="font-heading text-lg text-foreground">
+                      {persona.name}, {persona.age}
+                    </p>
+                    <p className="truncate text-sm text-subtle">{scenario.setting}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Badge size="sm" tone={live ? "success" : call.status === "paused" ? "warning" : "neutral"} dot pill>
+                        {STATUS_LABEL[call.status]}
+                      </Badge>
+                      <Badge size="sm" pill aria-live="off">
+                        <span className="tabular-nums">{formatDuration(call.elapsedMs / 1000)}</span>
+                      </Badge>
+                      {hint && (
+                        <span className="text-xs text-faint" aria-live="polite">
+                          {hint}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Tooltip content={subtitles ? "Hide subtitles" : "Show subtitles"}>
+                      <Button size="sm" variant="secondary" onClick={toggleSubtitles} aria-pressed={subtitles} aria-label="Subtitles">
+                        {subtitles ? <Captions className="size-4" aria-hidden="true" /> : <CaptionsOff className="size-4" aria-hidden="true" />}
+                      </Button>
+                    </Tooltip>
+                    <Button size="sm" variant="secondary" onClick={() => setTranscriptOpen((o) => !o)} aria-expanded={transcriptOpen} aria-controls="world-transcript">
+                      <MessageSquare className="size-4" aria-hidden="true" />
+                      <span className="hidden sm:inline">Transcript</span>
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-4 sm:p-6">
+                  {subtitles && lastTurn && (
+                    <p className="max-w-2xl rounded-lg bg-black/70 px-3 py-1.5 text-center text-sm text-white sm:text-base" aria-hidden="true">
+                      <span className="font-medium">{lastTurn.speaker === "agent" ? persona.name : "You"}:</span> {lastTurn.text}
+                    </p>
+                  )}
+                  {(call.error || saveError) && (
+                    <div className="w-full max-w-md">
+                      <Alert tone="danger" title={saveError ? "Couldn't save your date" : "Voice connection problem"}>
+                        {saveError ?? call.error}
+                      </Alert>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-background/85 p-2 shadow-(--shadow-resting) backdrop-blur-md">
+                    <CallButtons call={call} ending={ending} onEnd={() => void endDate()} />
+                    {call.status === "idle" && (
+                      <Button size="lg" variant="ghost" onClick={onLeave}>
+                        <ArrowLeft className="size-4" aria-hidden="true" /> Back to the plaza
+                      </Button>
                     )}
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Tooltip content={subtitles ? "Hide subtitles" : "Show subtitles"}>
-                    <Button size="sm" variant="secondary" onClick={toggleSubtitles} aria-pressed={subtitles} aria-label="Subtitles">
-                      {subtitles ? <Captions className="size-4" aria-hidden="true" /> : <CaptionsOff className="size-4" aria-hidden="true" />}
-                    </Button>
-                  </Tooltip>
-                  <Button size="sm" variant="secondary" onClick={() => setTranscriptOpen((o) => !o)} aria-expanded={transcriptOpen} aria-controls="world-transcript">
-                    <MessageSquare className="size-4" aria-hidden="true" />
-                    <span className="hidden sm:inline">Transcript</span>
-                  </Button>
-                </div>
-              </div>
-
-              <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-4 sm:p-6">
-                {subtitles && lastTurn && (
-                  <p className="max-w-2xl rounded-lg bg-black/70 px-3 py-1.5 text-center text-sm text-white sm:text-base" aria-hidden="true">
-                    <span className="font-medium">{lastTurn.speaker === "agent" ? persona.name : "You"}:</span> {lastTurn.text}
-                  </p>
-                )}
-                {(call.error || saveError) && (
-                  <div className="w-full max-w-md">
-                    <Alert tone="danger" title={saveError ? "Couldn't save your date" : "Voice connection problem"}>
-                      {saveError ?? call.error}
-                    </Alert>
-                  </div>
-                )}
-                <div className="flex flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-background/85 p-2 shadow-(--shadow-resting) backdrop-blur-md">
-                  <CallButtons call={call} ending={ending} onEnd={() => void endDate()} />
-                  {call.status === "idle" && (
-                    <Button size="lg" variant="ghost" onClick={onLeave}>
-                      <ArrowLeft className="size-4" aria-hidden="true" /> Back to the plaza
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </>
-          }
-        />
+              </>
+            }
+          />
+        </div>
 
         {/* The full transcript with grades, on demand, over the right edge (full width on phones). */}
         {transcriptOpen && (
