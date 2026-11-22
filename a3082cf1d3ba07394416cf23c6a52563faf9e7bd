@@ -1,0 +1,34 @@
+README.md
+  h_1a0e607fe5f58f 21,54-63
+app/migrations/20261122210000_track_move_inputs/migration.sql
+  h_1a0e607fe5f58f 1-8
+app/schema.prisma
+  h_1a0e607fe5f58f 53,59
+app/scripts/jev-benchmark.mjs
+  h_1a0e607fe5f58f 1-99
+app/src/server/evaluator.ts
+  h_1a0e607fe5f58f 156-167
+app/src/server/jev.test.ts
+  h_1a0e607fe5f58f 1-70
+app/src/server/jev.ts
+  h_1a0e607fe5f58f 2,7,16-21,26,28-32,36,38-42,46,48-52,57,59-63,68-69,75,80,88-89,94,101-102,106,110,113-116,118-119,121-123,127,133-136,142-146,153
+app/src/server/moves.test.ts
+  h_1a0e607fe5f58f 1-87
+app/src/server/moves.ts
+  h_1a0e607fe5f58f 3-4,8,14,23-42,46-58,62-70,72,89-91,94-97,100,103
+app/src/server/sessions.ts
+  h_1a0e607fe5f58f 28,30,81-84,96-111,118-119,122,145-147,149-153,159-161
+app/vitest.config.ts
+  h_1a0e607fe5f58f 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a3082cf1d3ba07394416cf23c6a52563faf9e7bd",
+  "prompts": {},
+  "humans": {
+    "h_1a0e607fe5f58f": {
+      "author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
