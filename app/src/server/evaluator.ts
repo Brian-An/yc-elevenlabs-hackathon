@@ -1,11 +1,12 @@
 // Transcript evaluation + adaptive scenario generation.
 //
-// evaluateTranscript is a deterministic heuristic STUB. Replace its body with
-// the LLM evaluator, keeping the signature: (Transcript, Scenario) => Promise<Evaluation>.
+// evaluateMoves scores a date from Jev's per-turn grades (src/server/moves.ts).
+// evaluateTranscript is the rule-based fallback for when Jev is not configured or graded nothing.
 import type {
   Difficulty,
   Evaluation,
   EvidencedPoint,
+  MoveEvaluation,
   Scenario,
   SkillName,
   Transcript,
@@ -94,18 +95,8 @@ export async function evaluateTranscript(transcript: Transcript, scenario: Scena
     return (best ? sorted[0] : sorted[sorted.length - 1]).turn.text;
   };
 
-  const good: Record<SkillName, string> = {
-    listening: `You picked up on what ${name} said and built on it.`,
-    engagement: `You showed curiosity by asking ${name} questions.`,
-    confidence: "You spoke in full, committed sentences.",
-    flow: "You kept the conversation moving without long stalls.",
-  };
-  const bad: Record<SkillName, string> = {
-    listening: `Several replies didn't connect to what ${name} had just said.`,
-    engagement: `You rarely asked ${name} about their life or interests.`,
-    confidence: "Hedging and very short answers made you sound unsure.",
-    flow: "Short answers and long pauses made the conversation stall.",
-  };
+  const good = strengthCopy(name);
+  const bad = weaknessCopy(name);
 
   const ranked = [...SKILLS].sort((a, b) => scores[b] - scores[a]);
   const strengths: EvidencedPoint[] = ranked
@@ -118,14 +109,64 @@ export async function evaluateTranscript(transcript: Transcript, scenario: Scena
     .filter((s) => scores[s] <= 7)
     .map((s) => ({ point: bad[s], quote: pick(s, false) }));
 
+  return { scores, strengths, weaknesses, summary: summarize(n, scenario, name, scores, ranked) };
+}
+
+const strengthCopy = (name: string): Record<SkillName, string> => ({
+  listening: `You picked up on what ${name} said and built on it.`,
+  engagement: `You showed curiosity by asking ${name} questions.`,
+  confidence: "You spoke in full, committed sentences.",
+  flow: "You kept the conversation moving without long stalls.",
+});
+
+const weaknessCopy = (name: string): Record<SkillName, string> => ({
+  listening: `Several replies didn't connect to what ${name} had just said.`,
+  engagement: `You rarely asked ${name} about their life or interests.`,
+  confidence: "Hedging and very short answers made you sound unsure.",
+  flow: "Short answers and long pauses made the conversation stall.",
+});
+
+/** `ranked` is SKILLS sorted by score, best first. */
+function summarize(
+  replies: number,
+  scenario: Scenario,
+  name: string,
+  scores: Record<SkillName, number>,
+  ranked: SkillName[],
+): string {
   const top = ranked[0];
   const low = ranked[ranked.length - 1];
-  return {
-    scores,
-    strengths,
-    weaknesses,
-    summary: `Over ${n} replies on your ${scenario.setting} date with ${name}, your strongest skill was ${top} (${scores[top]}/10) and your weakest was ${low} (${scores[low]}/10). Next time, focus on ${low}.`,
+  return `Over ${replies} replies on your ${scenario.setting} date with ${name}, your strongest skill was ${top} (${scores[top]}/10) and your weakest was ${low} (${scores[low]}/10). Next time, focus on ${low}.`;
+}
+
+/** Scores a date from Jev's per-turn grades: each skill is the average of its per-move scores. */
+export function evaluateMoves(transcript: Transcript, scenario: Scenario, moves: MoveEvaluation[]): Evaluation {
+  const name = getPersona(scenario.personaId)?.name ?? "your date";
+  const scores = Object.fromEntries(
+    SKILLS.map((s) => [s, clamp(moves.reduce((a, m) => a + m.scores[s], 0) / moves.length)]),
+  ) as Record<SkillName, number>;
+
+  // The user's own words from the move that scored best (or worst) on a skill.
+  const quote = (skill: SkillName, best: boolean): string => {
+    const sorted = [...moves].sort((a, b) => b.scores[skill] - a.scores[skill]);
+    const move = best ? sorted[0] : sorted[sorted.length - 1];
+    return transcript[move.turnIndex]?.text ?? "";
   };
+
+  const good = strengthCopy(name);
+  const bad = weaknessCopy(name);
+  const ranked = [...SKILLS].sort((a, b) => scores[b] - scores[a]);
+  const strengths: EvidencedPoint[] = ranked
+    .slice(0, 2)
+    .filter((s) => scores[s] >= 5)
+    .map((s) => ({ point: good[s], quote: quote(s, true) }));
+  const weaknesses: EvidencedPoint[] = ranked
+    .slice(-2)
+    .reverse()
+    .filter((s) => scores[s] <= 7)
+    .map((s) => ({ point: bad[s], quote: quote(s, false) }));
+
+  return { scores, strengths, weaknesses, summary: summarize(moves.length, scenario, name, scores, ranked) };
 }
 
 const SETTINGS: Record<SkillName, { setting: string; opening: string }> = {

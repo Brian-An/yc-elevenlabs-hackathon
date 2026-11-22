@@ -1,13 +1,20 @@
 /**
- * The voice conversation for a date. Wraps ElevenLabs' `useConversation` (from
- * `@elevenlabs/react`) behind the same interface the mock used to expose, so
- * DatePage.tsx doesn't need to know it's talking to a real agent now.
+ * The voice conversation for a date.
  *
- * The caller (DatePage.tsx) must render this inside an ElevenLabs
- * `ConversationProvider`, since `useConversation` requires one.
+ * Live mode (the session has an ElevenLabs `agentId`): fetches a signed URL from our server
+ * (GET /api/elevenlabs/signed-url, so the API key stays server-side) and starts an
+ * @elevenlabs/react session. `userContext` is passed as the dynamic variable {{user_context}},
+ * which the agent's prompt uses to follow up on something the user said last time.
+ * Must render inside <ConversationProvider> (DatePage does this).
+ *
+ * Mock mode (no agentId, e.g. no ELEVENLABS_* keys set): replays a sample transcript so the
+ * UI and the transcript → evaluation → memory loop can be demoed without a voice call.
+ *
+ * Pause: ElevenLabs has no real pause, so the session stays open with the mic muted and the
+ * agent's volume at 0, and the timer stops.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useConversation } from "@elevenlabs/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "wasp/client/api";
 import type { Persona, Scenario, Transcript, TranscriptTurn } from "../shared/types";
 
@@ -15,12 +22,14 @@ export type ConversationStatus = "idle" | "connecting" | "live" | "paused" | "en
 
 export type DateConversation = {
   status: ConversationStatus;
+  /** True when a real ElevenLabs call is used, false for the mock. */
+  isLive: boolean;
   /** The persona is talking right now (drives the avatar's speaking state). */
   isSpeaking: boolean;
   isMuted: boolean;
   /**
-   * The persona's avatar video, once a video avatar provider (e.g. HeyGen LiveAvatar) is wired in.
-   * null shows the persona's static photo instead. From a LiveKit/WebRTC track: new MediaStream([track.mediaStreamTrack]).
+   * The persona's avatar video, once the avatar provider (LiveAvatar, Runway or D-ID) is connected.
+   * null shows the persona's initial instead. From a LiveKit/WebRTC track: new MediaStream([track.mediaStreamTrack]).
    */
   videoStream: MediaStream | null;
   transcript: Transcript;
@@ -35,36 +44,60 @@ export type DateConversation = {
   toggleMute: () => void;
 };
 
-export function useDateConversation({ persona, scenario }: { persona: Persona; scenario: Scenario }): DateConversation {
+export function useDateConversation({
+  persona,
+  scenario,
+  agentId,
+  userContext,
+  sampleTranscript = [],
+  onTurn,
+}: {
+  persona: Persona;
+  scenario: Scenario;
+  /** ElevenLabs agent for this date. null runs the mock. */
+  agentId: string | null;
+  /** Something the user told this persona last time, or null. */
+  userContext: string | null;
+  /** Mock only: turns to replay after start. */
+  sampleTranscript?: Transcript;
+  /** Called for every new turn (the page saves them as they arrive). */
+  onTurn?: (turn: TranscriptTurn) => void;
+}): DateConversation {
+  const isLive = Boolean(agentId);
   const [status, setStatus] = useState<ConversationStatus>("idle");
+  const [mockSpeaking, setMockSpeaking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [transcript, setTranscript] = useState<Transcript>([]);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [videoStream] = useState<MediaStream | null>(null); // no avatar video provider wired in yet
+  const [videoStream] = useState<MediaStream | null>(null); // avatar provider not connected yet
 
   // elapsedMs = time live so far; `liveSince` is when the current live stretch began.
   const elapsedBefore = useRef(0);
   const liveSince = useRef(0);
-  const startedAt = useRef(0);
   const transcriptRef = useRef<Transcript>([]);
-  const wasMutedBeforePause = useRef(false);
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  const onTurnRef = useRef(onTurn);
+  onTurnRef.current = onTurn;
+
+  const elapsedNow = () =>
+    elapsedBefore.current + (statusRef.current === "live" ? Date.now() - liveSince.current : 0);
 
   const append = useCallback((turn: TranscriptTurn) => {
     transcriptRef.current = [...transcriptRef.current, turn];
     setTranscript(transcriptRef.current);
+    onTurnRef.current?.(turn);
   }, []);
 
-  const conversation = useConversation({
-    onConnect: () => setStatus("live"),
-    onDisconnect: () => setStatus((s) => (s === "paused" ? s : "ended")),
-    onMessage: ({ message, role }) => {
-      if (status === "paused") return;
-      append({ speaker: role === "user" ? "user" : "agent", text: message, timestamp: Date.now() - startedAt.current });
-    },
-    onError: (message) => setError(message),
-  });
-
-  const elapsedNow = () => elapsedBefore.current + (Date.now() - liveSince.current);
+  const goLive = () => {
+    elapsedBefore.current = 0;
+    liveSince.current = Date.now();
+    transcriptRef.current = [];
+    setTranscript([]);
+    setElapsedMs(0);
+    setStatus("live");
+  };
 
   // Call timer
   useEffect(() => {
@@ -73,73 +106,135 @@ export function useDateConversation({ persona, scenario }: { persona: Persona; s
     return () => window.clearInterval(id);
   }, [status]);
 
-  const start = useCallback(async () => {
-    setStatus("connecting");
+  // ---------------------------------------------------------------- live (ElevenLabs)
+  const paused = status === "paused";
+  const conversation = useConversation({
+    micMuted: isMuted || paused,
+    volume: paused ? 0 : 1,
+    onConnect: () => goLive(),
+    onDisconnect: () => {
+      if (statusRef.current === "live" || statusRef.current === "paused") {
+        elapsedBefore.current = elapsedNow();
+        setStatus("ended");
+      }
+    },
+    onMessage: ({ message, role }) => {
+      if (!message.trim() || statusRef.current === "paused") return;
+      append({ speaker: role === "user" ? "user" : "agent", text: message, timestamp: elapsedNow() });
+    },
+    onError: (message) => {
+      setError(message || "The voice connection failed.");
+      if (statusRef.current === "connecting") setStatus("idle");
+    },
+  });
+
+  const startLive = async () => {
     setError(null);
-    transcriptRef.current = [];
-    setTranscript([]);
-    elapsedBefore.current = 0;
-    setElapsedMs(0);
+    setStatus("connecting");
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      const searchParams = persona.elevenLabsAgentId ? { agentId: persona.elevenLabsAgentId } : undefined;
-      const body = await api
-        .get("api/elevenlabs/signed-url", { searchParams })
-        .json<{ signedUrl?: string; error?: string }>();
-      if (!body.signedUrl) throw new Error(body.error ?? "Could not start the call");
-      startedAt.current = Date.now();
-      liveSince.current = Date.now();
+      const { signedUrl } = await api
+        .get("api/elevenlabs/signed-url", { searchParams: { agentId: agentId! } })
+        .json<{ signedUrl: string }>();
       conversation.startSession({
-        signedUrl: body.signedUrl,
-        connectionType: "websocket",
+        signedUrl,
         stripAudioTags: true,
-        ...(scenario.openingLine ? { overrides: { agent: { firstMessage: scenario.openingLine } } } : {}),
+        // Every {{variable}} in the agent prompt needs a value, so send "None" when there's nothing to follow up on.
+        dynamicVariables: { user_context: userContext ?? "None" },
       });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not start the call");
+    } catch (err) {
+      setError(
+        err instanceof DOMException && err.name === "NotAllowedError"
+          ? "Microphone access is needed for the date. Allow it in your browser and try again."
+          : "Couldn't start the call. Check the ElevenLabs keys on the server and try again.",
+      );
       setStatus("idle");
     }
-  }, [conversation, persona.elevenLabsAgentId, scenario.openingLine]);
+  };
+
+  // ---------------------------------------------------------------- mock
+  const timers = useRef<number[]>([]);
+  const queue = useRef<Transcript>([]); // sample turns not yet spoken
+  const clearTimers = () => {
+    timers.current.forEach((t) => window.clearTimeout(t));
+    timers.current = [];
+  };
+  useEffect(() => clearTimers, []);
+
+  // Schedule the remaining sample turns relative to the current elapsed time.
+  const playQueue = useCallback(() => {
+    const now = elapsedBefore.current;
+    queue.current.forEach((turn) => {
+      const at = Math.max(0, turn.timestamp - now);
+      const speakFor = Math.min(2600, 600 + turn.text.length * 35);
+      if (turn.speaker === "agent") {
+        timers.current.push(window.setTimeout(() => setMockSpeaking(true), at + 300));
+        timers.current.push(window.setTimeout(() => setMockSpeaking(false), at + 300 + speakFor));
+      }
+      timers.current.push(
+        window.setTimeout(() => {
+          queue.current = queue.current.filter((t) => t !== turn);
+          append({ ...turn, timestamp: elapsedNow() });
+        }, at + 300 + (turn.speaker === "agent" ? 200 : speakFor)),
+      );
+    });
+  }, [append]);
+
+  const startMock = async () => {
+    setStatus("connecting");
+    await new Promise((r) => setTimeout(r, 700));
+    goLive();
+    const opener: TranscriptTurn = {
+      speaker: "agent",
+      // Stands in for what the real agent does with {{user_context}}.
+      text: userContext
+        ? `Hey, good to see you again! Last time you told me "${userContext}" So, how did it go?`
+        : (scenario.openingLine ?? `Hey! I'm ${persona.name}. Nice to finally meet you.`),
+      timestamp: 0,
+    };
+    const rest = sampleTranscript.length ? sampleTranscript.slice(sampleTranscript[0]?.speaker === "agent" ? 1 : 0) : [];
+    queue.current = [opener, ...rest];
+    playQueue();
+  };
+
+  // ---------------------------------------------------------------- controls
+  const start = useCallback(async () => {
+    if (isLive) await startLive();
+    else await startMock();
+  }, [isLive, agentId, userContext, sampleTranscript, scenario.openingLine, persona.name]);
 
   const pause = useCallback(() => {
-    if (status !== "live") return;
-    wasMutedBeforePause.current = conversation.isMuted;
-    if (!conversation.isMuted) conversation.setMuted(true);
-    conversation.setVolume({ volume: 0 });
+    if (statusRef.current !== "live") return;
+    if (!isLive) {
+      clearTimers();
+      setMockSpeaking(false);
+    }
     elapsedBefore.current = elapsedNow();
     setElapsedMs(elapsedBefore.current);
     setStatus("paused");
-  }, [conversation, status]);
+  }, [isLive]);
 
   const resume = useCallback(() => {
-    if (status !== "paused") return;
-    if (!wasMutedBeforePause.current) conversation.setMuted(false);
-    conversation.setVolume({ volume: 1 });
+    if (statusRef.current !== "paused") return;
     liveSince.current = Date.now();
     setStatus("live");
-  }, [conversation, status]);
+    if (!isLive) playQueue();
+  }, [isLive, playQueue]);
 
   const end = useCallback(async () => {
-    if (status === "live") elapsedBefore.current = elapsedNow();
-    if (status === "live" || status === "paused") conversation.endSession();
+    elapsedBefore.current = elapsedNow();
     setStatus("ended");
+    if (isLive) conversation.endSession();
+    else {
+      clearTimers();
+      setMockSpeaking(false);
+    }
     return transcriptRef.current;
-  }, [conversation, status]);
+  }, [isLive, conversation]);
 
-  const toggleMute = useCallback(() => conversation.setMuted(!conversation.isMuted), [conversation]);
+  const toggleMute = useCallback(() => setIsMuted((m) => !m), []);
 
-  return {
-    status,
-    isSpeaking: conversation.isSpeaking,
-    isMuted: conversation.isMuted,
-    videoStream,
-    transcript,
-    elapsedMs,
-    error,
-    start,
-    end,
-    pause,
-    resume,
-    toggleMute,
-  };
+  const isSpeaking = isLive ? conversation.isSpeaking && status === "live" : mockSpeaking;
+
+  return { status, isLive, isSpeaking, isMuted, videoStream, transcript, elapsedMs, error, start, end, pause, resume, toggleMute };
 }

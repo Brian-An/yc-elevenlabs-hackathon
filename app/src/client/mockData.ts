@@ -7,7 +7,7 @@
  *   const { data: dashboard } = useQuery(getDashboard);
  * The view types here describe what each page needs, so the real operations can return the same shape.
  */
-import type { Difficulty, Evaluation, Persona, Scenario, SkillName, Transcript } from "../shared/types";
+import type { Difficulty, Evaluation, MoveEvaluation, Persona, Scenario, SkillName, Transcript } from "../shared/types";
 
 // ---------- View types (UI-side shapes built on the shared contracts) ----------
 
@@ -63,6 +63,9 @@ export type DateSessionData = {
 export type FeedbackData = {
   session: SessionSummary;
   evaluation: Evaluation;
+  transcript: Transcript;
+  /** Jev's grade per user turn (DateSessionDTO.moves). */
+  moves: MoveEvaluation[];
   previousScores?: SkillScores;
   nextScenario: Scenario;
 };
@@ -119,7 +122,7 @@ const recommended: Scenario = {
   openingLine: "I nearly didn't come tonight. Long week. My dad's been in the hospital.",
 };
 
-const sampleTranscript: Transcript = [
+export const sampleTranscript: Transcript = [
   { speaker: "agent", text: "Okay, I have to ask: is that a cortado? Bold choice.", timestamp: 0 },
   { speaker: "user", text: "Ha, yeah. I'm trying to be the kind of person who orders a cortado.", timestamp: 4200 },
   { speaker: "agent", text: "I respect that. I just got back from Lisbon, so I'm a coffee snob now. Sorry in advance.", timestamp: 9800 },
@@ -127,6 +130,14 @@ const sampleTranscript: Transcript = [
   { speaker: "agent", text: "I'm a pastry chef. Mostly laminated dough, lots of 4am starts.", timestamp: 19400 },
   { speaker: "user", text: "Wait, 4am? Is that the part you love or the part you put up with?", timestamp: 25600 },
   { speaker: "agent", text: "Honestly? I love it. The city's quiet, it's just me and the butter.", timestamp: 31200 },
+  { speaker: "user", text: "That sounds peaceful. I'm taking a pottery class on Saturday, my first one, so I'm about to find out how bad my hands are.", timestamp: 37800 },
+  { speaker: "agent", text: "Oh, you have to tell me how it goes. Pottery is so humbling.", timestamp: 44600 },
+];
+
+const sampleMoves: MoveEvaluation[] = [
+  { turnIndex: 1, classification: "good", confidence: 0.71, scores: { listening: 6.4, engagement: 6.8, confidence: 7.5, flow: 7.2 } },
+  { turnIndex: 3, classification: "inaccuracy", confidence: 0.64, scores: { listening: 2.8, engagement: 5.1, confidence: 5.6, flow: 4.4 } },
+  { turnIndex: 5, classification: "great", confidence: 0.82, scores: { listening: 9.1, engagement: 9.0, confidence: 6.9, flow: 8.3 } },
 ];
 
 const evaluation: Evaluation = {
@@ -223,6 +234,8 @@ export function getMockFeedback(sessionId: string): FeedbackData {
   return {
     session: { ...session, id: sessionId },
     evaluation,
+    transcript: sampleTranscript,
+    moves: sampleMoves,
     previousScores: sessions[1]!.scores,
     nextScenario: recommended,
   };
