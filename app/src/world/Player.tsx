@@ -232,7 +232,13 @@ export function Player({
     // Camera
     const snap = firstFrame.current || prefersReducedMotion();
     firstFrame.current = false;
-    if (date) {
+    if (date && bus.closeUp) {
+      // Push in on the persona's face from across the table; the avatar stage fades in over this.
+      const s = seats(TABLES[date.tableIndex]!);
+      const towardPlayer = yawTo(s.persona, s.player);
+      wantCam.set(s.persona.x + Math.sin(towardPlayer) * 1.25, 1.3, s.persona.z + Math.cos(towardPlayer) * 1.25);
+      lookAt.set(s.persona.x, 1.12, s.persona.z);
+    } else if (date) {
       // Over the player's shoulder, framing the persona across the table.
       const s = seats(TABLES[date.tableIndex]!);
       const facing = yawTo(s.player, s.persona);
@@ -255,7 +261,7 @@ export function Player({
       camera.position.copy(wantCam);
       aim.copy(lookAt);
     } else {
-      const k = 1 - Math.exp(-dt * (date ? 2.5 : 8));
+      const k = 1 - Math.exp(-dt * (date ? (bus.closeUp ? 1.8 : 2.5) : 8));
       camera.position.lerp(wantCam, k);
       aim.lerp(lookAt, k);
     }

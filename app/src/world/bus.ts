@@ -1,4 +1,3 @@
-import type { MoveClass } from "../shared/types";
 import type { Vec2 } from "./collision";
 
 /**
@@ -13,26 +12,13 @@ export type WorldBus = {
   voice: () => number;
   /** Ground point the player was sent to with a tap or click, or null. */
   moveTarget: Vec2 | null;
+  /** During a date: push the camera in on the persona's face, on the way into the avatar stage. */
+  closeUp: boolean;
 };
 
 export function createWorldBus(): WorldBus {
-  return { player: { x: 0, z: 0 }, extras: [], voice: () => 0, moveTarget: null };
+  return { player: { x: 0, z: 0 }, extras: [], voice: () => 0, moveTarget: null, closeUp: false };
 }
 
 /** The date in progress, as the scene sees it: who, and at which table. */
 export type WorldDate = { personaId: string; tableIndex: number };
-
-/** What the scene shows over the two seated characters during a date. */
-export type DateTalk = {
-  /** The persona's latest line, and yours. */
-  personaLine: string | null;
-  playerLine: string | null;
-  /** Who spoke last; their bubble is in front, the other one fades back. */
-  lastSpeaker: "agent" | "user" | null;
-  /** The persona's voice is playing. */
-  personaSpeaking: boolean;
-  /** The mic is open and it's your turn. */
-  listening: boolean;
-  /** The grade of your latest graded reply, keyed by its turn so each new grade pops once. */
-  grade: { turnIndex: number; move: MoveClass } | null;
-};

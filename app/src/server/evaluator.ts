@@ -136,7 +136,7 @@ function summarize(
 ): string {
   const top = ranked[0];
   const low = ranked[ranked.length - 1];
-  return `Over ${replies} replies on your ${scenario.setting} date with ${name}, your strongest skill was ${top} (${scores[top]}/10) and your weakest was ${low} (${scores[low]}/10). Next time, focus on ${low}.`;
+  return `Over ${replies} ${replies === 1 ? "reply" : "replies"} on your ${scenario.setting} date with ${name}, your strongest skill was ${top} (${scores[top]}/10) and your weakest was ${low} (${scores[low]}/10). Next time, focus on ${low}.`;
 }
 
 /** Scores a date from Jev's per-turn grades: each skill is the average of its per-move scores. */

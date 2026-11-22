@@ -4,8 +4,7 @@ import type { Persona } from "../shared/types";
 import { preloadCharacters } from "./Character";
 import type { Collider } from "./collision";
 import { createNavGrid } from "./navigation";
-import type { DateTalk, WorldBus, WorldDate } from "./bus";
-import { DateBubbles } from "./DateBubbles";
+import type { WorldBus, WorldDate } from "./bus";
 import { DatePersona, Extra } from "./People";
 import { Player } from "./Player";
 import { Plaza } from "./Plaza";
@@ -24,7 +23,6 @@ export default function WorldScene({
   nearby,
   onNearby,
   onReady,
-  talk = null,
 }: {
   /** Date personas in table order (the first takes the first table). */
   personas: readonly Persona[];
@@ -34,8 +32,6 @@ export default function WorldScene({
   onNearby: (personaId: string | null) => void;
   /** Called once every model has loaded and the first frame is drawn. */
   onReady: () => void;
-  /** During a date: the lines and state to show over the two seated characters. */
-  talk?: DateTalk | null;
 }) {
   const placed = useMemo(
     () => personas.slice(0, TABLES.length).map((persona, i) => ({ persona, table: TABLES[i]!, tableIndex: i })),
@@ -109,9 +105,6 @@ export default function WorldScene({
         {EXTRAS.map((e, i) => (
           <Extra key={i} index={i} model={e.model} start={e.start} bus={bus} nav={nav} />
         ))}
-        {date && talk && (
-          <DateBubbles tableIndex={date.tableIndex} personaName={personas.find((p) => p.id === date.personaId)?.name ?? ""} talk={talk} />
-        )}
         <Ready onReady={onReady} />
       </Suspense>
     </Canvas>
