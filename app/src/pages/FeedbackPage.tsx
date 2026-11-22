@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowRight, Check, RotateCcw, Sparkles, TriangleAlert } from "lucide-react";
+import { ArrowRight, Check, RotateCcw, TriangleAlert } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 import { routes } from "wasp/client/router";
 import type { EvidencedPoint } from "../shared/types";
@@ -7,10 +7,9 @@ import { AppShell } from "@/components/AppShell";
 import { PageHeader, Panel, PanelHeader } from "@/components/Panel";
 import { PersonaAvatar } from "@/components/PersonaAvatar";
 import { SkillScoreGrid } from "@/components/SkillScores";
-import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
 import Toast from "@/components/arc/toast/toast";
-import { DIFFICULTY_LABEL, SKILLS, getMockFeedback, personaFor } from "@/client/mockData";
+import { SKILLS, getMockFeedback, personaFor } from "@/client/mockData";
 import { formatDate, formatDuration } from "@/lib/format";
 
 export function FeedbackPage() {
@@ -67,25 +66,15 @@ export function FeedbackPage() {
       {/* Targeted follow-up date */}
       <Panel className="mt-6 border-brand/30 bg-brand-subtle/40">
         <div className="flex flex-col gap-5 md:flex-row md:items-center">
-          <PersonaAvatar persona={nextPersona} size={72} />
+          <PersonaAvatar persona={nextPersona} size={48} />
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl text-foreground">Practice this next</h2>
-              {target && (
-                <Badge pill icon={<Sparkles className="size-3" />}>
-                  Built for your {target.label.toLowerCase()}
-                </Badge>
-              )}
-            </div>
-            <p className="mt-1.5 text-sm text-subtle">
-              {nextPersona.name}, {nextPersona.age} · {nextScenario.setting} · {DIFFICULTY_LABEL[nextScenario.difficulty]}
+            <h2 className="text-lg text-foreground">Practice this next</h2>
+            <p className="mt-0.5 text-sm text-subtle">
+              {nextPersona.name}
+              {target && ` · works on your ${target.label.toLowerCase()}`}
             </p>
-            {nextScenario.openingLine && (
-              <p className="mt-3 border-l-2 border-brand pl-3 text-sm italic text-foreground">"{nextScenario.openingLine}"</p>
-            )}
-            {target && <p className="mt-3 text-xs text-faint">Goal: {target.hint.toLowerCase()}.</p>}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row md:flex-col">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button size="lg" onClick={practiceNext}>
               Start this date <ArrowRight className="size-4" aria-hidden="true" />
             </Button>

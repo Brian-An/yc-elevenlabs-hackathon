@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Captions, CaptionsOff, Maximize2, MessageSquare, Mic, MicOff, Minimize2, Pause, Phone, PhoneOff, Play } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
+import { ConversationProvider } from "@elevenlabs/react";
+import { appendTranscript, endDateSession, getDateSession, useQuery } from "wasp/client/operations";
 import { routes } from "wasp/client/router";
 import { AppShell } from "@/components/AppShell";
 import { Panel } from "@/components/Panel";
@@ -11,7 +13,10 @@ import { ChatThread, type ChatMessage } from "@/components/arc/chat-thread/chat-
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Alert } from "@/components/arc/alert/alert";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
-import { DIFFICULTY_LABEL, getMockDateSession } from "@/client/mockData";
+import { Skeleton } from "@/components/arc/skeleton/skeleton";
+import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
+import { getUserId } from "@/client/userId";
+import type { DateSessionDTO } from "../server/dto";
 import { useDateConversation, type ConversationStatus, type DateConversation } from "@/client/useDateConversation";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -29,12 +34,66 @@ const SUBTITLES_KEY = "bantr:subtitles";
 export function DatePage() {
   const { sessionId = "" } = useParams();
   const navigate = useNavigate();
-  // Swap for: const { data: session } = useQuery(getDateSession, { sessionId })
-  const session = getMockDateSession(sessionId);
-  const { persona, scenario } = session;
+  const { data: session, isLoading, error } = useQuery(getDateSession, { userId: getUserId(), id: sessionId });
 
-  // ElevenLabs plugs in inside this hook (src/client/useDateConversation.ts).
-  const call = useDateConversation({ persona, scenario, sampleTranscript: session.sampleTranscript });
+  if (isLoading) {
+    return (
+      <AppShell variant="focus" wide>
+        <Skeleton label="Loading your date" avatar lines={3} />
+      </AppShell>
+    );
+  }
+  if (error || !session || !session.persona) {
+    return (
+      <AppShell variant="focus">
+        <EmptyState
+          title="Couldn't find this date"
+          description="It may have been started in another browser."
+          action={<Button onClick={() => navigate(routes.DashboardRoute.build())}>Back to dashboard</Button>}
+        />
+      </AppShell>
+    );
+  }
+  if (session.status !== "active") {
+    return (
+      <AppShell variant="focus">
+        <EmptyState
+          title="This date is over"
+          description={`Your date with ${session.persona.name} has already ended.`}
+          action={
+            <Button onClick={() => navigate(routes.FeedbackRoute.build({ params: { sessionId } }))}>See feedback</Button>
+          }
+        />
+      </AppShell>
+    );
+  }
+  // The ElevenLabs hooks need a provider above them.
+  return (
+    <ConversationProvider>
+      <DateRoom session={session as DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> }} />
+    </ConversationProvider>
+  );
+}
+
+function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> } }) {
+  const navigate = useNavigate();
+  const { id: sessionId, persona, scenario } = session;
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Live ElevenLabs call when the session has an agent, the mock otherwise (src/client/useDateConversation.ts).
+  const call = useDateConversation({
+    persona,
+    scenario,
+    agentId: session.agentId,
+    userContext: session.userContext,
+    sampleTranscript,
+    // Save each turn as it arrives, so a closed tab doesn't lose the date.
+    onTurn: (turn) => {
+      appendTranscript({ userId: getUserId(), id: sessionId, turns: [turn] }).catch((err) =>
+        console.warn("[date] couldn't save a turn:", err),
+      );
+    },
+  });
   const [ending, setEnding] = useState(false);
 
   // Arc ChatThread wants absolute times; anchor turn offsets to a fixed start.
@@ -53,9 +112,14 @@ export function DatePage() {
   async function endDate() {
     setEnding(true);
     const transcript = await call.end();
-    // TODO(backend): await endSession({ sessionId, transcript })  -> runs the evaluator
-    console.info("transcript", transcript);
-    navigate(routes.FeedbackRoute.build({ params: { sessionId } }));
+    try {
+      // Scores the date, updates memory and saves anything worth a follow-up next time.
+      await endDateSession({ userId: getUserId(), id: sessionId, transcript });
+      navigate(routes.FeedbackRoute.build({ params: { sessionId } }));
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Couldn't save the date.");
+      setEnding(false);
+    }
   }
 
   const live = call.status === "live";
@@ -195,10 +259,10 @@ export function DatePage() {
               {turns} {turns === 1 ? "turn" : "turns"}
             </span>
           </div>
-          {call.error && (
+          {(call.error || saveError) && (
             <div className="px-5 pt-4">
-              <Alert tone="danger" title="Voice connection problem">
-                {call.error}
+              <Alert tone="danger" title={saveError ? "Couldn't save your date" : "Voice connection problem"}>
+                {saveError ?? call.error}
               </Alert>
             </div>
           )}

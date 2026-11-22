@@ -28,6 +28,8 @@ export function toSessionDTO(row: DateSession): DateSessionDTO {
     status: row.status as SessionStatus,
     transcript: readJson<Transcript>(row.transcript, []),
     evaluation: readJson<Evaluation | null>(row.evaluation, null),
+    userContext: row.userContext,
+    agentId: getPersona(row.personaId)?.elevenLabsAgentId ?? process.env.ELEVENLABS_AGENT_ID ?? null,
     startedAt: row.startedAt,
     endedAt: row.endedAt,
   };

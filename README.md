@@ -38,6 +38,19 @@ User memory lives in Postgres (`User.preferences` + `UserMemory`). `getProfile` 
 
 `skillProfile` is the 0 to 1 average of the last 3 evaluated dates, and `trainingFocus` is the weakest skill. `endDateSession` updates both, and `getNextScenario` uses them to pick the next date.
 
+
+### Voice calls and follow-ups
+
+A date runs a real ElevenLabs call when the server knows an agent for that persona (`ELEVENLABS_AGENT_ID_MAYA`, `_THEO`, `_PRIYA`, or the default `ELEVENLABS_AGENT_ID`) and `ELEVENLABS_API_KEY` is set. Without them, `src/client/useDateConversation.ts` replays a sample date, so the rest of the app still works.
+
+Follow-ups: when a date ends, `src/server/callbackExtract.ts` picks one thing the user explicitly shared (e.g. "I'm taking a pottery class on Saturday") and saves it for that user and persona (`PersonaCallback`). The next date with that persona passes it to the agent as the dynamic variable `{{user_context}}` (or `None`). Add this to each agent's system prompt in ElevenLabs:
+
+```
+What you remember from your last date with them: {{user_context}}
+If that isn't "None", bring it up once, naturally, when it fits, as a question
+(e.g. "Wait, how did that pottery class go?"). Don't quote it back word for word.
+```
+
 # bantr — Hackathon Build Plan
 
 **Concept:** An AI-powered dating simulator that helps users practice real-life dating conversations, receive personalized feedback, and improve over time.

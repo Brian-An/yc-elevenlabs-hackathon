@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Check, Flame, MessageSquare, RotateCcw, Sparkles, TriangleAlert } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
+import { createDateSession } from "wasp/client/operations";
 import { routes } from "wasp/client/router";
 import type { Scenario } from "../shared/types";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader, Panel, PanelHeader } from "@/components/Panel";
 import { PersonaAvatar } from "@/components/PersonaAvatar";
 import { SkillScoreList } from "@/components/SkillScores";
+import { Alert } from "@/components/arc/alert/alert";
 import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
@@ -14,20 +16,42 @@ import { RadioCards } from "@/components/arc/radio-cards/radio-cards";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
 import { DIFFICULTY_LABEL, SKILLS, getMockDashboard, personaFor, scenarios, type SessionSummary, type SkillScores as SkillScoresT } from "@/client/mockData";
 import { formatDate, formatDuration } from "@/lib/format";
+import { getUserId } from "@/client/userId";
 import { practiceStreak } from "@/lib/streak";
 import { cn } from "@/lib/utils";
 
 const difficultyTone = { easy: "success", medium: "info", hard: "warning" } as const;
+
+/** Before noon: morning. Noon to 6pm: afternoon. After 6pm: evening. Uses the browser's local time. */
+function greeting(now = new Date()) {
+  const h = now.getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
 
 export function DashboardPage() {
   // Swap for: const { data: dashboard, isLoading } = useQuery(getDashboard)
   const dashboard = getMockDashboard();
   const navigate = useNavigate();
 
-  function startDate(scenario: Scenario) {
-    // TODO(backend): const { id } = await createDateSession({ userId: getUserId(), personaId: scenario.personaId, scenario })
-    const id = `s-new-${scenario.id}`;
-    navigate(routes.DateRoute.build({ params: { sessionId: id } }));
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+
+  // Creates a real date session. Persona picks use the server's own scenario for that persona;
+  // the targeted recommendation is sent as-is.
+  async function startDate(scenario: Scenario, { custom = false } = {}) {
+    setStarting(true);
+    setStartError(null);
+    try {
+      const session = await createDateSession({
+        userId: getUserId(),
+        personaId: scenario.personaId,
+        ...(custom ? { scenario } : {}),
+      });
+      navigate(routes.DateRoute.build({ params: { sessionId: session.id } }));
+    } catch (err) {
+      setStartError(err instanceof Error ? err.message : "Couldn't start the date.");
+      setStarting(false);
+    }
   }
 
   const { profile, skills, skillDelta, memory, recommended, sessions } = dashboard;
@@ -46,13 +70,13 @@ export function DashboardPage() {
 
   return (
     <AppShell wide>
-      <PageHeader title={`Hi ${profile.name},`} description="Here's where your dating skills stand and what to practice next." />
+      <PageHeader title={`${greeting()}, ${profile.name}`} />
 
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         {/* Main column: start a date, past dates */}
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6">
-          <StartPanel options={options} recommended={recommended} value={chosen.id} onChange={setChoice} onStart={() => startDate(chosen)} />
-          <PastDates sessions={sessions} onRetry={(s) => startDate(s.scenario)} onFirst={() => startDate(recommended)} />
+          <StartPanel options={options} recommended={recommended} value={chosen.id} onChange={setChoice} onStart={() => void startDate(chosen, { custom: chosen.id === recommended.id })} starting={starting} error={startError} />
+          <PastDates sessions={sessions} onRetry={(s) => void startDate(s.scenario)} onFirst={() => void startDate(recommended, { custom: true })} />
         </div>
 
         {/* Sidebar: streak, skills, memory */}
@@ -81,7 +105,11 @@ function StartPanel({
   value,
   onChange,
   onStart,
+  starting,
+  error,
 }: {
+  starting: boolean;
+  error: string | null;
   options: Scenario[];
   recommended: Scenario;
   value: string;
@@ -92,7 +120,7 @@ function StartPanel({
   const persona = personaFor(chosen);
   return (
     <Panel id="new-date" aria-labelledby="new-date-title" className="scroll-mt-20">
-      <PanelHeader title={<span id="new-date-title">Start a date</span>} description="Pick who you want to practice with." />
+      <PanelHeader title={<span id="new-date-title">Start a date</span>} />
       <RadioCards
         aria-label="Who to date"
         layout="grid"
@@ -124,10 +152,17 @@ function StartPanel({
           </p>
           {chosen.openingLine && <p className="mt-0.5 truncate text-sm italic text-subtle">"{chosen.openingLine}"</p>}
         </div>
-        <Button size="lg" onClick={onStart} className="sm:min-w-44">
+        <Button size="lg" onClick={onStart} loading={starting} className="sm:min-w-44">
           Start date <ArrowRight className="size-4" aria-hidden="true" />
         </Button>
       </div>
+      {error && (
+        <div className="mt-4">
+          <Alert tone="danger" title="Couldn't start the date">
+            {error}
+          </Alert>
+        </div>
+      )}
     </Panel>
   );
 }

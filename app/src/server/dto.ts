@@ -71,6 +71,10 @@ export type DateSessionDTO = {
   status: SessionStatus;
   transcript: Transcript;
   evaluation: Evaluation | null;
+  /** Something the user told this persona last time, passed to the agent as {{user_context}}. */
+  userContext: string | null;
+  /** ElevenLabs agent for this persona (persona-specific or the default). null: the call is mocked. */
+  agentId: string | null;
   startedAt: Date;
   endedAt: Date | null;
 };

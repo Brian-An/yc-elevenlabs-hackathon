@@ -23,6 +23,7 @@ model User {
   onboardedAt     DateTime?
   sessions        DateSession[]
   memory          UserMemory?
+  callbacks       PersonaCallback[]
 }
 
 model DateSession {
@@ -34,6 +35,8 @@ model DateSession {
   status     String    @default("active") // "active" | "ended" | "evaluated"
   transcript Json      @default("[]") // Transcript
   evaluation Json? // Evaluation
+  // A detail the user shared on their last date with this persona, passed to the agent as {{user_context}}.
+  userContext String?
   startedAt  DateTime  @default(now())
   endedAt    DateTime?
 
@@ -52,4 +55,19 @@ model UserMemory {
   skillHistory  Json     @default("[]") // SkillHistoryEntry[]
   sessionsCount Int      @default(0)
   updatedAt     DateTime @updatedAt
+}
+
+// One thing the user explicitly shared on a date (e.g. "I'm taking a pottery class on Saturday"),
+// so the next date with the same persona can follow up on it. One per user + persona; a newer detail replaces it.
+model PersonaCallback {
+  id              Int      @id @default(autoincrement())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  personaId       String
+  detail          String
+  sourceSessionId String // the date it came from
+  usedInSessionId String? // the date that followed up on it; null until then
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, personaId])
 }

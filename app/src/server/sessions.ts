@@ -24,6 +24,7 @@ import type {
   TranscriptResult,
 } from "./dto";
 import { evaluateTranscript, generateNextScenario } from "./evaluator";
+import { pendingCallback, updateCallbacks } from "./callbacks";
 import { getMemory, saveMemory } from "./memory";
 import { getPersona, listPersonas } from "./personas";
 import { asJson, readJson, toSessionDTO, toSessionSummary } from "./serialize";
@@ -62,6 +63,7 @@ export const createDateSession: CreateDateSession<CreateDateSessionArgs, DateSes
       personaId: persona.id,
       scenario: asJson(scenario),
       status: "active",
+      userContext: await pendingCallback(userId, persona.id),
     },
   });
   return toSessionDTO(row);
@@ -124,6 +126,7 @@ export const endDateSession: EndDateSession<EndDateSessionArgs, Evaluation> = as
     data: { status: "evaluated", evaluation: asJson(evaluation) },
   });
   await saveMemory(row.userId, evaluation, { sessionId: row.id, personaId: row.personaId });
+  await updateCallbacks({ ...row, transcript });
   return evaluation;
 };
 

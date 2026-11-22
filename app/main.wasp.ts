@@ -43,12 +43,12 @@ export default app({
 
     // Personas + date sessions
     query(getPersonas),
-    action(createDateSession, { entities: ["User", "DateSession", "UserMemory"] }),
+    action(createDateSession, { entities: ["User", "DateSession", "UserMemory", "PersonaCallback"] }),
     query(getDateSession, { entities: ["DateSession"] }),
     query(listDateSessions, { entities: ["DateSession"] }),
     action(appendTranscript, { entities: ["DateSession"] }),
     action(saveTranscript, { entities: ["DateSession"] }),
-    action(endDateSession, { entities: ["DateSession", "UserMemory"] }),
+    action(endDateSession, { entities: ["DateSession", "UserMemory", "PersonaCallback"] }),
     query(getNextScenario, { entities: ["UserMemory"] }),
 
     // ElevenLabs signed URL for the Conversational AI widget/SDK
