@@ -373,7 +373,7 @@ function DateStage({
   // agent); otherwise ElevenLabs voice-only, or the mock when the session has no agent at all.
   // Both hooks are always called (rules of hooks); only the active one's start()/end() ever run.
   const useAvatar = session.avatarEnabled && Boolean(session.agentId);
-  const avatarCall = useAvatarSession({ agentId: session.agentId ?? "", onTurn });
+  const avatarCall = useAvatarSession({ agentId: session.agentId ?? "", personaId: persona.id, onTurn });
   const voiceCall = useDateConversation({
     persona,
     scenario,

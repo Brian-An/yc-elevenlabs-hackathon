@@ -32,10 +32,13 @@ const stripTags = (text: string) => text.replace(/\[[^[\]]{1,30}\]/g, "").replac
 
 export function useAvatarSession({
   agentId,
+  personaId,
   onTurn,
 }: {
   /** ElevenLabs agent HeyGen's connector talks to. */
   agentId: string;
+  /** Picks this persona's HeyGen avatar (HEYGEN_AVATAR_ID_<PERSONA>), falling back to the shared one. */
+  personaId: string;
   /** Called once a turn is final (the page saves it). Chunk updates only touch local state. */
   onTurn?: (turn: TranscriptTurn) => void;
 }): DateConversation & { attach: (el: HTMLVideoElement) => void; videoReady: boolean } {
@@ -131,7 +134,7 @@ export function useAvatarSession({
       warm.getTracks().forEach((t) => t.stop());
 
       const { sessionToken } = await api
-        .get("api/heygen/session-token", { searchParams: { agentId } })
+        .get("api/heygen/session-token", { searchParams: { agentId, personaId } })
         .json<{ sessionToken: string }>();
 
       const session = new LiveAvatarSession(sessionToken);
@@ -171,7 +174,7 @@ export function useAvatarSession({
       setError(err instanceof Error ? err.message : "Could not start the call");
       setStatus("idle");
     }
-  }, [agentId, onChunk, onFinal]);
+  }, [agentId, personaId, onChunk, onFinal]);
 
   const pause = useCallback(() => {
     if (statusRef.current !== "live") return;

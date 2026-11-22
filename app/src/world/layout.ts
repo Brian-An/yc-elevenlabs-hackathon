@@ -47,6 +47,7 @@ export const PERSONA_MODEL: Record<string, string> = {
   maya: "Casual_Female",
   theo: "Casual3_Male",
   priya: "Doctor_Female_Young", // just off her ER shift
+  coach: "Suit_Male",
 };
 export const FALLBACK_PERSONA_MODEL = "Casual2_Female";
 

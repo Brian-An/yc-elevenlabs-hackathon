@@ -1,4 +1,6 @@
-// GET /api/heygen/session-token?agentId=...  -> { sessionToken, sessionId }
+// GET /api/heygen/session-token?agentId=...&personaId=...  -> { sessionToken, sessionId }
+// personaId picks HEYGEN_AVATAR_ID_<PERSONA> (e.g. HEYGEN_AVATAR_ID_THEO) when set, falling back
+// to the shared HEYGEN_AVATAR_ID.
 // Proxies LiveAvatar's "create session token" so the HeyGen key stays server side.
 // LiveAvatar's ElevenLabs Agent Connector talks to the ElevenLabs agent directly (no audio
 // forwarding through this server or the browser): https://docs.liveavatar.com/docs/lite-mode/connectors/elevenlabs-agent
@@ -24,9 +26,11 @@ export const getHeyGenSessionToken: GetHeyGenSessionToken<
   { sessionToken: string; sessionId: string } | { error: string }
 > = async (req, res) => {
   const apiKey = process.env.HEYGEN_API_KEY;
-  const avatarId = process.env.HEYGEN_AVATAR_ID;
   const secretId = process.env.HEYGEN_ELEVENLABS_SECRET_ID;
   const agentId = typeof req.query.agentId === "string" && req.query.agentId;
+  const personaId = typeof req.query.personaId === "string" && req.query.personaId;
+  const avatarId =
+    (personaId && process.env[`HEYGEN_AVATAR_ID_${personaId.toUpperCase()}`]) || process.env.HEYGEN_AVATAR_ID;
   if (!apiKey || !avatarId || !secretId) {
     res.status(500).json({ error: "HEYGEN_API_KEY, HEYGEN_AVATAR_ID and HEYGEN_ELEVENLABS_SECRET_ID must all be set" });
     return;

@@ -55,6 +55,22 @@ const PERSONAS: PersonaDef[] = [
       openingLine: "Sorry I'm late, the ER was chaos. Tell me something interesting before I fall asleep.",
     },
   },
+  {
+    id: "coach",
+    name: "Riley",
+    age: 34,
+    bio: "Dating coach who has helped hundreds of people build real confidence and connection skills.",
+    personality:
+      "Encouraging, direct and practical. Gives concrete, actionable feedback instead of vague compliments. Asks good follow-up questions before giving advice.",
+    difficulty: "easy",
+    defaultScenario: {
+      id: "coach-chat",
+      personaId: "coach",
+      setting: "A casual coaching chat, not a date -- talk through what's been going on with dating",
+      difficulty: "easy",
+      openingLine: "Hey, good to see you! So, what's been going on with dating lately?",
+    },
+  },
 ];
 
 function withAgentId(p: PersonaDef): PersonaWithScenario {
