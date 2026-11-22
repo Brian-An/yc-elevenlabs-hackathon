@@ -57,8 +57,10 @@ export function useDateConversation({ persona, scenario }: { persona: Persona; s
   const conversation = useConversation({
     onConnect: () => setStatus("live"),
     onDisconnect: () => setStatus((s) => (s === "paused" ? s : "ended")),
-    onMessage: ({ message, role }) =>
-      append({ speaker: role === "user" ? "user" : "agent", text: message, timestamp: Date.now() - startedAt.current }),
+    onMessage: ({ message, role }) => {
+      if (status === "paused") return;
+      append({ speaker: role === "user" ? "user" : "agent", text: message, timestamp: Date.now() - startedAt.current });
+    },
     onError: (message) => setError(message),
   });
 
