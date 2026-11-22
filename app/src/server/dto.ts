@@ -88,6 +88,7 @@ export type DateSessionDTO = {
 
 export type DateSessionSummary = Omit<DateSessionDTO, "transcript" | "moves" | "gradingEnabled"> & {
   turnCount: number;
+  replyCount: number;
 };
 
 // Operation args

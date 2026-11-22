@@ -12,8 +12,21 @@
 // Put the returned id in HEYGEN_ELEVENLABS_SECRET_ID. Needs a paid ElevenLabs plan (not free tier).
 import type { MiddlewareConfigFn } from "wasp/server";
 import type { GetHeyGenSessionToken } from "wasp/server/api";
+import { getPersona } from "./personas";
 
 const LIVEAVATAR_API = "https://api.liveavatar.com/v1/sessions/token";
+// LiveAvatar sandbox sessions support Wayne only, independently of the live persona's avatar.
+const SANDBOX_AVATAR_ID = "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a";
+
+function providerError(body: unknown): string {
+  if (!body || typeof body !== "object") return "Could not create the avatar session.";
+  if ("data" in body && Array.isArray(body.data)) {
+    const detail = body.data.find((entry: unknown) => entry && typeof entry === "object" && "message" in entry && typeof entry.message === "string");
+    if (detail) return detail.message;
+  }
+  if ("message" in body && typeof body.message === "string") return body.message;
+  return "Could not create the avatar session.";
+}
 
 export const heyGenEnabled = () =>
   Boolean(process.env.HEYGEN_API_KEY && process.env.HEYGEN_AVATAR_ID && process.env.HEYGEN_ELEVENLABS_SECRET_ID);
@@ -27,9 +40,14 @@ export const getHeyGenSessionToken: GetHeyGenSessionToken<
 > = async (req, res) => {
   const apiKey = process.env.HEYGEN_API_KEY;
   const secretId = process.env.HEYGEN_ELEVENLABS_SECRET_ID;
-  const agentId = typeof req.query.agentId === "string" && req.query.agentId;
+  const requestedAgent = typeof req.query.agentId === "string" && req.query.agentId;
   const personaId = typeof req.query.personaId === "string" && req.query.personaId;
-  const avatarId =
+  // An open page can retain an agent ID after the server's persona configuration changes.
+  const agentId = personaId
+    ? getPersona(personaId)?.elevenLabsAgentId || process.env.ELEVENLABS_AGENT_ID || requestedAgent
+    : requestedAgent || process.env.ELEVENLABS_AGENT_ID;
+  const sandbox = process.env.HEYGEN_IS_SANDBOX !== "false";
+  const avatarId = sandbox ? SANDBOX_AVATAR_ID :
     (personaId && process.env[`HEYGEN_AVATAR_ID_${personaId.toUpperCase()}`]) || process.env.HEYGEN_AVATAR_ID;
   if (!apiKey || !avatarId || !secretId) {
     res.status(500).json({ error: "HEYGEN_API_KEY, HEYGEN_AVATAR_ID and HEYGEN_ELEVENLABS_SECRET_ID must all be set" });
@@ -47,15 +65,16 @@ export const getHeyGenSessionToken: GetHeyGenSessionToken<
       body: JSON.stringify({
         mode: "LITE",
         avatar_id: avatarId,
-        is_sandbox: process.env.HEYGEN_IS_SANDBOX !== "false",
+        is_sandbox: sandbox,
         elevenlabs_agent_config: { agent_id: agentId, secret_id: secretId },
       }),
       signal: AbortSignal.timeout(10_000),
     });
     const body = (await upstream.json()) as { data?: { session_token?: string; session_id?: string }; message?: string };
     if (!upstream.ok || !body.data?.session_token) {
-      console.error(`[heygen] session token failed ${upstream.status}: ${body.message ?? "unknown error"}`);
-      res.status(502).json({ error: body.message ?? `HeyGen returned ${upstream.status}` });
+      const message = providerError(body);
+      console.error(`[heygen] session token failed ${upstream.status}: ${message}`);
+      res.status(502).json({ error: message });
       return;
     }
     res.json({ sessionToken: body.data.session_token, sessionId: body.data.session_id ?? "" });

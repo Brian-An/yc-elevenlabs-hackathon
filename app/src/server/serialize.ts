@@ -42,5 +42,5 @@ export function toSessionDTO(row: DateSession, moves: MoveEvaluation[] = []): Da
 
 export function toSessionSummary(row: DateSession): DateSessionSummary {
   const { transcript, moves: _moves, gradingEnabled: _grading, ...rest } = toSessionDTO(row);
-  return { ...rest, turnCount: transcript.length };
+  return { ...rest, turnCount: transcript.length, replyCount: transcript.filter((turn) => turn.speaker === "user").length };
 }

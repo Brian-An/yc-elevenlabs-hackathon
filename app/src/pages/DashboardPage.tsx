@@ -1,13 +1,16 @@
 import { Check, Flame, MessageSquare, TriangleAlert } from "lucide-react";
 import { useNavigate } from "react-router";
 import { routes } from "wasp/client/router";
+import { getProfile, listDateSessions, useQuery } from "wasp/client/operations";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader, Panel, PanelHeader } from "@/components/Panel";
 import { PersonaAvatar } from "@/components/PersonaAvatar";
 import { SkillScoreList } from "@/components/SkillScores";
 import { Button } from "@/components/arc/button/button";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
-import { getMockDashboard, type SessionSummary, type SkillScores as SkillScoresT } from "@/client/mockData";
+import { Skeleton } from "@/components/arc/skeleton/skeleton";
+import { getUserId } from "@/client/userId";
+import { completedSessions, type SessionSummary, type SkillScores as SkillScoresT } from "@/client/results";
 import { formatDate, formatDuration } from "@/lib/format";
 import { practiceStreak } from "@/lib/streak";
 import { cn } from "@/lib/utils";
@@ -19,13 +22,29 @@ function greeting(now = new Date()) {
 }
 
 export function DashboardPage() {
-  // Swap for: const { data: dashboard, isLoading } = useQuery(getDashboard)
-  const dashboard = getMockDashboard();
-  const { profile, skills, skillDelta, memory, sessions } = dashboard;
+  const userId = getUserId();
+  const profileQuery = useQuery(getProfile, { userId });
+  const sessionsQuery = useQuery(listDateSessions, { userId });
+  if (profileQuery.isLoading || sessionsQuery.isLoading) {
+    return <AppShell wide><Skeleton label="Loading your progress" lines={4} /></AppShell>;
+  }
+  if (profileQuery.error || sessionsQuery.error || !profileQuery.data || !sessionsQuery.data) {
+    return (
+      <AppShell wide>
+        <EmptyState title="Couldn't load your progress" description="Check your connection and try again."
+          action={<Button onClick={() => { void profileQuery.refetch(); void sessionsQuery.refetch(); }}>Try again</Button>} />
+      </AppShell>
+    );
+  }
+  const profile = profileQuery.data;
+  const { memory } = profile;
+  const sessions = completedSessions(sessionsQuery.data);
+  const skills = memory.skillHistory.at(-1)?.scores;
+  const previous = memory.skillHistory.at(-2)?.scores;
 
   return (
     <AppShell wide>
-      <PageHeader title={`${greeting()}, ${profile.name}`} />
+      <PageHeader title={profile.displayName ? `${greeting()}, ${profile.displayName}` : "Your practice"} />
 
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         {/* Main column: past dates. Dates start in the world. */}
@@ -38,13 +57,13 @@ export function DashboardPage() {
           <StreakCard dates={sessions.map((s) => s.startedAt)} />
           <Panel>
             <PanelHeader title="Your skills" description="From your latest date, with the change since the one before." />
-            <SkillScoreList scores={skills} delta={skillDelta} />
+            {skills ? <SkillScoreList scores={skills} previous={previous} /> : <p className="text-sm text-subtle">Complete a date to see your skill scores.</p>}
           </Panel>
           <Panel>
             <PanelHeader title="What we remember" description="Carried into every new date." />
-            <MemoryList title="Strengths" items={memory.strengths} kind="strength" />
+            <MemoryList title="Strengths" items={memory.strengths.map((point) => point.point)} kind="strength" />
             <div className="my-5 h-px bg-border" />
-            <MemoryList title="Working on" items={memory.weaknesses} kind="weakness" />
+            <MemoryList title="Working on" items={memory.weaknesses.map((point) => point.point)} kind="weakness" />
           </Panel>
         </aside>
       </div>
@@ -178,6 +197,7 @@ function MemoryList({ title, items, kind }: { title: string; items: string[]; ki
   return (
     <div>
       <h3 className="mb-2.5 text-sm font-medium text-foreground">{title}</h3>
+      {items.length === 0 && <p className="text-sm text-subtle">Complete a date to build your practice history.</p>}
       <ul className="grid gap-2">
         {items.map((item) => (
           <li key={item} className="flex gap-2.5 text-sm text-subtle">

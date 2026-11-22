@@ -51,12 +51,12 @@ export async function saveMemory(
   const at = new Date().toISOString();
 
   // Map an evidenced point to the skill it most likely refers to (by score rank).
-  const ranked = [...SKILLS].sort((a, b) => evaluation.scores[a] - evaluation.scores[b]);
+  const ranked = [...SKILLS].sort((a, b) => evaluation.scores[b] - evaluation.scores[a]);
   const tag = (list: typeof evaluation.strengths, order: SkillName[]): MemoryPoint[] =>
     list.map((p, i) => ({ ...p, skill: order[i], sessionId: meta.sessionId, at }));
 
-  const strengths = [...tag(evaluation.strengths, [...ranked].reverse()), ...current.strengths].slice(0, MAX_POINTS);
-  const weaknesses = [...tag(evaluation.weaknesses, ranked), ...current.weaknesses].slice(0, MAX_POINTS);
+  const strengths = [...tag(evaluation.strengths, ranked), ...current.strengths].slice(0, MAX_POINTS);
+  const weaknesses = [...tag(evaluation.weaknesses, [...ranked].reverse()), ...current.weaknesses].slice(0, MAX_POINTS);
   const skillHistory = [
     ...current.skillHistory.filter((e) => e.sessionId !== meta.sessionId),
     { sessionId: meta.sessionId, personaId: meta.personaId, at, scores: evaluation.scores },

@@ -19,6 +19,7 @@ import {
 import { api } from "wasp/client/api";
 import type { Transcript, TranscriptTurn } from "../shared/types";
 import type { ConversationStatus, DateConversation } from "./useDateConversation";
+import { requestErrorMessage } from "./requestError";
 
 // SDK 0.0.20's `autoKeepAlive` session option is declared but never actually wired up (no
 // internal timer calls session.keepAlive()), so without one of our own, HeyGen's server-side
@@ -171,7 +172,10 @@ export function useAvatarSession({
       // throws into this try/catch instead of configureSession's internal console.warn-and-continue.
       await session.voiceChat.start();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start the call");
+      await sessionRef.current?.stop().catch(() => {});
+      sessionRef.current = null;
+      stopKeepAlive();
+      setError(await requestErrorMessage(err, "Could not start the call"));
       setStatus("idle");
     }
   }, [agentId, personaId, onChunk, onFinal]);
