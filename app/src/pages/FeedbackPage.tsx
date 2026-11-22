@@ -6,6 +6,7 @@ import type { EvidencedPoint } from "../shared/types";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader, Panel, PanelHeader } from "@/components/Panel";
 import { PersonaAvatar } from "@/components/PersonaAvatar";
+import { MoveReview } from "@/components/MoveReview";
 import { SkillScoreGrid } from "@/components/SkillScores";
 import { Button } from "@/components/arc/button/button";
 import Toast from "@/components/arc/toast/toast";
@@ -19,7 +20,7 @@ export function FeedbackPage() {
   const feedback = getMockFeedback(sessionId);
   const [savedToast, setSavedToast] = useState(true);
 
-  const { session, evaluation, previousScores, nextScenario } = feedback;
+  const { session, evaluation, transcript, moves, previousScores, nextScenario } = feedback;
   const nextPersona = personaFor(nextScenario);
   const target = SKILLS.find((s) => s.key === nextScenario.targetWeakness);
 
@@ -51,6 +52,10 @@ export function FeedbackPage() {
         <PanelHeader title="Summary" />
         <p className="max-w-prose text-base text-subtle">{evaluation.summary}</p>
       </Panel>
+
+      <div className="mt-6">
+        <MoveReview transcript={transcript} moves={moves} personaName={session.persona.name} />
+      </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Panel>

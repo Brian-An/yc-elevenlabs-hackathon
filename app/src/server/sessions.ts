@@ -23,9 +23,10 @@ import type {
   SaveTranscriptArgs,
   TranscriptResult,
 } from "./dto";
-import { evaluateTranscript, generateNextScenario } from "./evaluator";
 import { pendingCallback, updateCallbacks } from "./callbacks";
+import { evaluateMoves, evaluateTranscript, generateNextScenario } from "./evaluator";
 import { getMemory, saveMemory } from "./memory";
+import { gradePendingMoves, gradePendingMovesInBackground, toMoveEvaluation } from "./moves";
 import { getPersona, listPersonas } from "./personas";
 import { asJson, readJson, toSessionDTO, toSessionSummary } from "./serialize";
 import { ensureUser, userIdFrom, type WithUser } from "./user";
@@ -69,8 +70,16 @@ export const createDateSession: CreateDateSession<CreateDateSessionArgs, DateSes
   return toSessionDTO(row);
 };
 
-export const getDateSession: GetDateSession<IdArgs, DateSessionDTO> = async (args, context) =>
-  toSessionDTO(await ownedSession(context, args));
+function sessionContext(row: DateSession) {
+  const persona = getPersona(row.personaId)!;
+  return { persona, scenario: readJson<Scenario>(row.scenario, persona.defaultScenario) };
+}
+
+export const getDateSession: GetDateSession<IdArgs, DateSessionDTO> = async (args, context) => {
+  const row = await ownedSession(context, args);
+  const moves = await context.entities.Move.findMany({ where: { sessionId: row.id }, orderBy: { turnIndex: "asc" } });
+  return toSessionDTO(row, moves.map(toMoveEvaluation));
+};
 
 export const listDateSessions: ListDateSessions<WithUser, DateSessionSummary[]> = async (args, context) => {
   const rows = await context.entities.DateSession.findMany({
@@ -88,6 +97,10 @@ export const appendTranscript: AppendTranscript<AppendTranscriptArgs, Transcript
     where: { id: row.id },
     data: { transcript: asJson(transcript) },
   });
+  // Grade before returning: Wasp then refetches getDateSession, which carries the new grades to the live badges.
+  // Callers don't wait on this action, so grading never holds up the call.
+  const { persona, scenario } = sessionContext(row);
+  await gradePendingMoves(row.id, transcript, scenario, persona);
   return { id: row.id, turnCount: transcript.length };
 };
 
@@ -99,6 +112,10 @@ export const saveTranscript: SaveTranscript<SaveTranscriptArgs, TranscriptResult
     where: { id: row.id },
     data: { transcript: asJson(transcript) },
   });
+  // Turn indices may have shifted, so regrade from scratch.
+  await context.entities.Move.deleteMany({ where: { sessionId: row.id } });
+  const { persona, scenario } = sessionContext(row);
+  gradePendingMovesInBackground(row.id, transcript, scenario, persona);
   return { id: row.id, turnCount: transcript.length };
 };
 
@@ -112,14 +129,17 @@ export const endDateSession: EndDateSession<EndDateSessionArgs, Evaluation> = as
   if (row.status === "evaluated" && row.evaluation) return readJson<Evaluation>(row.evaluation, null as never);
 
   const transcript = args.transcript ? cleanTurns(args.transcript) : readJson<Transcript>(row.transcript, []);
-  const scenario = readJson<Scenario>(row.scenario, getPersona(row.personaId)!.defaultScenario);
+  const { persona, scenario } = sessionContext(row);
 
   await context.entities.DateSession.update({
     where: { id: row.id },
     data: { status: "ended", endedAt: new Date(), transcript: asJson(transcript) },
   });
+  // A replaced transcript may have shifted turn indices, so regrade from scratch.
+  if (args.transcript) await context.entities.Move.deleteMany({ where: { sessionId: row.id } });
 
-  const evaluation = await evaluateTranscript(transcript, scenario);
+  const moves = await gradePendingMoves(row.id, transcript, scenario, persona);
+  const evaluation = moves.length ? evaluateMoves(transcript, scenario, moves) : await evaluateTranscript(transcript, scenario);
 
   await context.entities.DateSession.update({
     where: { id: row.id },
