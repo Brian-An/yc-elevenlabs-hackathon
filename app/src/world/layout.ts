@@ -99,9 +99,10 @@ export const BUILDINGS: Placed[] = [
 ];
 
 /** The road along the south edge, as 10 m straight tiles running east-west. */
-// Road tiles are 0.5 m thick at this scale: sink them so the surface sits just above the plaza, not at knee height.
-const ROAD_SURFACE = 0.05;
-export const ROAD_TILES: Placed[] = [-30, -20, -10, 0, 10, 20, 30].map((x) => ({ name: "road_straight", x, z: 21, y: ROAD_SURFACE - 0.5, yaw: Math.PI / 2 }));
+// Road tiles are 0.5 m thick at this scale, with the asphalt 0.35 m up between the curbs. Sink them so the asphalt
+// sits just above the grass (at -0.02) and the curbs stand a kerb's height above the plaza.
+const ROAD_SURFACE = 0.02;
+export const ROAD_TILES: Placed[] = [-30, -20, -10, 0, 10, 20, 30].map((x) => ({ name: "road_straight", x, z: 21, y: ROAD_SURFACE - 0.35, yaw: Math.PI / 2 }));
 
 // KayKit cars' wheels reach 0.3 m below the model origin; lift them onto the road surface.
 const CAR_LIFT = ROAD_SURFACE + 0.3;
