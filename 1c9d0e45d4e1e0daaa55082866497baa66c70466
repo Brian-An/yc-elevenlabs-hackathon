@@ -1,0 +1,43 @@
+app/src/pages/WorldPage.tsx
+  s_bc89df247dc072::t_1f6f56409f7346 475
+  s_10b9db8b861850::t_198dd27ebcc563 523
+  s_10b9db8b861850::t_75b53b6c8440ec 503
+  s_10b9db8b861850::t_ebfbe675df47e4 18,603-608,610,635-636
+app/src/server/evaluator.ts
+  s_10b9db8b861850::t_a0eb665fc1431f 112,138,168
+app/src/components/DateCall.tsx
+  s_10b9db8b861850::t_27441cbf1ba819 213,226-229,231-264,285-295,350
+  s_10b9db8b861850::t_e382883ea626af 2,197-210,230
+  s_10b9db8b861850::t_75b53b6c8440ec 139-140,142-143,145-146,149
+  s_bc89df247dc072::t_f415edc45b8237 97,104-106,114-116,122,151,169,172,217-225,266-267,271,273-274,296,300,315,317-349,351-352
+  s_bc89df247dc072::t_5debb584e47221 9,98-103,107-113,117-118,121,137,144,147,159-164,170-171,173-186,188-196,211-212,214-216,265,268-270,272,275-284,297-299,301-309,311-314,316
+  s_10b9db8b861850::t_084ec1778c3191 187,310
+app/src/components/AppShell.tsx
+  s_10b9db8b861850::t_198dd27ebcc563 84
+app/src/pages/DatePage.tsx
+  s_bc89df247dc072::t_1f6f56409f7346 178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1c9d0e45d4e1e0daaa55082866497baa66c70466",
+  "prompts": {},
+  "sessions": {
+    "s_10b9db8b861850": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a2049b-ba36-75a0-865a-8ad65c6bc80f",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    },
+    "s_bc89df247dc072": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "559fc96f-3742-454a-b001-c1109387f41d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
