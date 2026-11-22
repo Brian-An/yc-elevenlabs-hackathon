@@ -65,14 +65,29 @@ export const TABLES: Table[] = [
   { id: "t5", x: 12, z: 6 },
 ];
 
-/** Chairs sit this far from the table centre, on its north and south sides. */
-export const CHAIR_OFFSET = 0.95;
-export const TABLE_RADIUS = 1.15; // table plus chairs, for collision
+const CHAIR_OFFSET = 1.69;
+const SIT_OFFSET = 0.44;
+export const CHAIR_DEPTH_SCALE = 0.72;
+// Seat height fitted to the thighs in the last frame of the stock SitDown clip.
+const CHAIR_HEIGHT_SCALE: Record<string, number> = { Casual_Male: 0.585, Casual3_Male: 0.655 };
+export const chairHeightScale = (model: string) => CHAIR_HEIGHT_SCALE[model] ?? 0.6;
+
+function seat(t: Table, side: -1 | 1) {
+  return {
+    x: t.x,
+    z: t.z + side * CHAIR_OFFSET,
+    yaw: side === -1 ? 0 : Math.PI,
+    // The animation moves the hips back over the cushion while the feet stay here.
+    approach: { x: t.x, z: t.z + side * (CHAIR_OFFSET - SIT_OFFSET) },
+  };
+}
+
+export type Seat = ReturnType<typeof seat>;
 
 /** The persona's seat faces south (toward the plaza entrance), the player's faces north. */
 export const seats = (t: Table) => ({
-  persona: { x: t.x, z: t.z - CHAIR_OFFSET, yaw: 0 },
-  player: { x: t.x, z: t.z + CHAIR_OFFSET, yaw: Math.PI },
+  persona: seat(t, -1),
+  player: seat(t, 1),
   /** Where the persona waits for you before the date: beside the table, facing the plaza. */
   waiting: { x: t.x + 1.4, z: t.z + 0.2, yaw: 0 },
 });
@@ -146,8 +161,15 @@ export const LAMPS: Placed[] = [
 
 /** Static obstacles in the walkable area. Buildings and the road sit outside BOUNDS and need none. */
 export const COLLIDERS: Collider[] = [
-  ...TABLES.map((t) => ({ kind: "circle" as const, x: t.x, z: t.z, r: TABLE_RADIUS })),
-  ...TREES.map((t) => ({ kind: "circle" as const, x: t.x, z: t.z, r: 0.5 })),
+  ...TABLES.flatMap((t): Collider[] => {
+    const { persona, player } = seats(t);
+    return [
+      { kind: "circle", x: t.x, z: t.z, r: 0.85 },
+      { kind: "box", minX: t.x - 0.32, maxX: t.x + 0.32, minZ: persona.z - 0.26, maxZ: persona.z + 0.23 },
+      { kind: "box", minX: t.x - 0.32, maxX: t.x + 0.32, minZ: player.z - 0.23, maxZ: player.z + 0.26 },
+    ];
+  }),
+  ...TREES.map((t) => ({ kind: "circle" as const, x: t.x, z: t.z, r: 0.85 })),
   ...PLANTS.map((p) => ({ kind: "circle" as const, x: p.x, z: p.z, r: 0.5 })),
   ...LAMPS.map((l) => ({ kind: "circle" as const, x: l.x, z: l.z, r: 0.25 })),
   ...BENCHES.map((b) => {

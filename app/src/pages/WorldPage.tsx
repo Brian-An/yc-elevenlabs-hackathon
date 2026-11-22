@@ -343,8 +343,8 @@ function DateOverlay({
   );
 }
 
-/** Time to walk to the chair and sit before the camera pushes in, then the push-in before the stage covers it. */
-const SIT_MS = 2600;
+/** Keep the stage available even if the plaza is still loading or rendering slowly. */
+const MAX_SIT_MS = 6500;
 const PUSH_IN_MS = 1100;
 
 /**
@@ -407,10 +407,20 @@ function DateStage({
       setOnStage(true);
       return;
     }
-    const push = window.setTimeout(() => (bus.closeUp = true), SIT_MS);
-    const show = window.setTimeout(() => setOnStage(true), SIT_MS + PUSH_IN_MS);
+    const started = performance.now();
+    let frame = 0;
+    let show: number | undefined;
+    const waitForSeats = (now: number) => {
+      if ((bus.seated.player && bus.seated.persona) || now - started >= MAX_SIT_MS) {
+        bus.closeUp = true;
+        show = window.setTimeout(() => setOnStage(true), PUSH_IN_MS);
+      } else {
+        frame = window.requestAnimationFrame(waitForSeats);
+      }
+    };
+    frame = window.requestAnimationFrame(waitForSeats);
     return () => {
-      window.clearTimeout(push);
+      window.cancelAnimationFrame(frame);
       window.clearTimeout(show);
       bus.closeUp = false;
     };

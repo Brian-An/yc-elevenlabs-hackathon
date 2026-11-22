@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { Group } from "three";
@@ -8,6 +8,7 @@ import { turnToward, yawTo, type Collider } from "./collision";
 import type { WorldBus } from "./bus";
 import { BOUNDS, CHARACTER_HEIGHT, CHARACTER_RADIUS, WAYPOINTS, seats, type Table } from "./layout";
 import type { NavGrid } from "./navigation";
+import { leaveSeat, seatPath, stepSeatApproach, stepSeatExit, stepToward } from "./seating";
 import { createStroller, STROLL_SPEED, stepStroller, type Stroller } from "./stroll";
 
 const LOOK_RADIUS = 7; // a waiting persona turns toward the player inside this distance
@@ -65,6 +66,7 @@ export function DatePersona({
   model,
   table,
   bus,
+  nav,
   onDate,
   nearby,
 }: {
@@ -72,6 +74,7 @@ export function DatePersona({
   model: string;
   table: Table;
   bus: WorldBus;
+  nav: NavGrid;
   onDate: boolean;
   nearby: boolean;
 }) {
@@ -80,6 +83,14 @@ export function DatePersona({
   const spot = seats(table);
   const pos = useRef({ x: spot.waiting.x, z: spot.waiting.z, yaw: spot.waiting.yaw });
   const seated = useRef(false);
+  const route = useRef<ReturnType<typeof seatPath> | null>(null);
+  const stood = useRef(false);
+  const onSit = useCallback(() => {
+    bus.seated.persona = true;
+  }, [bus]);
+  const onStand = useCallback(() => {
+    stood.current = true;
+  }, []);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
@@ -88,47 +99,42 @@ export function DatePersona({
     const p = pos.current;
     if (onDate) {
       const seat = spot.persona;
-      const dx = seat.x - p.x;
-      const dz = seat.z - p.z;
-      const d = Math.hypot(dx, dz);
       if (!seated.current) {
-        if (d > 0.05) {
-          const step = Math.min(d, STROLL_SPEED * dt);
-          p.x += (dx / d) * step;
-          p.z += (dz / d) * step;
-          p.yaw = turnToward(p.yaw, Math.atan2(dx, dz), 8 * dt);
-          play("Walk");
+        if (route.current?.leaving) route.current = null;
+        const approach = route.current ??= seatPath(nav, p, seat);
+        const step = stepSeatApproach(p, p.yaw, approach, STROLL_SPEED * dt, 8 * dt);
+        p.yaw = step.yaw;
+        if (step.ready) {
+          seated.current = true;
+          play("SitDown");
         } else {
-          p.yaw = turnToward(p.yaw, seat.yaw, 8 * dt);
-          play("Idle");
-          if (Math.abs(p.yaw - seat.yaw) < 0.05) {
-            seated.current = true;
-            play("SitDown");
-          }
+          play(step.walking ? "Walk" : "Idle");
         }
       }
     } else {
       if (seated.current) {
         // The date ended: stand, then stroll back to the waiting spot.
         seated.current = false;
+        bus.seated.persona = false;
+        stood.current = false;
         play("StandUp");
       }
+      route.current = leaveSeat(route.current);
+      if (clipRef.current === "StandUp" && !stood.current) return;
       const home = spot.waiting;
-      const dx = home.x - p.x;
-      const dz = home.z - p.z;
-      const d = Math.hypot(dx, dz);
-      if (d > 0.05 && clipRef.current !== "StandUp") {
-        const step = Math.min(d, STROLL_SPEED * dt);
-        p.x += (dx / d) * step;
-        p.z += (dz / d) * step;
-        p.yaw = turnToward(p.yaw, Math.atan2(dx, dz), 8 * dt);
+      const heading = route.current ? stepSeatExit(p, route.current, STROLL_SPEED * dt) : stepToward(p, home, STROLL_SPEED * dt);
+      if (heading !== null) {
+        p.yaw = turnToward(p.yaw, heading, 8 * dt);
         play("Walk");
-      } else if (d <= 0.05) {
+      } else if (!route.current) {
         const toPlayer = Math.hypot(bus.player.x - p.x, bus.player.z - p.z);
         const want = toPlayer < LOOK_RADIUS ? yawTo(p, bus.player) : home.yaw;
         p.yaw = turnToward(p.yaw, want, 3 * dt);
-        if (clipRef.current !== "StandUp") play("Idle");
+        play("Idle");
+      } else {
+        play("Idle");
       }
+      if (route.current?.path.length === 0) route.current = null;
     }
     g.position.set(p.x, 0, p.z);
     g.rotation.y = p.yaw;
@@ -136,7 +142,7 @@ export function DatePersona({
 
   return (
     <group>
-      <Character model={model} clip={clip} groupRef={group} voice={onDate ? () => bus.voice() : undefined} />
+      <Character model={model} clip={clip} groupRef={group} voice={onDate ? () => bus.voice() : undefined} onSit={onDate ? onSit : undefined} onStand={onStand} />
       {!onDate && (
         <Html position={[spot.waiting.x, CHARACTER_HEIGHT + 0.45, spot.waiting.z]} center zIndexRange={[10, 0]} pointerEvents="none">
           <div
