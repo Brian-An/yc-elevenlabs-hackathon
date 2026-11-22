@@ -33,6 +33,8 @@ export type DateConversation = {
    */
   videoStream: MediaStream | null;
   transcript: Transcript;
+  /** The persona's voice level right now, 0-1. Read it per animation frame (it is not React state). */
+  getOutputVolume: () => number;
   elapsedMs: number;
   error: string | null;
   start: () => Promise<void>;
@@ -236,5 +238,15 @@ export function useDateConversation({
 
   const isSpeaking = isLive ? conversation.isSpeaking && status === "live" : mockSpeaking;
 
-  return { status, isLive, isSpeaking, isMuted, videoStream, transcript, elapsedMs, error, start, end, pause, resume, toggleMute };
+  // The mock has no audio, so it fakes a syllable-like rhythm while it "speaks".
+  const isSpeakingRef = useRef(isSpeaking);
+  isSpeakingRef.current = isSpeaking;
+  const getOutputVolume = useCallback(() => {
+    if (isLive) return conversation.getOutputVolume();
+    if (!isSpeakingRef.current) return 0;
+    const t = performance.now() / 1000;
+    return 0.35 + 0.3 * Math.abs(Math.sin(t * 9)) * Math.abs(Math.sin(t * 2.3));
+  }, [isLive, conversation]);
+
+  return { status, isLive, isSpeaking, isMuted, videoStream, transcript, getOutputVolume, elapsedMs, error, start, end, pause, resume, toggleMute };
 }
