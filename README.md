@@ -18,7 +18,7 @@ Where things are:
 
 - `main.wasp.ts`: routes, operations, the ElevenLabs signed-URL API. There is no login: the browser keeps a user ID in localStorage (`src/client/userId.ts`) and every operation takes it as `userId`, e.g. `useQuery(getProfile, { userId: getUserId() })`
 - `schema.prisma`: `User`, `DateSession`, `UserMemory` (PostgreSQL `Json` columns, typed in `src/server/dto.ts`)
-- `src/server/`: operations, personas, `evaluator.ts` (rule-based stub, replace with the LLM evaluator), `memory.ts` (skill profile, training focus, strengths and weaknesses, stored in Postgres), `elevenlabs.ts`
+- `src/server/`: operations, personas, Jev reply grading and transcript-based fallback, user memory, and ElevenLabs.
 - `src/pages/`: all pages, currently on mock data from `src/client/mockData.ts` (each page has a `useQuery` swap noted inline)
 - `src/client/useDateConversation.ts`: where the ElevenLabs conversation plugs in
 - `src/shared/types.ts`: shared contracts (Transcript, Evaluation, Persona, Scenario)
@@ -50,6 +50,16 @@ What you remember from your last date with them: {{user_context}}
 If that isn't "None", bring it up once, naturally, when it fits, as a question
 (e.g. "Wait, how did that pottery class go?"). Don't quote it back word for word.
 ```
+
+### Jev grading benchmark
+
+Set `TYPESAFE_API_KEY` in `app/.env.server` and run this from the repo root with Node 24:
+
+```bash
+node --env-file-if-exists=app/.env.server app/scripts/jev-benchmark.mjs
+```
+
+The script runs both rubrics three times on 30 labeled synthetic replies using the same pinned Jev model. It reports badge agreement, badge flips, false harsh verdicts, and listening score error.
 
 # bantr — Hackathon Build Plan
 
