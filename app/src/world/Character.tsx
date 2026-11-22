@@ -39,8 +39,14 @@ export function Character({
   timeScale = 1,
   onSit,
   onStand,
+  skin,
+  hair,
 }: {
   model: string;
+  /** Overrides the model's skin tone (CSS colour). */
+  skin?: string;
+  /** Overrides the model's hair colour (CSS colour). */
+  hair?: string;
   clip: Clip;
   groupRef?: Ref<Group>;
   voice?: () => number;
@@ -63,15 +69,16 @@ export function Character({
       mesh.frustumCulled = false;
       const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
       mesh.material = materials.map((m) => {
-        if (m.name !== "Skin") return m;
+        const color = m.name === "Skin" ? (skin ?? skinTone(model)) : m.name === "Hair" ? hair : undefined;
+        if (!color) return m;
         const tinted = (m as MeshStandardMaterial).clone();
-        tinted.color.set(skinTone(model));
+        tinted.color.set(color);
         return tinted;
       });
       if (mesh.material.length === 1) mesh.material = mesh.material[0]!;
     });
     return copy;
-  }, [scene, model]);
+  }, [scene, model, skin, hair]);
   const { scale, lift } = useMemo(() => measure(url, instance), [url, instance]);
 
   const bones = useMemo(() => {

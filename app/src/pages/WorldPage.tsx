@@ -12,7 +12,6 @@ import { Alert } from "@/components/arc/alert/alert";
 import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
 import { ChatThread } from "@/components/arc/chat-thread/chat-thread";
-import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
 import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
@@ -257,7 +256,7 @@ function ExploreHud({
               </div>
               <Button size="lg" className="mt-4 w-full" loading={starting} onClick={() => onTalk(persona.id)}>
                 Talk to {persona.name}
-                <Kbd className="ml-1 border-white/40 bg-white/15 text-current [@media(pointer:coarse)]:hidden">E</Kbd>
+                <Kbd className="ml-1 border-current/35 bg-current/15 text-current [@media(pointer:coarse)]:hidden">E</Kbd>
               </Button>
             </div>
           )}
@@ -614,7 +613,9 @@ function DateSummary({
   replyCount: number;
   onClose: () => void;
 }) {
+  const reduce = useReducedMotion();
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const headingId = useId();
   const detailsId = useId();
   const strength = evaluation.strengths[0];
   const weakness = evaluation.weaknesses[0];
@@ -622,14 +623,36 @@ function DateSummary({
   const { listening, engagement, confidence, flow } = evaluation.scores;
   const overallScore = Math.round(((listening + engagement + confidence + flow) / 40) * 100);
   const scoreArc = (overallScore / 100) * 270;
+  // Esc keeps exploring, like closing any dialog.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent
-        title={`How it went with ${persona.name}`}
-        aria-describedby={undefined}
-        style={{ width: "min(calc(100vw - 24px), 512px)" }}
-        onKeyDown={(event) => event.stopPropagation()}
+    <div className="pointer-events-none absolute inset-0 z-20 flex items-end justify-center overflow-y-auto p-3 sm:items-center sm:p-6">
+      <motion.section
+        role="dialog"
+        aria-labelledby={headingId}
+        className="pointer-events-auto max-h-full w-full max-w-lg overflow-y-auto rounded-(--radius-panel) border border-border bg-surface p-5 shadow-(--shadow-resting) sm:p-6"
+        initial={{ opacity: 0, y: reduce ? 0 : 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reduce ? 0 : 0.35, ease: "easeOut" }}
       >
+        <div className="flex items-center justify-between gap-4">
+          <h2 id={headingId} className="text-xl text-foreground">
+            How it went with {persona.name}
+          </h2>
+          <Tooltip content="Keep exploring">
+            <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close summary">
+              <X className="size-4" aria-hidden="true" />
+            </Button>
+          </Tooltip>
+        </div>
+
         {replyCount > 0 ? (
           <div className="mt-5 flex flex-col items-center text-center">
             <div
@@ -686,7 +709,7 @@ function DateSummary({
           )}
           <Button variant={hasDetails ? "ghost" : "primary"} onClick={onClose}>Keep exploring</Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </motion.section>
+    </div>
   );
 }
