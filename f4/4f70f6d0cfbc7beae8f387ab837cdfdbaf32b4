@@ -1,0 +1,49 @@
+app/src/server/memory.ts
+  s_10b9db8b861850::t_275a025a8dd24a 54,58-59
+app/src/server/heygen.ts
+  s_10b9db8b861850::t_3ff584b48f7a72 18-29,49-50,68,75-77
+  s_10b9db8b861850::t_1b2180916ad17d 15,43,45-48
+app/src/pages/DashboardPage.tsx
+  s_10b9db8b861850::t_08254a8eb78622 4,11-13,25-43,47,60,64,66,200
+app/src/server/heygen.test.ts
+  s_10b9db8b861850::t_6ec0954224553d 1-28,30-58
+  s_10b9db8b861850::t_87dbc23f1adfb7 29
+app/src/client/requestError.test.ts
+  s_10b9db8b861850::t_6ec0954224553d 1-15
+app/src/client/requestError.ts
+  s_10b9db8b861850::t_3ff584b48f7a72 1-12
+app/src/server/dto.ts
+  s_10b9db8b861850::t_275a025a8dd24a 91
+app/src/pages/FeedbackPage.tsx
+  s_10b9db8b861850::t_2148c2805201bd 5-7,15-20,26-45,47-57,59-78,80-110,118-119,123,129-130,138,153,164,170-172,178,184-185
+  s_10b9db8b861850::t_7cfc74bc818b86 194
+app/src/server/serialize.ts
+  s_10b9db8b861850::t_275a025a8dd24a 45
+app/src/client/useAvatarSession.ts
+  s_10b9db8b861850::t_3ff584b48f7a72 22,175-178
+app/src/server/memory.test.ts
+  s_10b9db8b861850::t_6ec0954224553d 1-26
+app/src/client/results.ts
+  s_10b9db8b861850::t_275a025a8dd24a 1-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f44f70f6d0cfbc7beae8f387ab837cdfdbaf32b4",
+  "prompts": {},
+  "humans": {
+    "h_3f7c194ad24a0c": {
+      "author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  },
+  "sessions": {
+    "s_10b9db8b861850": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a2049b-ba36-75a0-865a-8ad65c6bc80f",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
