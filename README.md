@@ -1,5 +1,27 @@
 # yc-elevenlabs-hackathon
 
+## Running locally
+
+The app lives in `app/` (Wasp 0.26, React 19, Tailwind v4, shadcn + [Arc](https://uiarc.dev), SQLite).
+
+```bash
+npm i -g @wasp.sh/wasp-cli
+cd app
+wasp install
+cp .env.server.example .env.server   # add ElevenLabs / Rowboat keys
+wasp db migrate-dev
+wasp start                           # client :3000, server :3001
+```
+
+Where things are:
+
+- `main.wasp.ts`: routes, auth (username + password), operations, the ElevenLabs signed-URL API
+- `schema.prisma`: `User`, `DateSession`, `UserMemory` (JSON stored as strings because the database is SQLite)
+- `src/server/`: operations, personas, `evaluator.ts` (rule-based stub, replace with the LLM evaluator), `memory.ts` (Rowboat call is a `TODO(rowboat)`), `elevenlabs.ts`
+- `src/pages/`: all pages, currently on mock data from `src/client/mockData.ts` (each page has a `useQuery` swap noted inline)
+- `src/client/useDateConversation.ts`: where the ElevenLabs conversation plugs in
+- `src/shared/types.ts`: shared contracts (Transcript, Evaluation, Persona, Scenario)
+
 # Dating Sandbox — Hackathon Build Plan
 
 **Concept:** An AI-powered dating simulator that helps users practice real-life dating conversations, receive personalized feedback, and improve over time.

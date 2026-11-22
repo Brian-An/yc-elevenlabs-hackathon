@@ -1,0 +1,88 @@
+/*
+ * Global styles. Arc owns the design tokens (src/components/arc/foundation.css, imported in AppShell).
+ * This file loads Tailwind + shadcn base styles and maps Tailwind/shadcn color names onto Arc tokens,
+ * so `bg-card`, `text-muted-foreground`, `border-border`, `bg-primary` etc. all follow Arc's light/dark/accent theme.
+ * Arc components use CSS modules (unlayered), so they win over Tailwind utilities on the same element.
+ */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/geist";
+
+/* Arc toggles dark mode with data-theme="dark" on <html>, so Tailwind's `dark:` follows it. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+
+  /* shadcn semantic names -> Arc tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-foreground);
+  --color-secondary: var(--surface-muted);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--surface-muted);
+  --color-muted-foreground: var(--text-secondary);
+  /* In shadcn "accent" is a subtle hover fill; Arc's --accent is the brand color (exposed as `brand` below). */
+  --color-accent: var(--accent-subtle);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--danger);
+  --color-border: var(--border);
+  --color-input: var(--border-strong);
+  --color-ring: var(--accent);
+
+  /* Arc-only names */
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-muted: var(--surface-muted);
+  --color-subtle: var(--text-secondary);
+  --color-faint: var(--text-muted);
+  --color-brand: var(--accent);
+  --color-brand-strong: var(--accent-strong);
+  --color-brand-subtle: var(--accent-subtle);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+:root {
+  /* shadcn base radius, matched to Arc's --radius-control. */
+  --radius: 0.875rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-background text-foreground;
+    letter-spacing: var(--tracking-body);
+    line-height: var(--leading-body);
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-display);
+    font-weight: 500;
+  }
+}

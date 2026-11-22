@@ -1,0 +1,52 @@
+datasource db {
+  provider = "sqlite"
+  // Wasp requires that the url is set to the DATABASE_URL environment variable.
+  url      = env("DATABASE_URL")
+}
+
+// Wasp requires the `prisma-client-js` generator to be present.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// SQLite in Prisma 5 has no Json type and no enums: JSON is stored as String
+// and parsed in src/server/serialize.ts; "enums" are plain strings.
+
+model User {
+  id              Int           @id @default(autoincrement())
+  createdAt       DateTime      @default(now())
+  displayName     String?
+  goals           String?
+  experienceLevel String? // "beginner" | "intermediate" | "experienced"
+  preferences     String        @default("{}") // JSON object
+  onboardedAt     DateTime?
+  sessions        DateSession[]
+  memory          UserMemory?
+}
+
+model DateSession {
+  id         String    @id @default(uuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
+  personaId  String
+  scenario   String // JSON Scenario
+  status     String    @default("active") // "active" | "ended" | "evaluated"
+  transcript String    @default("[]") // JSON Transcript
+  evaluation String? // JSON Evaluation
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+
+  @@index([userId, startedAt])
+}
+
+// Local copy of what we push to Rowboat, and the fallback when Rowboat is off.
+model UserMemory {
+  id            Int      @id @default(autoincrement())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        Int      @unique
+  strengths     String   @default("[]") // JSON MemoryPoint[]
+  weaknesses    String   @default("[]") // JSON MemoryPoint[]
+  skillHistory  String   @default("[]") // JSON SkillHistoryEntry[]
+  sessionsCount Int      @default(0)
+  updatedAt     DateTime @updatedAt
+}
