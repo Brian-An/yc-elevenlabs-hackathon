@@ -1,16 +1,13 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Captions, CaptionsOff, Check, MessageSquare, TriangleAlert, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { useNavigate } from "react-router";
 import { ConversationProvider } from "@elevenlabs/react";
 import { appendTranscript, createDateSession, endDateSession, getDateSession, getPersonas, useQuery } from "wasp/client/operations";
-import { routes } from "wasp/client/router";
 import type { DateSessionDTO, PersonaWithScenario } from "../server/dto";
 import type { Evaluation, TranscriptTurn } from "../shared/types";
 import { AppShell } from "@/components/AppShell";
 import { AvatarStage } from "@/components/AvatarStage";
 import { CallButtons, GradePop, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
-import { SkillScoreGrid } from "@/components/SkillScores";
 import { Alert } from "@/components/arc/alert/alert";
 import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
@@ -42,11 +39,10 @@ type Phase =
   | { kind: "explore" }
   | { kind: "starting"; personaId: string }
   | { kind: "date"; personaId: string; sessionId: string }
-  | { kind: "summary"; personaId: string; sessionId: string; evaluation: Evaluation };
+  | { kind: "summary"; personaId: string; evaluation: Evaluation; replyCount: number };
 
 /** A walkable plaza. Walk up to someone waiting at a café table and start a practice date right there. */
 export function WorldPage() {
-  const navigate = useNavigate();
   const { data: personas, isLoading, error } = useQuery(getPersonas);
   const bus = useMemo(createWorldBus, []);
   const [ready, setReady] = useState(false);
@@ -136,7 +132,9 @@ export function WorldPage() {
             sessionId={phase.sessionId}
             bus={bus}
             onLeave={() => setPhase({ kind: "explore" })}
-            onEnded={(evaluation) => setPhase({ kind: "summary", personaId: phase.personaId, sessionId: phase.sessionId, evaluation })}
+            onEnded={(evaluation, replyCount) => setPhase({
+              kind: "summary", personaId: phase.personaId, evaluation, replyCount,
+            })}
           />
         )}
 
@@ -144,7 +142,7 @@ export function WorldPage() {
           <DateSummary
             persona={list.find((p) => p.id === phase.personaId)!}
             evaluation={phase.evaluation}
-            onFeedback={() => navigate(routes.FeedbackRoute.build({ params: { sessionId: phase.sessionId } }))}
+            replyCount={phase.replyCount}
             onClose={() => setPhase({ kind: "explore" })}
           />
         )}
@@ -315,7 +313,7 @@ function DateOverlay({
   sessionId: string;
   bus: WorldBus;
   onLeave: () => void;
-  onEnded: (evaluation: Evaluation) => void;
+  onEnded: (evaluation: Evaluation, replyCount: number) => void;
 }) {
   const { data: session, error } = useQuery(getDateSession, { userId: getUserId(), id: sessionId });
   if (error) {
@@ -363,7 +361,7 @@ function DateStage({
   session: DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> };
   bus: WorldBus;
   onLeave: () => void;
-  onEnded: (evaluation: Evaluation) => void;
+  onEnded: (evaluation: Evaluation, replyCount: number) => void;
 }) {
   const { id: sessionId, persona, scenario } = session;
   // Save each turn as it arrives, so a closed tab doesn't lose the date.
@@ -426,7 +424,7 @@ function DateStage({
     try {
       const evaluation = await endDateSession({ userId: getUserId(), id: sessionId, transcript });
       bus.closeUp = false;
-      onEnded(evaluation);
+      onEnded(evaluation, transcript.filter((turn) => turn.speaker === "user").length);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Couldn't save the date.");
       setEnding(false);
@@ -594,53 +592,89 @@ function DateStage({
   );
 }
 
-/** Back in the plaza after a date: how it went, with the full feedback a click away. */
+/** Back in the plaza after a date: the overall score and coaching notes. */
 function DateSummary({
   persona,
   evaluation,
-  onFeedback,
+  replyCount,
   onClose,
 }: {
   persona: PersonaWithScenario;
   evaluation: Evaluation;
-  onFeedback: () => void;
+  replyCount: number;
   onClose: () => void;
 }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsId = useId();
   const strength = evaluation.strengths[0];
   const weakness = evaluation.weaknesses[0];
-
+  const hasDetails = replyCount > 0 && Boolean(strength || weakness);
+  const { listening, engagement, confidence, flow } = evaluation.scores;
+  const overallScore = Math.round(((listening + engagement + confidence + flow) / 40) * 100);
+  const scoreArc = (overallScore / 100) * 270;
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent
         title={`How it went with ${persona.name}`}
-        description={evaluation.summary}
-        style={{ width: "min(calc(100vw - 24px), 576px)" }}
+        aria-describedby={undefined}
+        style={{ width: "min(calc(100vw - 24px), 512px)" }}
         onKeyDown={(event) => event.stopPropagation()}
       >
-        <SkillScoreGrid scores={evaluation.scores} />
-
-        {(strength || weakness) && (
-          <ul className="mt-5 grid gap-3 text-sm">
-            {strength && (
-              <li className="flex gap-2.5">
-                <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
-                <span className="text-foreground">{strength.point}</span>
-              </li>
-            )}
-            {weakness && (
-              <li className="flex gap-2.5">
-                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-                <span className="text-foreground">{weakness.point}</span>
-              </li>
-            )}
-          </ul>
+        {replyCount > 0 ? (
+          <div className="mt-5 flex flex-col items-center text-center">
+            <div
+              role="meter"
+              aria-label="Overall date score"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={overallScore}
+              aria-valuetext={`${overallScore} out of 100`}
+              className="relative grid size-44 place-items-center sm:size-48"
+            >
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: `conic-gradient(from 225deg, var(--accent) 0deg ${scoreArc}deg, var(--border) ${scoreArc}deg 270deg, transparent 270deg)`,
+                  maskImage: "radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px))",
+                }}
+              />
+              <div aria-hidden="true" className="-mt-2 grid justify-items-center">
+                <span className="text-sm text-subtle">Overall score</span>
+                <span className="font-heading text-6xl leading-none font-medium tabular-nums text-foreground">{overallScore}</span>
+                <span className="mt-1 text-sm text-subtle">out of 100</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-subtle">There were no replies to score on this date.</p>
         )}
 
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={onFeedback}>
-            See full feedback
-          </Button>
-          <Button onClick={onClose}>Keep exploring</Button>
+        <div className="mt-5 grid gap-2">
+          {hasDetails && (
+            <>
+              <Button aria-expanded={detailsOpen} aria-controls={detailsId} onClick={() => setDetailsOpen(!detailsOpen)}>
+                {detailsOpen ? "Hide details" : "See details"}
+              </Button>
+              <div id={detailsId} hidden={!detailsOpen}>
+                <ul className="grid gap-3 border-y border-border py-4 text-sm">
+                  {strength && (
+                    <li className="flex gap-2.5">
+                      <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
+                      <p>{strength.point}</p>
+                    </li>
+                  )}
+                  {weakness && (
+                    <li className="flex gap-2.5">
+                      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+                      <p>{weakness.point}</p>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </>
+          )}
+          <Button variant={hasDetails ? "ghost" : "primary"} onClick={onClose}>Keep exploring</Button>
         </div>
       </DialogContent>
     </Dialog>
