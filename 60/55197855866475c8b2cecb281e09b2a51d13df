@@ -1,0 +1,14 @@
+README.md
+  h_1a0e607fe5f58f 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6055197855866475c8b2cecb281e09b2a51d13df",
+  "prompts": {},
+  "humans": {
+    "h_1a0e607fe5f58f": {
+      "author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
