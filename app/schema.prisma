@@ -50,12 +50,13 @@ model Move {
   session        DateSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sessionId      String
   turnIndex      Int
+  inputHash      String      @default("") // Empty for grades saved before input tracking.
   classification String // MoveClass
   confidence     Float
   scores         Json // Record<SkillName, number>, 1–10
   createdAt      DateTime    @default(now())
 
-  @@unique([sessionId, turnIndex])
+  @@unique([sessionId, turnIndex, inputHash])
 }
 
 // What the coach remembers about a user, updated after every evaluated date.
