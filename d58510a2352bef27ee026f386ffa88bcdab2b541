@@ -1,0 +1,26 @@
+app/src/components/MoveReview.tsx
+  s_bc89df247dc072::t_bc587c8ba2bd06 17-19
+app/src/components/DateCall.tsx
+  s_bc89df247dc072::t_bc587c8ba2bd06 1-2,4,11,85-148
+  s_bc89df247dc072::t_a0d2a7bd1c18e8 149
+app/src/pages/DatePage.tsx
+  s_bc89df247dc072::t_bc587c8ba2bd06 10,190
+app/src/pages/WorldPage.tsx
+  s_bc89df247dc072::t_bc587c8ba2bd06 12,509
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d58510a2352bef27ee026f386ffa88bcdab2b541",
+  "prompts": {},
+  "sessions": {
+    "s_bc89df247dc072": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "559fc96f-3742-454a-b001-c1109387f41d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
