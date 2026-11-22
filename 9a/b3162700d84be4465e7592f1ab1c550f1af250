@@ -1,0 +1,21 @@
+app/src/client/theme.ts
+  s_40e5b68b92b6a3::t_3a93eb6c0ed3b7 5
+app/src/client/userId.ts
+  s_40e5b68b92b6a3::t_a0f88ddb5f48ee 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9ab3162700d84be4465e7592f1ab1c550f1af250",
+  "prompts": {},
+  "sessions": {
+    "s_40e5b68b92b6a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58d37d34-061f-4fd9-92fd-36130ba3151e",
+        "model": "unknown"
+      },
+      "human_author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
