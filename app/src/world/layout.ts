@@ -51,6 +51,17 @@ export const PERSONA_MODEL: Record<string, string> = {
 };
 export const FALLBACK_PERSONA_MODEL = "Casual2_Female";
 
+/**
+ * Skin and hair colour per date persona, by persona id. Overrides the model's defaults for that persona only,
+ * so extras that share the model keep their own look.
+ */
+export const PERSONA_LOOK: Record<string, { skin: string; hair: string }> = {
+  maya: { skin: "#f3d0b6", hair: "#e6c46e" }, // white, blonde
+  theo: { skin: "#efc8a9", hair: "#dcb760" }, // white, blonde
+  priya: { skin: "#e8c39e", hair: "#151313" }, // Chinese, black hair
+  coach: { skin: "#f0c9aa", hair: "#5b3a24" }, // Riley: white, brown hair
+};
+
 /** Walkable area: the paved plaza between the buildings and the road. */
 export const BOUNDS: Bounds = { minX: -19, maxX: 19, minZ: -15, maxZ: 15.5 };
 

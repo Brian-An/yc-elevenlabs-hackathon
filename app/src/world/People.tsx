@@ -6,7 +6,7 @@ import type { Persona } from "../shared/types";
 import { Character, type Clip } from "./Character";
 import { turnToward, yawTo, type Collider } from "./collision";
 import type { WorldBus } from "./bus";
-import { BOUNDS, CHARACTER_HEIGHT, CHARACTER_RADIUS, WAYPOINTS, seats, type Table } from "./layout";
+import { BOUNDS, CHARACTER_HEIGHT, CHARACTER_RADIUS, PERSONA_LOOK, WAYPOINTS, seats, type Table } from "./layout";
 import type { NavGrid } from "./navigation";
 import { leaveSeat, seatPath, stepSeatApproach, stepSeatExit, stepToward } from "./seating";
 import { createStroller, STROLL_SPEED, stepStroller, type Stroller } from "./stroll";
@@ -142,7 +142,15 @@ export function DatePersona({
 
   return (
     <group>
-      <Character model={model} clip={clip} groupRef={group} voice={onDate ? () => bus.voice() : undefined} onSit={onDate ? onSit : undefined} onStand={onStand} />
+      <Character
+        model={model}
+        {...PERSONA_LOOK[persona.id]}
+        clip={clip}
+        groupRef={group}
+        voice={onDate ? () => bus.voice() : undefined}
+        onSit={onDate ? onSit : undefined}
+        onStand={onStand}
+      />
       {!onDate && (
         <Html position={[spot.waiting.x, CHARACTER_HEIGHT + 0.45, spot.waiting.z]} center zIndexRange={[10, 0]} pointerEvents="none">
           <div
