@@ -14,6 +14,9 @@ const MOVE: Record<MoveClass, { label: string; glyph?: string; tone?: BadgeTone;
 };
 const ORDER = Object.keys(MOVE) as MoveClass[];
 
+/** Plain-text label per grade, for screen readers and anywhere a badge doesn't fit. */
+export const MOVE_LABEL = Object.fromEntries(ORDER.map((m) => [m, MOVE[m].label])) as Record<MoveClass, string>;
+
 export function MoveBadge({ move, count }: { move: MoveClass; count?: number }) {
   const { label, glyph, tone, color } = MOVE[move];
   return (

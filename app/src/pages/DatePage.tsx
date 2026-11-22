@@ -7,7 +7,7 @@ import { routes } from "wasp/client/router";
 import { AppShell } from "@/components/AppShell";
 import { Panel } from "@/components/Panel";
 import { AvatarStage } from "@/components/AvatarStage";
-import { CallButtons, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
+import { CallButtons, GradePop, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
 import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
 import { ChatThread } from "@/components/arc/chat-thread/chat-thread";
@@ -187,6 +187,7 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
                       )}
                     </div>
                   </div>
+                  <GradePop call={call} session={session} />
                   {subtitles && lastTurn && (
                     <div className={cn("pointer-events-none absolute inset-x-0 flex justify-center px-6", fullscreen ? "bottom-28" : "bottom-5")}>
                       <p className="max-w-2xl rounded-lg bg-black/70 px-3 py-1.5 text-center text-sm text-white sm:text-base" aria-hidden="true">

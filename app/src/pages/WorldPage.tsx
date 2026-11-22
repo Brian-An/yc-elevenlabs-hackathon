@@ -9,7 +9,7 @@ import type { DateSessionDTO, PersonaWithScenario } from "../server/dto";
 import type { Evaluation } from "../shared/types";
 import { AppShell } from "@/components/AppShell";
 import { AvatarStage } from "@/components/AvatarStage";
-import { CallButtons, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
+import { CallButtons, GradePop, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
 import { SkillScoreGrid } from "@/components/SkillScores";
 import { Alert } from "@/components/arc/alert/alert";
 import { Badge } from "@/components/arc/badge/badge";
@@ -506,6 +506,7 @@ function DateStage({
                 </div>
 
                 <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-4 sm:p-6">
+                  <GradePop call={call} session={session} />
                   {subtitles && lastTurn && (
                     <p className="max-w-2xl rounded-lg bg-black/70 px-3 py-1.5 text-center text-sm text-white sm:text-base" aria-hidden="true">
                       <span className="font-medium">{lastTurn.speaker === "agent" ? persona.name : "You"}:</span> {lastTurn.text}
