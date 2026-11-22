@@ -467,10 +467,12 @@ function DateStage({
             persona={persona}
             stream={call.videoStream}
             speaking={call.isSpeaking}
+            volume={call.getOutputVolume}
             className="size-full rounded-none border-0 shadow-none"
             overlay={
               <>
-                <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
+                {/* Same column as the top bar (AppShell's header: max-w-6xl, px-4 sm:px-6). */}
+                <div className="absolute inset-x-0 top-0 mx-auto flex max-w-6xl items-start justify-between gap-3 px-4 py-4 sm:px-6">
                   <div className="min-w-0">
                     <p className="font-heading text-lg text-foreground">
                       {persona.name}, {persona.age}
