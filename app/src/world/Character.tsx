@@ -37,12 +37,16 @@ export function Character({
   groupRef,
   voice,
   timeScale = 1,
+  onSit,
+  onStand,
 }: {
   model: string;
   clip: Clip;
   groupRef?: Ref<Group>;
   voice?: () => number;
   timeScale?: number;
+  onSit?: () => void;
+  onStand?: () => void;
 }) {
   const url = characterUrl(model);
   const { scene, animations } = useGLTF(url);
@@ -88,23 +92,43 @@ export function Character({
   }, [animations, mixer]);
   useEffect(() => () => void mixer.stopAllAction(), [mixer]);
 
-  const current = useRef<AnimationAction | null>(null);
+  const current = useRef<{ clip: Clip; action: AnimationAction } | null>(null);
   useEffect(() => {
-    const next = actions.get(clip);
+    // Reversing the same pose keeps feet and clothing aligned, even if the date ends mid-sit.
+    const standing = clip === "StandUp";
+    const next = actions.get(standing ? "SitDown" : clip);
     if (!next) return;
     const prev = current.current;
-    if (prev === next) return;
-    next.reset();
-    if (ONE_SHOT.has(clip)) {
-      next.setLoop(LoopOnce, 1);
-      next.clampWhenFinished = true;
-    } else {
-      next.setLoop(LoopRepeat, Infinity);
+    if (prev?.action === next && prev.clip === clip) return;
+    if (prev?.action !== next) {
+      next.reset();
+      if (ONE_SHOT.has(clip)) {
+        next.setLoop(LoopOnce, 1);
+        next.clampWhenFinished = true;
+      } else {
+        next.setLoop(LoopRepeat, Infinity);
+      }
+      if (standing) next.time = next.getClip().duration;
+      if (prev) next.crossFadeFrom(prev.action, 0.25, false);
     }
+    next.enabled = true;
+    next.paused = false;
+    next.setEffectiveTimeScale(standing ? -1 : 1);
     next.play();
-    if (prev) next.crossFadeFrom(prev, 0.25, false);
-    current.current = next;
+    current.current = { clip, action: next };
   }, [clip, actions]);
+
+  useEffect(() => {
+    if (!onSit && !onStand) return;
+    const finished = ({ action, direction }: { action: AnimationAction; direction: number }) => {
+      const playing = current.current;
+      if (playing?.action !== action) return;
+      if (direction > 0 && playing.clip === "SitDown") onSit?.();
+      if (direction < 0 && playing.clip === "StandUp") onStand?.();
+    };
+    mixer.addEventListener("finished", finished);
+    return () => mixer.removeEventListener("finished", finished);
+  }, [mixer, onSit, onStand]);
 
   const talk = useRef(0);
   // The talking motion is added on top of the clip's pose. A clip that doesn't key a bone would let it pile up

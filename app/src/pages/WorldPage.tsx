@@ -1,20 +1,18 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, Captions, CaptionsOff, Check, MessageSquare, TriangleAlert, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { useNavigate } from "react-router";
 import { ConversationProvider } from "@elevenlabs/react";
 import { appendTranscript, createDateSession, endDateSession, getDateSession, getPersonas, useQuery } from "wasp/client/operations";
-import { routes } from "wasp/client/router";
 import type { DateSessionDTO, PersonaWithScenario } from "../server/dto";
 import type { Evaluation, TranscriptTurn } from "../shared/types";
 import { AppShell } from "@/components/AppShell";
 import { AvatarStage } from "@/components/AvatarStage";
 import { CallButtons, GradePop, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
-import { SkillScoreGrid } from "@/components/SkillScores";
 import { Alert } from "@/components/arc/alert/alert";
 import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
 import { ChatThread } from "@/components/arc/chat-thread/chat-thread";
+import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
 import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
@@ -41,11 +39,10 @@ type Phase =
   | { kind: "explore" }
   | { kind: "starting"; personaId: string }
   | { kind: "date"; personaId: string; sessionId: string }
-  | { kind: "summary"; personaId: string; sessionId: string; evaluation: Evaluation };
+  | { kind: "summary"; personaId: string; evaluation: Evaluation; replyCount: number };
 
 /** A walkable plaza. Walk up to someone waiting at a café table and start a practice date right there. */
 export function WorldPage() {
-  const navigate = useNavigate();
   const { data: personas, isLoading, error } = useQuery(getPersonas);
   const bus = useMemo(createWorldBus, []);
   const [ready, setReady] = useState(false);
@@ -135,7 +132,9 @@ export function WorldPage() {
             sessionId={phase.sessionId}
             bus={bus}
             onLeave={() => setPhase({ kind: "explore" })}
-            onEnded={(evaluation) => setPhase({ kind: "summary", personaId: phase.personaId, sessionId: phase.sessionId, evaluation })}
+            onEnded={(evaluation, replyCount) => setPhase({
+              kind: "summary", personaId: phase.personaId, evaluation, replyCount,
+            })}
           />
         )}
 
@@ -143,7 +142,7 @@ export function WorldPage() {
           <DateSummary
             persona={list.find((p) => p.id === phase.personaId)!}
             evaluation={phase.evaluation}
-            onFeedback={() => navigate(routes.FeedbackRoute.build({ params: { sessionId: phase.sessionId } }))}
+            replyCount={phase.replyCount}
             onClose={() => setPhase({ kind: "explore" })}
           />
         )}
@@ -314,7 +313,7 @@ function DateOverlay({
   sessionId: string;
   bus: WorldBus;
   onLeave: () => void;
-  onEnded: (evaluation: Evaluation) => void;
+  onEnded: (evaluation: Evaluation, replyCount: number) => void;
 }) {
   const { data: session, error } = useQuery(getDateSession, { userId: getUserId(), id: sessionId });
   if (error) {
@@ -344,8 +343,8 @@ function DateOverlay({
   );
 }
 
-/** Time to walk to the chair and sit before the camera pushes in, then the push-in before the stage covers it. */
-const SIT_MS = 2600;
+/** Keep the stage available even if the plaza is still loading or rendering slowly. */
+const MAX_SIT_MS = 6500;
 const PUSH_IN_MS = 1100;
 
 /**
@@ -362,7 +361,7 @@ function DateStage({
   session: DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> };
   bus: WorldBus;
   onLeave: () => void;
-  onEnded: (evaluation: Evaluation) => void;
+  onEnded: (evaluation: Evaluation, replyCount: number) => void;
 }) {
   const { id: sessionId, persona, scenario } = session;
   // Save each turn as it arrives, so a closed tab doesn't lose the date.
@@ -408,10 +407,20 @@ function DateStage({
       setOnStage(true);
       return;
     }
-    const push = window.setTimeout(() => (bus.closeUp = true), SIT_MS);
-    const show = window.setTimeout(() => setOnStage(true), SIT_MS + PUSH_IN_MS);
+    const started = performance.now();
+    let frame = 0;
+    let show: number | undefined;
+    const waitForSeats = (now: number) => {
+      if ((bus.seated.player && bus.seated.persona) || now - started >= MAX_SIT_MS) {
+        bus.closeUp = true;
+        show = window.setTimeout(() => setOnStage(true), PUSH_IN_MS);
+      } else {
+        frame = window.requestAnimationFrame(waitForSeats);
+      }
+    };
+    frame = window.requestAnimationFrame(waitForSeats);
     return () => {
-      window.clearTimeout(push);
+      window.cancelAnimationFrame(frame);
       window.clearTimeout(show);
       bus.closeUp = false;
     };
@@ -425,7 +434,7 @@ function DateStage({
     try {
       const evaluation = await endDateSession({ userId: getUserId(), id: sessionId, transcript });
       bus.closeUp = false;
-      onEnded(evaluation);
+      onEnded(evaluation, transcript.filter((turn) => turn.speaker === "user").length);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Couldn't save the date.");
       setEnding(false);
@@ -481,6 +490,7 @@ function DateStage({
             className="size-full rounded-none border-0 shadow-none"
             overlay={
               <>
+                <GradePop call={call} session={session} />
                 {/* Same column as the top bar (AppShell's header: max-w-6xl, px-4 sm:px-6). */}
                 <div className="absolute inset-x-0 top-0 mx-auto flex max-w-6xl items-start justify-between gap-3 px-4 py-4 sm:px-6">
                   <div className="min-w-0">
@@ -508,7 +518,7 @@ function DateStage({
                         {subtitles ? <Captions className="size-4" aria-hidden="true" /> : <CaptionsOff className="size-4" aria-hidden="true" />}
                       </Button>
                     </Tooltip>
-                    <Button size="sm" variant="secondary" onClick={() => setTranscriptOpen((o) => !o)} aria-expanded={transcriptOpen} aria-controls="world-transcript">
+                    <Button size="sm" variant="secondary" onClick={() => setTranscriptOpen((o) => !o)} aria-label="Transcript" aria-expanded={transcriptOpen} aria-controls="world-transcript">
                       <MessageSquare className="size-4" aria-hidden="true" />
                       <span className="hidden sm:inline">Transcript</span>
                     </Button>
@@ -516,7 +526,6 @@ function DateStage({
                 </div>
 
                 <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-4 sm:p-6">
-                  <GradePop call={call} session={session} />
                   {subtitles && lastTurn && (
                     <p className="max-w-2xl rounded-lg bg-black/70 px-3 py-1.5 text-center text-sm text-white sm:text-base" aria-hidden="true">
                       <span className="font-medium">{lastTurn.speaker === "agent" ? persona.name : "You"}:</span> {lastTurn.text}
@@ -529,7 +538,7 @@ function DateStage({
                       </Alert>
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-background/85 p-2 shadow-(--shadow-resting) backdrop-blur-md">
+                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-[calc(var(--radius-control)+9px)] border border-border bg-background/85 p-2 shadow-(--shadow-resting) backdrop-blur-md">
                     <CallButtons call={call} ending={ending} onEnd={() => void endDate()} />
                     {call.status === "idle" && (
                       <Button size="lg" variant="ghost" onClick={onLeave}>
@@ -593,82 +602,91 @@ function DateStage({
   );
 }
 
-/** Back in the plaza after a date: how it went, with the full feedback a click away. */
+/** Back in the plaza after a date: the overall score and coaching notes. */
 function DateSummary({
   persona,
   evaluation,
-  onFeedback,
+  replyCount,
   onClose,
 }: {
   persona: PersonaWithScenario;
   evaluation: Evaluation;
-  onFeedback: () => void;
+  replyCount: number;
   onClose: () => void;
 }) {
-  const reduce = useReducedMotion();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsId = useId();
   const strength = evaluation.strengths[0];
   const weakness = evaluation.weaknesses[0];
-  // Esc keeps exploring, like closing any dialog.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
+  const hasDetails = replyCount > 0 && Boolean(strength || weakness);
+  const { listening, engagement, confidence, flow } = evaluation.scores;
+  const overallScore = Math.round(((listening + engagement + confidence + flow) / 40) * 100);
+  const scoreArc = (overallScore / 100) * 270;
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 flex items-end justify-center overflow-y-auto p-3 sm:items-center sm:p-6">
-      <motion.section
-        role="dialog"
-        aria-labelledby="date-summary-title"
-        className="pointer-events-auto w-full max-w-xl rounded-(--radius-panel) border border-border bg-surface p-5 shadow-(--shadow-resting) sm:p-6"
-        initial={{ opacity: 0, y: reduce ? 0 : 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reduce ? 0 : 0.35, ease: "easeOut" }}
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        title={`How it went with ${persona.name}`}
+        aria-describedby={undefined}
+        style={{ width: "min(calc(100vw - 24px), 512px)" }}
+        onKeyDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2 id="date-summary-title" className="text-xl text-foreground">
-              How it went with {persona.name}
-            </h2>
-            <p className="mt-1 text-sm text-subtle">{evaluation.summary}</p>
+        {replyCount > 0 ? (
+          <div className="mt-5 flex flex-col items-center text-center">
+            <div
+              role="meter"
+              aria-label="Overall date score"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={overallScore}
+              aria-valuetext={`${overallScore} out of 100`}
+              className="relative grid size-44 place-items-center sm:size-48"
+            >
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: `conic-gradient(from 225deg, var(--accent) 0deg ${scoreArc}deg, var(--border) ${scoreArc}deg 270deg, transparent 270deg)`,
+                  maskImage: "radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px))",
+                }}
+              />
+              <div aria-hidden="true" className="-mt-2 grid justify-items-center">
+                <span className="text-sm text-subtle">Overall score</span>
+                <span className="font-heading text-6xl leading-none font-medium tabular-nums text-foreground">{overallScore}</span>
+                <span className="mt-1 text-sm text-subtle">out of 100</span>
+              </div>
+            </div>
           </div>
-          <Tooltip content="Keep exploring">
-            <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close summary">
-              <X className="size-4" aria-hidden="true" />
-            </Button>
-          </Tooltip>
-        </div>
-
-        <div className="mt-5">
-          <SkillScoreGrid scores={evaluation.scores} />
-        </div>
-
-        {(strength || weakness) && (
-          <ul className="mt-5 grid gap-3 text-sm">
-            {strength && (
-              <li className="flex gap-2.5">
-                <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
-                <span className="text-foreground">{strength.point}</span>
-              </li>
-            )}
-            {weakness && (
-              <li className="flex gap-2.5">
-                <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-                <span className="text-foreground">{weakness.point}</span>
-              </li>
-            )}
-          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-subtle">There were no replies to score on this date.</p>
         )}
 
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={onFeedback}>
-            See full feedback
-          </Button>
-          <Button onClick={onClose}>Keep exploring</Button>
+        <div className="mt-5 grid gap-2">
+          {hasDetails && (
+            <>
+              <Button aria-expanded={detailsOpen} aria-controls={detailsId} onClick={() => setDetailsOpen(!detailsOpen)}>
+                {detailsOpen ? "Hide details" : "See details"}
+              </Button>
+              <div id={detailsId} hidden={!detailsOpen}>
+                <ul className="grid gap-3 border-y border-border py-4 text-sm">
+                  {strength && (
+                    <li className="flex gap-2.5">
+                      <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
+                      <p>{strength.point}</p>
+                    </li>
+                  )}
+                  {weakness && (
+                    <li className="flex gap-2.5">
+                      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+                      <p>{weakness.point}</p>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </>
+          )}
+          <Button variant={hasDetails ? "ghost" : "primary"} onClick={onClose}>Keep exploring</Button>
         </div>
-      </motion.section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

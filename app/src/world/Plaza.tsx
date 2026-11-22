@@ -5,20 +5,24 @@ import {
   BENCHES,
   BUILDINGS,
   CARS,
-  CHAIR_OFFSET,
+  CHAIR_DEPTH_SCALE,
+  FALLBACK_PERSONA_MODEL,
   LAMPS,
   MODELS,
   PACK_SCALE,
+  PLAYER,
   PLANTS,
   ROAD_TILES,
   TABLES,
   TREES,
+  chairHeightScale,
+  seats,
 } from "./layout";
 
 type Pack = keyof typeof MODELS;
 
 /** One named piece of a packed prop .glb, scaled into metres. Copies share geometry and materials. */
-function Prop({ pack, name, x, z, y = 0, yaw = 0, scale = 1 }: { pack: Pack; name: string; x: number; z: number; y?: number; yaw?: number; scale?: number }) {
+function Prop({ pack, name, x, z, y = 0, yaw = 0, scale = 1, height = 1, depth = 1 }: { pack: Pack; name: string; x: number; z: number; y?: number; yaw?: number; scale?: number; height?: number; depth?: number }) {
   const { nodes } = useGLTF(MODELS[pack]);
   const object = useMemo(() => {
     const source = nodes[name] as Object3D | undefined;
@@ -33,15 +37,16 @@ function Prop({ pack, name, x, z, y = 0, yaw = 0, scale = 1 }: { pack: Pack; nam
     });
     return copy;
   }, [nodes, name, pack]);
+  const size = PACK_SCALE[pack] * scale;
   return (
-    <group position={[x, y, z]} rotation-y={yaw} scale={PACK_SCALE[pack] * scale}>
+    <group position={[x, y, z]} rotation-y={yaw} scale={[size, size * height, size * depth]}>
       <primitive object={object} />
     </group>
   );
 }
 
 /** The plaza: paving, buildings on three sides, the road on the fourth, trees, benches and café tables. */
-export function Plaza() {
+export function Plaza({ personaModels }: { personaModels: readonly string[] }) {
   return (
     <group>
       {/* Grass beyond the buildings, then the paved plaza on top. */}
@@ -86,15 +91,17 @@ export function Plaza() {
         <Prop key={`p${i}`} pack="nature" {...p} scale={0.6} />
       ))}
 
-      {TABLES.map((t) => (
-        <group key={t.id}>
-          {/* Turned so the menu card stands edge-on between the two chairs instead of hiding the persona's face. */}
-          <Prop pack="cafe" name="table_round_A_small_decorated" x={t.x} z={t.z} yaw={Math.PI / 2} />
-          {/* KayKit chairs face +Z; the north chair turns to face the table. */}
-          <Prop pack="cafe" name="chair_A" x={t.x} z={t.z - CHAIR_OFFSET} />
-          <Prop pack="cafe" name="chair_A" x={t.x} z={t.z + CHAIR_OFFSET} yaw={Math.PI} />
-        </group>
-      ))}
+      {TABLES.map((t, index) => {
+        const { persona, player } = seats(t);
+        return (
+          <group key={t.id}>
+            {/* Turned so the menu card stands edge-on between the two chairs instead of hiding the persona's face. */}
+            <Prop pack="cafe" name="table_round_A_small_decorated" x={t.x} z={t.z} yaw={Math.PI / 2} />
+            <Prop pack="cafe" name="chair_A" {...persona} height={chairHeightScale(personaModels[index] ?? FALLBACK_PERSONA_MODEL)} depth={CHAIR_DEPTH_SCALE} />
+            <Prop pack="cafe" name="chair_A" {...player} height={chairHeightScale(PLAYER.model)} depth={CHAIR_DEPTH_SCALE} />
+          </group>
+        );
+      })}
     </group>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Vector3, type Group } from "three";
 import { Character, type Clip } from "./Character";
@@ -6,6 +6,8 @@ import { resolve, turnToward, yawTo, type Collider } from "./collision";
 import { isTyping, MOVE_KEYS } from "./controls";
 import type { WorldBus, WorldDate } from "./bus";
 import { BOUNDS, CHARACTER_RADIUS, COLLIDERS, PLAYER, TABLES, TALK_RADIUS, seats } from "./layout";
+import type { NavGrid } from "./navigation";
+import { leaveSeat, seatPath, stepSeatApproach, stepSeatExit } from "./seating";
 
 const WALK_SPEED = 1.9; // m/s
 const RUN_SPEED = 4.4;
@@ -27,12 +29,14 @@ export function Player({
   bus,
   date,
   waiting,
+  nav,
   onNearby,
 }: {
   bus: WorldBus;
   date: WorldDate | null;
   /** Where each date persona is waiting, by persona id. */
   waiting: ReadonlyMap<string, { x: number; z: number }>;
+  nav: NavGrid;
   onNearby: (personaId: string | null) => void;
 }) {
   const group = useRef<Group>(null);
@@ -51,6 +55,14 @@ export function Player({
   const running = useRef(false);
   const nearby = useRef<string | null>(null);
   const seated = useRef(false);
+  const route = useRef<ReturnType<typeof seatPath> | null>(null);
+  const stood = useRef(false);
+  const onSit = useCallback(() => {
+    bus.seated.player = true;
+  }, [bus]);
+  const onStand = useCallback(() => {
+    stood.current = true;
+  }, []);
 
   // Keyboard: movement keys while exploring.
   useEffect(() => {
@@ -116,15 +128,24 @@ export function Player({
     };
   }, [gl]);
 
-  // Entering a date: drop any walk target. Leaving: stand up where the chair was.
-  useEffect(() => {
+  // Leave the chair sideways before handing movement back to the plaza colliders.
+  useLayoutEffect(() => {
     bus.moveTarget = null;
     held.current.clear();
-    if (!date && seated.current) {
+    bus.seated.player = false;
+    if (date) {
+      route.current = null;
+      nearby.current = null;
+      onNearby(null);
+      return;
+    }
+    if (seated.current) {
       seated.current = false;
+      stood.current = false;
       play("StandUp");
     }
-  }, [date, bus]);
+    route.current = leaveSeat(route.current);
+  }, [date, bus, onNearby]);
 
   const camera = useThree((s) => s.camera);
   const lookAt = useMemo(() => new Vector3(), []);
@@ -139,25 +160,24 @@ export function Player({
     let speed = 0;
 
     if (date) {
-      // Walk to the chair, then sit facing the table.
       const seat = seats(TABLES[date.tableIndex]!).player;
-      const dx = seat.x - pos.x;
-      const dz = seat.z - pos.z;
-      const d = Math.hypot(dx, dz);
       if (!seated.current) {
-        if (d > 0.05) {
-          const step = Math.min(d, WALK_SPEED * dt);
-          pos.x += (dx / d) * step;
-          pos.z += (dz / d) * step;
-          yaw.current = turnToward(yaw.current, Math.atan2(dx, dz), TURN_SPEED * dt);
+        const approach = route.current ??= seatPath(nav, pos, seat);
+        const step = stepSeatApproach(pos, yaw.current, approach, WALK_SPEED * dt, TURN_SPEED * dt);
+        yaw.current = step.yaw;
+        if (step.ready) {
+          seated.current = true;
+          play("SitDown");
+        } else if (step.walking) {
           speed = WALK_SPEED;
-        } else {
-          yaw.current = turnToward(yaw.current, seat.yaw, TURN_SPEED * dt);
-          if (Math.abs(yaw.current - seat.yaw) < 0.05) {
-            seated.current = true;
-            play("SitDown");
-          }
         }
+      }
+    } else if (route.current) {
+      if (route.current.leaving && (clipRef.current !== "StandUp" || stood.current)) {
+        const heading = stepSeatExit(pos, route.current, WALK_SPEED * dt);
+        if (heading !== null) yaw.current = turnToward(yaw.current, heading, TURN_SPEED * dt);
+        play(heading === null ? "Idle" : "Walk");
+        if (route.current.path.length === 0) route.current = null;
       }
     } else {
       // Keyboard direction, relative to where the camera looks.
@@ -215,12 +235,7 @@ export function Player({
         onNearby(best);
       }
 
-      if (clipRef.current === "StandUp") {
-        // Let the stand-up finish unless the player sets off.
-        if (speed > 0) play(speed > WALK_SPEED ? "Run" : "Walk");
-      } else {
-        play(speed === 0 ? "Idle" : speed > WALK_SPEED ? "Run" : "Walk");
-      }
+      play(speed === 0 ? "Idle" : speed > WALK_SPEED ? "Run" : "Walk");
     }
     if (date && !seated.current) play(speed > 0 ? "Walk" : "Idle");
 
@@ -244,13 +259,13 @@ export function Player({
       const facing = yawTo(s.player, s.persona);
       // High and to the side, so the player's head and the table decorations stay below the persona's face.
       const back = 2.6;
-      const side = 1.1;
+      const side = 1.55;
       wantCam.set(
         s.player.x - Math.sin(facing) * back + Math.cos(facing) * side,
         2.7,
         s.player.z - Math.cos(facing) * back - Math.sin(facing) * side,
       );
-      lookAt.set(s.persona.x, 0.95, s.persona.z);
+      lookAt.set(s.persona.x, 0.88, s.persona.z + 0.45);
     } else {
       const { yaw: vy, pitch } = view.current;
       const horizontal = Math.cos(pitch) * CAMERA_DISTANCE;
@@ -268,5 +283,5 @@ export function Player({
     camera.lookAt(aim);
   });
 
-  return <Character model={PLAYER.model} clip={clip} groupRef={group} />;
+  return <Character model={PLAYER.model} clip={clip} groupRef={group} onSit={date ? onSit : undefined} onStand={onStand} />;
 }

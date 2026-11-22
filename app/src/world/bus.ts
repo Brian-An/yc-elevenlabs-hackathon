@@ -14,10 +14,12 @@ export type WorldBus = {
   moveTarget: Vec2 | null;
   /** During a date: push the camera in on the persona's face, on the way into the avatar stage. */
   closeUp: boolean;
+  /** Whether each character has finished sitting down for the current date. */
+  seated: { player: boolean; persona: boolean };
 };
 
 export function createWorldBus(): WorldBus {
-  return { player: { x: 0, z: 0 }, extras: [], voice: () => 0, moveTarget: null, closeUp: false };
+  return { player: { x: 0, z: 0 }, extras: [], voice: () => 0, moveTarget: null, closeUp: false, seated: { player: false, persona: false } };
 }
 
 /** The date in progress, as the scene sees it: who, and at which table. */

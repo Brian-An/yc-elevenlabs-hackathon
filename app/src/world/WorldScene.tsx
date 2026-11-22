@@ -84,13 +84,13 @@ export default function WorldScene({
       />
 
       <Suspense fallback={null}>
-        <Plaza />
+        <Plaza personaModels={placed.map(({ persona }) => PERSONA_MODEL[persona.id] ?? FALLBACK_PERSONA_MODEL)} />
         {/* An invisible floor that catches taps to walk. */}
         <mesh rotation-x={-Math.PI / 2} position-y={0.02} onClick={walkTo}>
           <planeGeometry args={[60, 60]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
-        <Player bus={bus} date={date} waiting={waiting} onNearby={onNearby} />
+        <Player bus={bus} date={date} waiting={waiting} nav={nav} onNearby={onNearby} />
         {placed.map(({ persona, table }) => (
           <DatePersona
             key={persona.id}
@@ -98,6 +98,7 @@ export default function WorldScene({
             model={PERSONA_MODEL[persona.id] ?? FALLBACK_PERSONA_MODEL}
             table={table}
             bus={bus}
+            nav={nav}
             onDate={date?.personaId === persona.id}
             nearby={nearby === persona.id}
           />

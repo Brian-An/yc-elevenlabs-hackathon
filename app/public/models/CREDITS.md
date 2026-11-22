@@ -15,6 +15,7 @@ We credit the authors anyway.
 All of them were processed with [glTF Transform](https://gltf-transform.dev) 4.5.
 - **Characters:** only the clips the world plays are kept (`Idle`, `Walk`, `Run`, `SitDown`, `StandUp`, `Victory`); the combat clips are removed.
   Then `gltf-transform optimize --compress meshopt --join false --flatten false --instance false --simplify false --palette false`.
+  `Doctor_Female_Young.glb` also has a `SeatedCoat` morph keyed in `SitDown` to fold the coat hem onto the cushion.
 - **Props:** several source files are packed into one `.glb` per pack, each under a root node named after its source file (for example `building_A`, `chair_A`).
   The world picks pieces by that name (`src/world/Plaza.tsx`).
   Then the same `optimize` command, which keeps those node names.
