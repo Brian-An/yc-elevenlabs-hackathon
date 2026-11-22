@@ -15,6 +15,7 @@ import { Alert } from "@/components/arc/alert/alert";
 import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
 import { ChatThread } from "@/components/arc/chat-thread/chat-thread";
+import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
 import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
@@ -471,6 +472,7 @@ function DateStage({
             className="size-full rounded-none border-0 shadow-none"
             overlay={
               <>
+                <GradePop call={call} session={session} />
                 {/* Same column as the top bar (AppShell's header: max-w-6xl, px-4 sm:px-6). */}
                 <div className="absolute inset-x-0 top-0 mx-auto flex max-w-6xl items-start justify-between gap-3 px-4 py-4 sm:px-6">
                   <div className="min-w-0">
@@ -498,7 +500,7 @@ function DateStage({
                         {subtitles ? <Captions className="size-4" aria-hidden="true" /> : <CaptionsOff className="size-4" aria-hidden="true" />}
                       </Button>
                     </Tooltip>
-                    <Button size="sm" variant="secondary" onClick={() => setTranscriptOpen((o) => !o)} aria-expanded={transcriptOpen} aria-controls="world-transcript">
+                    <Button size="sm" variant="secondary" onClick={() => setTranscriptOpen((o) => !o)} aria-label="Transcript" aria-expanded={transcriptOpen} aria-controls="world-transcript">
                       <MessageSquare className="size-4" aria-hidden="true" />
                       <span className="hidden sm:inline">Transcript</span>
                     </Button>
@@ -506,7 +508,6 @@ function DateStage({
                 </div>
 
                 <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-4 sm:p-6">
-                  <GradePop call={call} session={session} />
                   {subtitles && lastTurn && (
                     <p className="max-w-2xl rounded-lg bg-black/70 px-3 py-1.5 text-center text-sm text-white sm:text-base" aria-hidden="true">
                       <span className="font-medium">{lastTurn.speaker === "agent" ? persona.name : "You"}:</span> {lastTurn.text}
@@ -519,7 +520,7 @@ function DateStage({
                       </Alert>
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-background/85 p-2 shadow-(--shadow-resting) backdrop-blur-md">
+                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-[calc(var(--radius-control)+9px)] border border-border bg-background/85 p-2 shadow-(--shadow-resting) backdrop-blur-md">
                     <CallButtons call={call} ending={ending} onEnd={() => void endDate()} />
                     {call.status === "idle" && (
                       <Button size="lg" variant="ghost" onClick={onLeave}>
@@ -595,45 +596,18 @@ function DateSummary({
   onFeedback: () => void;
   onClose: () => void;
 }) {
-  const reduce = useReducedMotion();
   const strength = evaluation.strengths[0];
   const weakness = evaluation.weaknesses[0];
-  // Esc keeps exploring, like closing any dialog.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 flex items-end justify-center overflow-y-auto p-3 sm:items-center sm:p-6">
-      <motion.section
-        role="dialog"
-        aria-labelledby="date-summary-title"
-        className="pointer-events-auto w-full max-w-xl rounded-(--radius-panel) border border-border bg-surface p-5 shadow-(--shadow-resting) sm:p-6"
-        initial={{ opacity: 0, y: reduce ? 0 : 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reduce ? 0 : 0.35, ease: "easeOut" }}
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        title={`How it went with ${persona.name}`}
+        description={evaluation.summary}
+        style={{ width: "min(calc(100vw - 24px), 576px)" }}
+        onKeyDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h2 id="date-summary-title" className="text-xl text-foreground">
-              How it went with {persona.name}
-            </h2>
-            <p className="mt-1 text-sm text-subtle">{evaluation.summary}</p>
-          </div>
-          <Tooltip content="Keep exploring">
-            <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close summary">
-              <X className="size-4" aria-hidden="true" />
-            </Button>
-          </Tooltip>
-        </div>
-
-        <div className="mt-5">
-          <SkillScoreGrid scores={evaluation.scores} />
-        </div>
+        <SkillScoreGrid scores={evaluation.scores} />
 
         {(strength || weakness) && (
           <ul className="mt-5 grid gap-3 text-sm">
@@ -658,7 +632,7 @@ function DateSummary({
           </Button>
           <Button onClick={onClose}>Keep exploring</Button>
         </div>
-      </motion.section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

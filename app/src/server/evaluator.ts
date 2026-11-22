@@ -109,7 +109,7 @@ export async function evaluateTranscript(transcript: Transcript, scenario: Scena
     .filter((s) => scores[s] <= 7)
     .map((s) => ({ point: bad[s], quote: pick(s, false) }));
 
-  return { scores, strengths, weaknesses, summary: summarize(n, scenario, name, scores, ranked) };
+  return { scores, strengths, weaknesses, summary: summarize(n, name, scores, ranked) };
 }
 
 const strengthCopy = (name: string): Record<SkillName, string> => ({
@@ -129,14 +129,13 @@ const weaknessCopy = (name: string): Record<SkillName, string> => ({
 /** `ranked` is SKILLS sorted by score, best first. */
 function summarize(
   replies: number,
-  scenario: Scenario,
   name: string,
   scores: Record<SkillName, number>,
   ranked: SkillName[],
 ): string {
   const top = ranked[0];
   const low = ranked[ranked.length - 1];
-  return `Over ${replies} ${replies === 1 ? "reply" : "replies"} on your ${scenario.setting} date with ${name}, your strongest skill was ${top} (${scores[top]}/10) and your weakest was ${low} (${scores[low]}/10). Next time, focus on ${low}.`;
+  return `Your date with ${name} included ${replies} ${replies === 1 ? "reply" : "replies"}. Your strongest skill was ${top} (${scores[top]}/10). Next time, focus on ${low} (${scores[low]}/10).`;
 }
 
 /** Scores a date from Jev's per-turn grades: each skill is the average of its per-move scores. */
@@ -166,7 +165,7 @@ export function evaluateMoves(transcript: Transcript, scenario: Scenario, moves:
     .filter((s) => scores[s] <= 7)
     .map((s) => ({ point: bad[s], quote: quote(s, false) }));
 
-  return { scores, strengths, weaknesses, summary: summarize(moves.length, scenario, name, scores, ranked) };
+  return { scores, strengths, weaknesses, summary: summarize(moves.length, name, scores, ranked) };
 }
 
 const SETTINGS: Record<SkillName, { setting: string; opening: string }> = {

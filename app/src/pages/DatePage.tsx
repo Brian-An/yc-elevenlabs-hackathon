@@ -175,6 +175,7 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
               className={cn("aspect-video lg:aspect-auto lg:h-full", fullscreen && "aspect-auto h-full rounded-none border-0")}
               overlay={
                 <>
+                  <GradePop call={call} session={session} />
                   <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 p-4">
                     <Badge size="sm" tone={live ? "success" : call.status === "paused" ? "warning" : "neutral"} dot pill>
                       {STATUS_LABEL[call.status]}
@@ -197,7 +198,6 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
                       )}
                     </div>
                   </div>
-                  <GradePop call={call} session={session} />
                   {subtitles && lastTurn && (
                     <div className={cn("pointer-events-none absolute inset-x-0 flex justify-center px-6", fullscreen ? "bottom-28" : "bottom-5")}>
                       <p className="max-w-2xl rounded-lg bg-black/70 px-3 py-1.5 text-center text-sm text-white sm:text-base" aria-hidden="true">

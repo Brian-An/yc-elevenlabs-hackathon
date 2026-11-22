@@ -81,7 +81,7 @@ export function AppShell({
 
 function navClass({ isActive }: { isActive: boolean }) {
   return cn(
-    "inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-sm text-subtle transition-colors hover:bg-surface-muted hover:text-foreground sm:px-3",
+    "inline-flex size-10 items-center justify-center gap-1.5 rounded-full text-sm text-subtle transition-colors hover:bg-surface-muted hover:text-foreground sm:h-8 sm:w-auto sm:px-3",
     "[&>span]:sr-only sm:[&>span]:not-sr-only",
     isActive && "bg-surface-muted text-foreground",
   );
