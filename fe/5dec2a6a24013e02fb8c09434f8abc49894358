@@ -1,0 +1,19 @@
+app/src/world/layout.ts
+  s_4c553b77babaae::t_6d95c4830be8ed 102-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fe5dec2a6a24013e02fb8c09434f8abc49894358",
+  "prompts": {},
+  "sessions": {
+    "s_4c553b77babaae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b4682b27-fbae-4b30-ba32-9ee37ac2e765",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
