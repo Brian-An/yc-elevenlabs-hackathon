@@ -1,0 +1,29 @@
+app/src/pages/WorldPage.tsx
+  s_bc89df247dc072::t_a24f08140bdb04 2,9,11-13,25,31,42-43,114,316,336,346-349,351-353,355,364,379,395-411,418-420,429-436,438,442-451,453-454,456-469,471-508,510-525,527-528,530-569,571-575,580-585,587-590,592-603,606-612,614-626,628-656
+  s_bc89df247dc072::t_3b100e02a31af5 120,122,137-146
+  s_bc89df247dc072::t_0e0d433dab1c4e 605
+app/src/world/bus.ts
+  s_bc89df247dc072::t_fbcf73a85cd9c2 15-16,20
+app/src/world/Player.tsx
+  s_bc89df247dc072::t_fbcf73a85cd9c2 235-241,264
+app/src/server/evaluator.ts
+  s_bc89df247dc072::t_81ec98afdf6127 139
+app/src/world/WorldScene.tsx
+  s_bc89df247dc072::t_fbcf73a85cd9c2 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dd0005fdfba8fb60288316e59b8579358f4ee80c",
+  "prompts": {},
+  "sessions": {
+    "s_bc89df247dc072": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "559fc96f-3742-454a-b001-c1109387f41d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
