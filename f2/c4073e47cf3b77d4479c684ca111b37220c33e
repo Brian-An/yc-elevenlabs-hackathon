@@ -1,0 +1,65 @@
+app/src/world/navigation.test.ts
+  s_bc89df247dc072::t_669e3ed185be59 1-81
+app/src/world/WorldScene.tsx
+  s_bc89df247dc072::t_669e3ed185be59 1-118
+app/src/pages/DatePage.tsx
+  s_bc89df247dc072::t_669e3ed185be59 1-2,10,13,21,92,240-242
+app/src/world/stroll.ts
+  s_bc89df247dc072::t_669e3ed185be59 1-148
+app/src/components/AppShell.tsx
+  s_bc89df247dc072::t_669e3ed185be59 6,20,22-23,25-35,37,40,50-53,66-68,70
+app/src/world/navigation.ts
+  s_bc89df247dc072::t_669e3ed185be59 1-213
+app/src/world/collision.ts
+  s_bc89df247dc072::t_669e3ed185be59 1-84
+app/src/world/bus.ts
+  s_bc89df247dc072::t_669e3ed185be59 1-24
+app/src/server/evaluator.ts
+  s_bc89df247dc072::t_669e3ed185be59 139
+app/src/world/controls.ts
+  s_bc89df247dc072::t_669e3ed185be59 1-15
+app/src/world/collision.test.ts
+  s_bc89df247dc072::t_669e3ed185be59 1-68
+app/src/world/Plaza.tsx
+  s_bc89df247dc072::t_669e3ed185be59 1-102
+app/src/world/Character.tsx
+  s_bc89df247dc072::t_669e3ed185be59 1-147
+app/src/world/Player.tsx
+  s_bc89df247dc072::t_669e3ed185be59 1-272
+app/src/pages/DashboardPage.tsx
+  s_bc89df247dc072::t_669e3ed185be59 1-2,10,24,31,33,96,108-109
+app/src/world/People.tsx
+  s_bc89df247dc072::t_669e3ed185be59 1-155
+app/src/components/DateCall.tsx
+  s_bc89df247dc072::t_669e3ed185be59 1-82
+app/package.json
+  s_bc89df247dc072::t_669e3ed185be59 16-17,29,36
+app/public/models/CREDITS.md
+  s_bc89df247dc072::t_669e3ed185be59 1-22
+app/src/pages/WorldPage.tsx
+  s_bc89df247dc072::t_669e3ed185be59 1-658
+app/main.wasp.ts
+  s_bc89df247dc072::t_669e3ed185be59 6,35-36
+app/src/world/layout.ts
+  s_bc89df247dc072::t_669e3ed185be59 1-183
+app/src/client/useDateConversation.ts
+  s_bc89df247dc072::t_669e3ed185be59 36-37,241-251
+app/package-lock.json
+  s_bc89df247dc072::t_2d82fb61c5e40b 20-21,33,40,1012-1017,2174-2179,2205-2216,4490-4577,5907-5912,5982-5987,6039-6044,6076-6084,6126-6131,6138-6151,6158-6163,6446-6463,7171-7190,7330-7353,7417-7429,7774-7791,7994-8002,8090-8095,9060-9065,9146-9151,9242-9261,9278-9283,9611-9622,9818-9826,10226-10235,10360-10374,11580-11585,11670-11685,12031-12045,12750-12775,12948-12956,13020-13057,13186-13215,13259-13295,13614-13622,13823-13833,14084-14112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f2c4073e47cf3b77d4479c684ca111b37220c33e",
+  "prompts": {},
+  "sessions": {
+    "s_bc89df247dc072": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "559fc96f-3742-454a-b001-c1109387f41d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
