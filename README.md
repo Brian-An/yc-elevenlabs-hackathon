@@ -38,7 +38,7 @@ User memory lives in Postgres (`User.preferences` + `UserMemory`). `getProfile` 
 
 `skillProfile` is the 0 to 1 average of the last 3 evaluated dates, and `trainingFocus` is the weakest skill. `endDateSession` updates both, and `getNextScenario` uses them to pick the next date.
 
-# Dating Sandbox — Hackathon Build Plan
+# bantr — Hackathon Build Plan
 
 **Concept:** An AI-powered dating simulator that helps users practice real-life dating conversations, receive personalized feedback, and improve over time.
 

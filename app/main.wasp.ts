@@ -24,9 +24,9 @@ import {
 } from "./src/server/elevenlabs" with { type: "ref" };
 
 export default app({
-  name: "datingSandbox",
+  name: "bantr",
   wasp: { version: "^0.26.0" },
-  title: "Dating Sandbox",
+  title: "bantr",
   head: ["<link rel='icon' href='/favicon.ico' />"],
   spec: [
     // No login: each browser keeps a user ID in localStorage (src/client/userId.ts)

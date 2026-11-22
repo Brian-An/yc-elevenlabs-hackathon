@@ -28,7 +28,7 @@ export function AppShell({ children, variant = "app", wide = false }: { children
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
         <div className={cn("mx-auto flex h-14 items-center gap-3 px-4 sm:px-6", width)}>
-          <NavLink to="/" className="rounded-full" aria-label="Dating Sandbox home">
+          <NavLink to="/" className="rounded-full" aria-label="bantr home">
             <Logo compact={variant === "app"} />
           </NavLink>
 
@@ -56,7 +56,7 @@ export function AppShell({ children, variant = "app", wide = false }: { children
       {variant !== "focus" && (
         <footer className="border-t border-border">
           <div className={cn("mx-auto flex flex-col gap-1 px-4 py-6 text-xs text-faint sm:flex-row sm:justify-between sm:px-6", width)}>
-            <span>Dating Sandbox</span>
+            <span>bantr</span>
             <span>Voice by ElevenLabs</span>
           </div>
         </footer>

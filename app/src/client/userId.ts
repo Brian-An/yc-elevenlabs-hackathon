@@ -2,7 +2,7 @@
 // and every operation receives it as `userId` in its args:
 //   useQuery(getProfile, { userId: getUserId() })
 //   await createDateSession({ userId: getUserId(), personaId })
-const KEY = "dating-sandbox:userId";
+const KEY = "bantr:userId";
 
 let cached: string | null = null;
 

@@ -7,7 +7,7 @@ export function Logo({ className, compact = false }: { className?: string; compa
       <span className="grid size-7 place-items-center rounded-full bg-brand-subtle text-brand-strong">
         <Heart className="size-3.5" strokeWidth={2} fill="currentColor" aria-hidden="true" />
       </span>
-      <span className={cn(compact && "sr-only sm:not-sr-only")}>Dating Sandbox</span>
+      <span className={cn(compact && "sr-only sm:not-sr-only")}>bantr</span>
     </span>
   );
 }

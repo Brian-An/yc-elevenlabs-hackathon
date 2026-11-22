@@ -2,7 +2,7 @@ import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 export type Theme = "light" | "dark";
 
-const STORAGE_KEY = "dating-sandbox-theme";
+const STORAGE_KEY = "bantr-theme";
 /** Arc accent for the whole app. Arc ships neutral, violet, blue, green, amber, orange, coral and rose. */
 export const APP_ACCENT = "rose";
 

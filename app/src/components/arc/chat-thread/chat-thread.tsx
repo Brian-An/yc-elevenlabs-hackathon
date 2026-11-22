@@ -152,6 +152,12 @@ export interface ChatThreadProps {
   onRetry?: (messageId: string) => void;
   /** Emoji offered by the reaction picker. */
   reactions?: string[];
+  /** Show the reaction picker and reactions under messages. Defaults to true. */
+  reactable?: boolean;
+  /** Show day separators and message times. Defaults to true. */
+  timestamps?: boolean;
+  /** Show the sent / delivered / read status under your latest message. Defaults to true. */
+  deliveryStatus?: boolean;
   placeholder?: string;
   /** Show the composer. Defaults to true. */
   composer?: boolean;
@@ -395,7 +401,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, ChatComposerProps>(fu
  */
 export const ChatThread = forwardRef<ChatThreadHandle, ChatThreadProps>(function ChatThread({
   participants, currentUserId, messages: messagesProp, defaultMessages, typing = [], readBy, onSend, onReact, onRetry,
-  reactions = DEFAULT_REACTIONS, placeholder = "Message", composer = true, allowAttachments = true, accept,
+  reactions = DEFAULT_REACTIONS, reactable = true, timestamps = true, deliveryStatus = true, placeholder = "Message", composer = true, allowAttachments = true, accept,
   groupWindow = 5 * 60_000, locale = "en-US", label = "Conversation", labels, className,
 }, ref) {
   const t = useMemo(() => withDefaults({ ...THREAD_LABELS, today: relativeDay(locale, 0), yesterday: relativeDay(locale, -1) }, labels), [labels, locale]);
@@ -414,7 +420,7 @@ export const ChatThread = forwardRef<ChatThreadHandle, ChatThreadProps>(function
     messages.forEach((message, index) => {
       const date = toDate(message.createdAt);
       const key = dayKey(date);
-      if (key !== lastDay) { out.push({ type: "day", key: `day-${key}`, label: hydrated ? dayLabel(date, locale, t) : "" }); lastDay = key; }
+      if (timestamps && key !== lastDay) { out.push({ type: "day", key: `day-${key}`, label: hydrated ? dayLabel(date, locale, t) : "" }); lastDay = key; }
       const joins = (other: ChatMessage | undefined) => !!other && other.authorId === message.authorId && dayKey(toDate(other.createdAt)) === key && Math.abs(toDate(other.createdAt).getTime() - date.getTime()) <= groupWindow;
       out.push({
         type: "message", key: message.id, message, index,
@@ -424,7 +430,7 @@ export const ChatThread = forwardRef<ChatThreadHandle, ChatThreadProps>(function
       });
     });
     return out;
-  }, [currentUserId, groupWindow, hydrated, locale, messages, people, t]);
+  }, [currentUserId, groupWindow, hydrated, locale, messages, people, t, timestamps]);
 
   const receipts = useMemo(() => {
     const map = new Map<string, ChatParticipant[]>();
@@ -557,7 +563,7 @@ export const ChatThread = forwardRef<ChatThreadHandle, ChatThreadProps>(function
                   const { message, author, mine, first, last, index } = row;
                   const date = toDate(message.createdAt);
                   const seenBy = receipts.get(message.id) ?? [];
-                  const showStatus = index === lastMine && mine;
+                  const showStatus = deliveryStatus && index === lastMine && mine;
                   const status = message.status === "failed" ? "failed" : message.status === "sending" ? "sending" : readIndex >= index ? "read" : message.status ?? "sent";
                   const images = message.attachments?.filter(entry => entry.kind === "image" && entry.url) ?? [];
                   const files = message.attachments?.filter(entry => entry.kind !== "image" || !entry.url) ?? [];
@@ -567,9 +573,9 @@ export const ChatThread = forwardRef<ChatThreadHandle, ChatThreadProps>(function
                     style={{ transformOrigin: mine ? "100% 100%" : "0 100%" }}>
                     {!mine && <div className={styles.gutter} />}
                     <div className={styles.stack}>
-                      {first && <p className={styles.meta}>
+                      {first && (timestamps || !mine) && <p className={styles.meta}>
                         {!mine && <span className={styles.author}>{author.name}</span>}
-                        <time dateTime={date.toISOString()} suppressHydrationWarning>{hydrated ? time.format(date) : ""}</time>
+                        {timestamps && <time dateTime={date.toISOString()} suppressHydrationWarning>{hydrated ? time.format(date) : ""}</time>}
                       </p>}
                       <div className={styles.line}>
                         {!mine && last && <span className={styles.face}><Avatar person={author} size={28} /></span>}
@@ -586,13 +592,13 @@ export const ChatThread = forwardRef<ChatThreadHandle, ChatThreadProps>(function
                             <FileText size={18} strokeWidth={1.75} aria-hidden="true" />
                             <span className={styles.fileText}><span className={styles.fileName}>{file.name}</span>{file.size !== undefined && <span className={styles.fileSize}>{formatBytes(file.size)}</span>}</span>
                           </a>)}
-                          {message.text && <div className={styles.bubble} title={hydrated ? date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" }) : undefined}>{message.text}</div>}
+                          {message.text && <div className={styles.bubble} title={timestamps && hydrated ? date.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" }) : undefined}>{message.text}</div>}
                         </div>
-                        <ReactionPicker open={picker === message.id} mine={mine} reactions={reactions} reduced={reduced} labels={t} id={`${uid}-picker-${message.id}`}
-                          onToggle={() => setPicker(current => current === message.id ? null : message.id)} onClose={() => setPicker(null)} onPick={emoji => react(message.id, emoji)} />
+                        {reactable && <ReactionPicker open={picker === message.id} mine={mine} reactions={reactions} reduced={reduced} labels={t} id={`${uid}-picker-${message.id}`}
+                          onToggle={() => setPicker(current => current === message.id ? null : message.id)} onClose={() => setPicker(null)} onPick={emoji => react(message.id, emoji)} />}
                       </div>
                       <AnimatePresence initial={false}>
-                        {!!message.reactions?.length && <motion.div key="reactions" className={styles.reactionClip}
+                        {reactable && !!message.reactions?.length && <motion.div key="reactions" className={styles.reactionClip}
                           initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={reduced ? { duration: 0 } : { height: GROW, opacity: { duration: duration.fast } }}>
                           <ul className={styles.reactions} aria-label={t.reactions}>
                             <AnimatePresence initial={false} mode="popLayout">
