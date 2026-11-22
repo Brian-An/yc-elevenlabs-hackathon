@@ -1,0 +1,41 @@
+README.md
+  s_40e5b68b92b6a3::t_e8a60be7fb1918 5,11-13,20-21,26-40,52,77,98,123
+app/.env.server.example
+  s_40e5b68b92b6a3::t_a40eedc7e6d9ea 3-6
+app/migrations/20261122164127_init/migration.sql
+  s_40e5b68b92b6a3::t_e9d98e124b6bab 3-4,8-11,16,19,21-26,31,33-37,39-41,46,48-49,59,64-65,67-68,85-99
+app/migrations/migration_lock.toml
+  s_40e5b68b92b6a3::t_c57d4c4417c2dd 3
+app/schema.prisma
+  s_40e5b68b92b6a3::t_3cd4d8728b8481 2,12-13,21,32,34-35,42,47-51
+app/src/client/mockData.ts
+  s_40e5b68b92b6a3::t_1cc723dc44dd72 26
+app/src/server/dto.ts
+  s_40e5b68b92b6a3::t_4a9fcc0ed17fc8 17-24,42-43
+app/src/server/evaluator.ts
+  s_40e5b68b92b6a3::t_91ede830de1788 152,155-157
+app/src/server/memory.ts
+  s_40e5b68b92b6a3::t_81356dc5575db9 1-2,4,6,8,11,13-25,27-29,31-34,64,67-71,79
+app/src/server/profile.ts
+  s_40e5b68b92b6a3::t_dbdc7b1e334f19 5,16,31
+app/src/server/serialize.ts
+  s_40e5b68b92b6a3::t_2e1d48c49fcf6c 1-2,8-10,13-15,17,29-30
+app/src/server/sessions.ts
+  s_40e5b68b92b6a3::t_a02cee56996ee0 29,61,83,86,97,109,111-112,116,123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "12796f9898363a9540da5f840c3c182fdd2ad73d",
+  "prompts": {},
+  "sessions": {
+    "s_40e5b68b92b6a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58d37d34-061f-4fd9-92fd-36130ba3151e",
+        "model": "unknown"
+      },
+      "human_author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
