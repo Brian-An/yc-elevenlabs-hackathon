@@ -1,0 +1,34 @@
+app/public/models/CREDITS.md
+  h_1a0e607fe5f58f 18
+app/src/pages/WorldPage.tsx
+  h_1a0e607fe5f58f 346-347,410-421,423
+app/src/world/Character.tsx
+  h_1a0e607fe5f58f 40-41,48-49,95,97-99,102-112,114-116,118,121-132
+app/src/world/People.tsx
+  h_1a0e607fe5f58f 1,11,69,77,86-93,103-109,111,118-119,122-123,125-127,129,133-135,137,145
+app/src/world/Player.tsx
+  h_1a0e607fe5f58f 1,9-10,32,39,58-65,131-132,135-142,144,147-148,165-171,175-181,238,262,268,286
+app/src/world/Plaza.tsx
+  h_1a0e607fe5f58f 8-9,13,18-19,25,40,42,49,94-104
+app/src/world/WorldScene.tsx
+  h_1a0e607fe5f58f 87,93,101
+app/src/world/bus.ts
+  h_1a0e607fe5f58f 17-18,22
+app/src/world/layout.ts
+  h_1a0e607fe5f58f 68-85,89-90,164-172
+app/src/world/seating.test.ts
+  h_1a0e607fe5f58f 1-33
+app/src/world/seating.ts
+  h_1a0e607fe5f58f 1-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e6de84a070b7a8d3617342b737a0d0de7cad0a18",
+  "prompts": {},
+  "humans": {
+    "h_1a0e607fe5f58f": {
+      "author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
