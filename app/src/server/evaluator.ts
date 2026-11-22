@@ -149,11 +149,12 @@ const SETTINGS: Record<SkillName, { setting: string; opening: string }> = {
 
 /** Builds the next practice date aimed at the user's weakest skill. */
 export function generateNextScenario(memory: MemorySnapshot, preferredPersonaId?: string): Scenario {
-  const skill: SkillName = memory.weakestSkill ?? "engagement";
+  const skill: SkillName = memory.trainingFocus ?? "engagement";
   const personaId =
     preferredPersonaId && getPersona(preferredPersonaId) ? preferredPersonaId : PERSONA_FOR_SKILL[skill];
-  const avg = memory.averages ? SKILLS.reduce((a, s) => a + memory.averages![s], 0) / SKILLS.length : 0;
-  const difficulty: Difficulty = !memory.averages || avg < 5 ? "easy" : avg < 7.5 ? "medium" : "hard";
+  const profile = memory.skillProfile;
+  const avg = profile ? SKILLS.reduce((a, s) => a + profile[s], 0) / SKILLS.length : 0;
+  const difficulty: Difficulty = !profile || avg < 0.5 ? "easy" : avg < 0.75 ? "medium" : "hard";
   const t = SETTINGS[skill];
   return {
     id: `next-${skill}-${memory.sessionsCount + 1}`,

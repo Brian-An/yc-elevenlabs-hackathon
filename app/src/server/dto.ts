@@ -14,7 +14,14 @@ import type {
 export type SessionStatus = "active" | "ended" | "evaluated";
 // JSON-safe preference values (operations payloads must be superjson-serializable).
 export type PreferenceValue = string | number | boolean | null | string[];
-export type Preferences = { [key: string]: PreferenceValue };
+export type Preferences = {
+  personality?: string[]; // e.g. ["outgoing", "funny"]
+  dateSetting?: string; // e.g. "coffee"
+  [key: string]: PreferenceValue | undefined;
+};
+
+/** Per-skill level from 0 to 1, averaged over the last 3 evaluated dates. */
+export type SkillProfile = Record<SkillName, number>;
 
 export type ExperienceLevel = "beginner" | "intermediate" | "experienced";
 
@@ -32,13 +39,12 @@ export type SkillHistoryEntry = {
 };
 
 export type MemorySnapshot = {
+  skillProfile: SkillProfile | null; // null until the first evaluated date
+  trainingFocus: SkillName | null; // the skill the next date targets
   strengths: MemoryPoint[]; // newest first, capped
   weaknesses: MemoryPoint[]; // newest first, capped
   skillHistory: SkillHistoryEntry[]; // oldest first
   sessionsCount: number;
-  averages: Record<SkillName, number> | null; // over the last 3 sessions
-  weakestSkill: SkillName | null;
-  rowboatEnabled: boolean;
 };
 
 export type Profile = {

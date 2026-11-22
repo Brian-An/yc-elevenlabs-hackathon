@@ -2,25 +2,41 @@
 
 ## Running locally
 
-The app lives in `app/` (Wasp 0.26, React 19, Tailwind v4, shadcn + [Arc](https://uiarc.dev), SQLite).
+The app lives in `app/` (Wasp 0.26, React 19, Tailwind v4, shadcn + [Arc](https://uiarc.dev), PostgreSQL).
 
 ```bash
 npm i -g @wasp.sh/wasp-cli
 cd app
 wasp install
-cp .env.server.example .env.server   # add ElevenLabs / Rowboat keys
-wasp db migrate-dev
+cp .env.server.example .env.server   # add ElevenLabs keys (and DATABASE_URL if not using Docker)
+wasp start db                        # dev Postgres in Docker; skip if DATABASE_URL points at your own Postgres
+wasp db migrate-dev                  # in a second terminal if `wasp start db` is running
 wasp start                           # client :3000, server :3001
 ```
 
 Where things are:
 
 - `main.wasp.ts`: routes, auth (username + password), operations, the ElevenLabs signed-URL API
-- `schema.prisma`: `User`, `DateSession`, `UserMemory` (JSON stored as strings because the database is SQLite)
-- `src/server/`: operations, personas, `evaluator.ts` (rule-based stub, replace with the LLM evaluator), `memory.ts` (Rowboat call is a `TODO(rowboat)`), `elevenlabs.ts`
+- `schema.prisma`: `User`, `DateSession`, `UserMemory` (PostgreSQL `Json` columns, typed in `src/server/dto.ts`)
+- `src/server/`: operations, personas, `evaluator.ts` (rule-based stub, replace with the LLM evaluator), `memory.ts` (skill profile, training focus, strengths and weaknesses, stored in Postgres), `elevenlabs.ts`
 - `src/pages/`: all pages, currently on mock data from `src/client/mockData.ts` (each page has a `useQuery` swap noted inline)
 - `src/client/useDateConversation.ts`: where the ElevenLabs conversation plugs in
 - `src/shared/types.ts`: shared contracts (Transcript, Evaluation, Persona, Scenario)
+
+User memory lives in Postgres (`User.preferences` + `UserMemory`). `getProfile` returns it as:
+
+```json
+{
+  "preferences": { "personality": ["outgoing", "funny"], "dateSetting": "coffee" },
+  "memory": {
+    "skillProfile": { "listening": 0.6, "engagement": 0.8, "confidence": 0.7, "flow": 0.5 },
+    "trainingFocus": "flow",
+    "strengths": [], "weaknesses": [], "skillHistory": [], "sessionsCount": 3
+  }
+}
+```
+
+`skillProfile` is the 0 to 1 average of the last 3 evaluated dates, and `trainingFocus` is the weakest skill. `endDateSession` updates both, and `getNextScenario` uses them to pick the next date.
 
 # Dating Sandbox — Hackathon Build Plan
 
@@ -33,8 +49,7 @@ Where things are:
 | Technology       | Responsibility                                                                  |
 | ---------------- | ------------------------------------------------------------------------------- |
 | **ElevenLabs**   | Real-time voice conversations, AI character voice and avatar presentation       |
-| **Rowboat Labs** | Persistent memory of user preferences, strengths, weaknesses, and past sessions |
-| **Wasp**         | Backend, authentication, database, and API orchestration                        |
+| **Wasp + PostgreSQL** | Backend, authentication, API orchestration, and persistent user memory (preferences, skill profile, strengths, weaknesses, past sessions) |
 | **assistant-ui** | Chat interface, live transcripts, and coaching feedback                         |
 | **TraceRoot**    | Agent tracing, evaluation, and monitoring                                       |
 
@@ -59,7 +74,7 @@ For avatars, use a visual avatar component alongside ElevenLabs audio. Confirm w
 
 - [ ] Evaluate transcripts for listening, engagement, confidence, and conversational flow
 - [ ] Provide specific feedback supported by transcript examples
-- [ ] Save strengths and weaknesses through Rowboat memory
+- [ ] Save strengths and weaknesses to user memory in Postgres
 - [ ] Track skill development across sessions
 
 ### 4. Adaptive Training
@@ -80,7 +95,7 @@ For avatars, use a visual avatar component alongside ElevenLabs audio. Confirm w
 | Person                         | Focus                     | Deliverables                              |
 | ------------------------------ | ------------------------- | ----------------------------------------- |
 | **1. Voice & Avatar**          | ElevenLabs                | Working conversational AI character       |
-| **2. Backend & Memory**        | Wasp + Rowboat            | Profiles, sessions, saved memory          |
+| **2. Backend & Memory**        | Wasp + PostgreSQL         | Profiles, sessions, saved memory          |
 | **3. Frontend**                | React + assistant-ui      | Date simulator, transcript, feedback UI   |
 | **4. Evaluation & Adaptation** | TraceRoot + LLM evaluator | Skill assessments, personalized scenarios |
 
@@ -105,7 +120,7 @@ For avatars, use a visual avatar component alongside ElevenLabs audio. Confirm w
 1. **0:00–0:30:** Explain the problem and show a fictional dating persona.
 2. **0:30–1:30:** Have a live conversation using ElevenLabs, deliberately demonstrating an awkward interaction.
 3. **1:30–2:15:** End the session and generate actionable feedback using the evaluator.
-4. **2:15–3:00:** Show Rowboat remembering the user's weakness and generating a more targeted follow-up date.
+4. **2:15–3:00:** Show the app remembering the user's weakness and generating a more targeted follow-up date.
 
 **The most important outcome:** Judges should see an AI that remembers how you communicate and actively helps you get better, rather than simply having conversations with you.
 

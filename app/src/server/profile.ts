@@ -2,7 +2,7 @@ import { HttpError } from "wasp/server";
 import type { GetMemory, GetProfile, UpdateProfile } from "wasp/server/operations";
 import type { MemorySnapshot, Preferences, Profile, UpdateProfileArgs } from "./dto";
 import { getMemory as loadMemory } from "./memory";
-import { parseJson } from "./serialize";
+import { asJson, readJson } from "./serialize";
 
 export const getProfile: GetProfile<void, Profile> = async (_args, context) => {
   if (!context.user) throw new HttpError(401);
@@ -13,7 +13,7 @@ export const getProfile: GetProfile<void, Profile> = async (_args, context) => {
     displayName: user.displayName,
     goals: user.goals,
     experienceLevel: user.experienceLevel,
-    preferences: parseJson<Preferences>(user.preferences, {}),
+    preferences: readJson<Preferences>(user.preferences, {}),
     onboardedAt: user.onboardedAt,
     memory: await loadMemory(user.id),
   };
@@ -28,7 +28,7 @@ export const updateProfile: UpdateProfile<UpdateProfileArgs, Profile> = async (a
       displayName: str(args?.displayName),
       goals: str(args?.goals),
       experienceLevel: str(args?.experienceLevel),
-      ...(args?.preferences !== undefined ? { preferences: JSON.stringify(args.preferences ?? {}) } : {}),
+      ...(args?.preferences !== undefined ? { preferences: asJson(args.preferences ?? {}) } : {}),
       onboardedAt: context.user.onboardedAt ?? new Date(),
     },
   });

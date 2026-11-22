@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   // Wasp requires that the url is set to the DATABASE_URL environment variable.
   url      = env("DATABASE_URL")
 }
@@ -9,8 +9,8 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// SQLite in Prisma 5 has no Json type and no enums: JSON is stored as String
-// and parsed in src/server/serialize.ts; "enums" are plain strings.
+// PostgreSQL is the single source of truth for user memory.
+// Json columns are typed in src/server/dto.ts and read through src/server/serialize.ts.
 
 model User {
   id              Int           @id @default(autoincrement())
@@ -18,7 +18,7 @@ model User {
   displayName     String?
   goals           String?
   experienceLevel String? // "beginner" | "intermediate" | "experienced"
-  preferences     String        @default("{}") // JSON object
+  preferences     Json          @default("{}") // Preferences: { personality: string[], dateSetting: string, ... }
   onboardedAt     DateTime?
   sessions        DateSession[]
   memory          UserMemory?
@@ -29,24 +29,26 @@ model DateSession {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId     Int
   personaId  String
-  scenario   String // JSON Scenario
+  scenario   Json // Scenario
   status     String    @default("active") // "active" | "ended" | "evaluated"
-  transcript String    @default("[]") // JSON Transcript
-  evaluation String? // JSON Evaluation
+  transcript Json      @default("[]") // Transcript
+  evaluation Json? // Evaluation
   startedAt  DateTime  @default(now())
   endedAt    DateTime?
 
   @@index([userId, startedAt])
 }
 
-// Local copy of what we push to Rowboat, and the fallback when Rowboat is off.
+// What the coach remembers about a user, updated after every evaluated date.
 model UserMemory {
   id            Int      @id @default(autoincrement())
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId        Int      @unique
-  strengths     String   @default("[]") // JSON MemoryPoint[]
-  weaknesses    String   @default("[]") // JSON MemoryPoint[]
-  skillHistory  String   @default("[]") // JSON SkillHistoryEntry[]
+  skillProfile  Json     @default("{}") // SkillProfile: SkillName -> 0..1, rolling average of recent sessions
+  trainingFocus String? // SkillName the next date should target (weakest skill)
+  strengths     Json     @default("[]") // MemoryPoint[]
+  weaknesses    Json     @default("[]") // MemoryPoint[]
+  skillHistory  Json     @default("[]") // SkillHistoryEntry[]
   sessionsCount Int      @default(0)
   updatedAt     DateTime @updatedAt
 }

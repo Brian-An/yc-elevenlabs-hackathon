@@ -23,7 +23,7 @@ export type UserProfile = {
 
 export type ExperienceLevel = "beginner" | "intermediate" | "experienced"; // matches User.experienceLevel
 
-/** What memory (Rowboat) remembers about the user. */
+/** What memory remembers about the user. */
 export type Memory = {
   strengths: string[];
   weaknesses: string[];

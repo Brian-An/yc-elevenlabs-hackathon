@@ -26,7 +26,7 @@ import type {
 import { evaluateTranscript, generateNextScenario } from "./evaluator";
 import { getMemory, saveMemory } from "./memory";
 import { getPersona, listPersonas } from "./personas";
-import { parseJson, toSessionDTO, toSessionSummary } from "./serialize";
+import { asJson, readJson, toSessionDTO, toSessionSummary } from "./serialize";
 
 type Ctx = { user?: { id: number } | null; entities: { DateSession: any } };
 
@@ -58,7 +58,7 @@ export const createDateSession: CreateDateSession<CreateDateSessionArgs, DateSes
     data: {
       userId: context.user.id,
       personaId: persona.id,
-      scenario: JSON.stringify(scenario),
+      scenario: asJson(scenario),
       status: "active",
     },
   });
@@ -80,10 +80,10 @@ export const listDateSessions: ListDateSessions<void, DateSessionSummary[]> = as
 export const appendTranscript: AppendTranscript<AppendTranscriptArgs, TranscriptResult> = async (args, context) => {
   const row = await ownedSession(context, args?.id);
   if (row.status !== "active") throw new HttpError(409, "Date session has already ended");
-  const transcript = [...parseJson<Transcript>(row.transcript, []), ...cleanTurns(args.turns)];
+  const transcript = [...readJson<Transcript>(row.transcript, []), ...cleanTurns(args.turns)];
   await context.entities.DateSession.update({
     where: { id: row.id },
-    data: { transcript: JSON.stringify(transcript) },
+    data: { transcript: asJson(transcript) },
   });
   return { id: row.id, turnCount: transcript.length };
 };
@@ -94,7 +94,7 @@ export const saveTranscript: SaveTranscript<SaveTranscriptArgs, TranscriptResult
   const transcript = cleanTurns(args.transcript);
   await context.entities.DateSession.update({
     where: { id: row.id },
-    data: { transcript: JSON.stringify(transcript) },
+    data: { transcript: asJson(transcript) },
   });
   return { id: row.id, turnCount: transcript.length };
 };
@@ -106,21 +106,21 @@ export const saveTranscript: SaveTranscript<SaveTranscriptArgs, TranscriptResult
  */
 export const endDateSession: EndDateSession<EndDateSessionArgs, Evaluation> = async (args, context) => {
   const row = await ownedSession(context, args?.id);
-  if (row.status === "evaluated" && row.evaluation) return parseJson<Evaluation>(row.evaluation, null as never);
+  if (row.status === "evaluated" && row.evaluation) return readJson<Evaluation>(row.evaluation, null as never);
 
-  const transcript = args.transcript ? cleanTurns(args.transcript) : parseJson<Transcript>(row.transcript, []);
-  const scenario = parseJson<Scenario>(row.scenario, getPersona(row.personaId)!.defaultScenario);
+  const transcript = args.transcript ? cleanTurns(args.transcript) : readJson<Transcript>(row.transcript, []);
+  const scenario = readJson<Scenario>(row.scenario, getPersona(row.personaId)!.defaultScenario);
 
   await context.entities.DateSession.update({
     where: { id: row.id },
-    data: { status: "ended", endedAt: new Date(), transcript: JSON.stringify(transcript) },
+    data: { status: "ended", endedAt: new Date(), transcript: asJson(transcript) },
   });
 
   const evaluation = await evaluateTranscript(transcript, scenario);
 
   await context.entities.DateSession.update({
     where: { id: row.id },
-    data: { status: "evaluated", evaluation: JSON.stringify(evaluation) },
+    data: { status: "evaluated", evaluation: asJson(evaluation) },
   });
   await saveMemory(context.user!.id, evaluation, { sessionId: row.id, personaId: row.personaId });
   return evaluation;

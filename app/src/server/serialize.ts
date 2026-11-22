@@ -1,20 +1,20 @@
-// JSON-in-String helpers for SQLite columns, plus DB row -> DTO mapping.
+// Json column helpers (PostgreSQL) plus DB row -> DTO mapping.
+import type { Prisma } from "@prisma/client";
 import type { DateSession } from "wasp/entities";
 import type { Evaluation, Scenario, Transcript } from "../shared/types";
 import type { DateSessionDTO, DateSessionSummary, SessionStatus } from "./dto";
 import { getPersona } from "./personas";
 
-export function parseJson<T>(raw: string | null | undefined, fallback: T): T {
-  if (raw == null || raw === "") return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
+/** Reads a Json column as T, falling back when it is null. */
+export function readJson<T>(value: Prisma.JsonValue | null | undefined, fallback: T): T {
+  return value == null ? fallback : (value as T);
 }
 
+/** Casts a typed value for writing into a Json column. */
+export const asJson = <T>(value: T) => value as unknown as Prisma.InputJsonValue;
+
 export function toSessionDTO(row: DateSession): DateSessionDTO {
-  const scenario = parseJson<Scenario>(row.scenario, {
+  const scenario = readJson<Scenario>(row.scenario, {
     id: "unknown",
     personaId: row.personaId,
     setting: "first date",
@@ -26,8 +26,8 @@ export function toSessionDTO(row: DateSession): DateSessionDTO {
     persona: getPersona(row.personaId) ?? null,
     scenario,
     status: row.status as SessionStatus,
-    transcript: parseJson<Transcript>(row.transcript, []),
-    evaluation: parseJson<Evaluation | null>(row.evaluation, null),
+    transcript: readJson<Transcript>(row.transcript, []),
+    evaluation: readJson<Evaluation | null>(row.evaluation, null),
     startedAt: row.startedAt,
     endedAt: row.endedAt,
   };
