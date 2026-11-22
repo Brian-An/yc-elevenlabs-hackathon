@@ -3,6 +3,7 @@ import { OnboardingPage } from "./src/pages/OnboardingPage" with { type: "ref" }
 import { DashboardPage } from "./src/pages/DashboardPage" with { type: "ref" };
 import { DatePage } from "./src/pages/DatePage" with { type: "ref" };
 import { FeedbackPage } from "./src/pages/FeedbackPage" with { type: "ref" };
+import { WorldPage } from "./src/pages/WorldPage" with { type: "ref" };
 import {
   getProfile,
   updateProfile,
@@ -35,7 +36,8 @@ export default app({
   spec: [
     // No login: each browser keeps a user ID in localStorage (src/client/userId.ts)
     // and passes it as `userId` in every operation's args.
-    route("DashboardRoute", "/", page(DashboardPage)),
+    route("WorldRoute", "/", page(WorldPage)),
+    route("DashboardRoute", "/dashboard", page(DashboardPage)),
     route("OnboardingRoute", "/onboarding", page(OnboardingPage)),
     route("DateRoute", "/date/:sessionId", page(DatePage)),
     route("FeedbackRoute", "/feedback/:sessionId", page(FeedbackPage)),

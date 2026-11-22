@@ -151,6 +151,9 @@ export function useAvatarSession({
     isMuted,
     videoStream: null,
     transcript,
+    // HeyGen's audio plays through the video element, so there is no meter to read. The halo this
+    // feeds only shows on the stand-in photo, which the avatar video replaces once it is ready.
+    getOutputVolume: () => 0,
     elapsedMs,
     error,
     start,

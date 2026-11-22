@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Captions, CaptionsOff, Maximize2, MessageSquare, Mic, MicOff, Minimize2, Pause, Phone, PhoneOff, Play } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Captions, CaptionsOff, Maximize2, MessageSquare, Minimize2 } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 import { ConversationProvider } from "@elevenlabs/react";
 import { appendTranscript, endDateSession, getDateSession, useQuery } from "wasp/client/operations";
@@ -7,10 +7,10 @@ import { routes } from "wasp/client/router";
 import { AppShell } from "@/components/AppShell";
 import { Panel } from "@/components/Panel";
 import { AvatarStage } from "@/components/AvatarStage";
-import { MoveBadge } from "@/components/MoveReview";
+import { CallButtons, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
 import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
-import { ChatThread, type ChatMessage } from "@/components/arc/chat-thread/chat-thread";
+import { ChatThread } from "@/components/arc/chat-thread/chat-thread";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Alert } from "@/components/arc/alert/alert";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
@@ -19,22 +19,12 @@ import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
 import { getUserId } from "@/client/userId";
 import type { DateSessionDTO } from "../server/dto";
 import type { TranscriptTurn } from "../shared/types";
-import { useDateConversation, type ConversationStatus, type DateConversation } from "@/client/useDateConversation";
+import { useDateConversation } from "@/client/useDateConversation";
 import { useAvatarSession } from "@/client/useAvatarSession";
-import { movesByTurn } from "@/client/liveMoves";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const STATUS_LABEL: Record<ConversationStatus, string> = {
-  idle: "Ready when you are!",
-  connecting: "Connecting...",
-  live: "Live",
-  paused: "Paused",
-  ended: "Date over",
-};
-
 const SUBTITLES_KEY = "bantr:subtitles";
-const GRADES_KEY = "bantr:liveGrades";
 
 export function DatePage() {
   const { sessionId = "" } = useParams();
@@ -107,40 +97,7 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
   const call = useAvatar ? avatarCall : voiceCall;
   const [ending, setEnding] = useState(false);
 
-  // Live grades: a badge under each of the user's replies. On by default; the choice is remembered.
-  const [showGrades, setShowGrades] = useState(() => localStorage.getItem(GRADES_KEY) !== "off");
-  const toggleGrades = () =>
-    setShowGrades((on) => {
-      localStorage.setItem(GRADES_KEY, on ? "off" : "on");
-      return !on;
-    });
-  // appendTranscript grades each saved reply, and Wasp refetches getDateSession after it, so `session.moves` fills in live.
-  const moves = useMemo(
-    () => movesByTurn(call.transcript, session.transcript, session.moves, session.gradingEnabled),
-    [call.transcript, session.transcript, session.moves, session.gradingEnabled],
-  );
-
-  // Arc ChatThread wants absolute times; anchor turn offsets to a fixed start.
-  const [anchor] = useState(() => Date.now());
-  const messages = useMemo<ChatMessage[]>(
-    () =>
-      call.transcript.map((turn, i) => {
-        const move = showGrades ? moves.get(i) : undefined;
-        return {
-          id: `${i}`,
-          authorId: turn.speaker,
-          text: turn.text,
-          createdAt: anchor + turn.timestamp,
-          annotation:
-            move === "failed" ? (
-              <span className="text-xs text-faint">Couldn't grade this reply</span>
-            ) : move ? (
-              <MoveBadge move={move.classification} />
-            ) : undefined,
-        };
-      }),
-    [call.transcript, anchor, moves, showGrades],
-  );
+  const messages = useTranscriptMessages(call, session);
 
   async function endDate() {
     setEnding(true);
@@ -214,6 +171,7 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
               attach={useAvatar ? avatarCall.attach : undefined}
               videoReady={useAvatar ? avatarCall.videoReady : undefined}
               speaking={call.isSpeaking}
+              volume={call.getOutputVolume}
               className={cn("aspect-video lg:aspect-auto lg:h-full", fullscreen && "aspect-auto h-full rounded-none border-0")}
               overlay={
                 <>
@@ -290,14 +248,9 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
         <Panel id="live-transcript" className="flex h-[32rem] min-h-0 flex-col p-0 sm:p-0 lg:h-auto">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-base text-foreground">Live transcript</h2>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-faint">
-                {turns} {turns === 1 ? "turn" : "turns"}
-              </span>
-              <Button size="sm" variant="ghost" onClick={toggleGrades} aria-pressed={showGrades}>
-                {showGrades ? "Hide grades" : "Show grades"}
-              </Button>
-            </div>
+            <span className="text-xs text-faint">
+              {turns} {turns === 1 ? "turn" : "turns"}
+            </span>
           </div>
           {(call.error || saveError) && (
             <div className="px-5 pt-4">
@@ -337,35 +290,5 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
         </Panel>
       </div>
     </AppShell>
-  );
-}
-
-/** Start, or Mute + End once the date is on. Shared by the control bar and the fullscreen overlay. */
-function CallButtons({ call, ending, onEnd }: { call: DateConversation; ending: boolean; onEnd: () => void }) {
-  const live = call.status === "live";
-  if (call.status === "idle" || call.status === "connecting") {
-    return (
-      <Button size="lg" loading={call.status === "connecting"} onClick={() => void call.start()} className="min-w-40">
-        <Phone className="size-4" aria-hidden="true" /> Start date
-      </Button>
-    );
-  }
-  const paused = call.status === "paused";
-  const muteLabel = call.isMuted ? "Unmute microphone" : "Mute microphone";
-  return (
-    <>
-      <Tooltip content={muteLabel}>
-        <Button size="lg" variant="secondary" onClick={call.toggleMute} disabled={!live} aria-pressed={call.isMuted} aria-label={muteLabel}>
-          {call.isMuted ? <MicOff className="size-4" aria-hidden="true" /> : <Mic className="size-4" aria-hidden="true" />}
-        </Button>
-      </Tooltip>
-      <Button size="lg" variant="secondary" onClick={paused ? call.resume : call.pause} disabled={!live && !paused}>
-        {paused ? <Play className="size-4" aria-hidden="true" /> : <Pause className="size-4" aria-hidden="true" />}
-        {paused ? "Resume" : "Pause"}
-      </Button>
-      <Button size="lg" variant="danger" onClick={onEnd} loading={ending}>
-        <PhoneOff className="size-4" aria-hidden="true" /> End date
-      </Button>
-    </>
   );
 }

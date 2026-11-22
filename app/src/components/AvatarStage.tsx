@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
  * hand back video by attaching to an element directly instead of exposing a MediaStream
  * (their audio comes through this same element, so it stays unmuted). Pass `videoReady`
  * with `attach` since attaching doesn't by itself mean a frame has arrived yet.
- * Until video is ready, the persona's photo stands in. `overlay` sits on top (status, timer, name).
+ * Until video is ready, the persona's photo stands in, and `volume` (0-1) makes its halo
+ * follow the voice. `overlay` sits on top of the video (status, timer, name).
  */
 export function AvatarStage({
   persona,
@@ -17,6 +18,7 @@ export function AvatarStage({
   attach,
   videoReady,
   speaking = false,
+  volume,
   overlay,
   className,
 }: {
@@ -25,6 +27,7 @@ export function AvatarStage({
   attach?: (el: HTMLVideoElement) => void;
   videoReady?: boolean;
   speaking?: boolean;
+  volume?: () => number;
   overlay?: ReactNode;
   className?: string;
 }) {
@@ -59,7 +62,7 @@ export function AvatarStage({
       />
       {!ready && (
         <div className="absolute inset-0 grid place-items-center">
-          <PersonaAvatar persona={persona} size={168} speaking={speaking} />
+          <PersonaAvatar persona={persona} size={168} speaking={speaking} volume={volume} />
         </div>
       )}
       {overlay}
