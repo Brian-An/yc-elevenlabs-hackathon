@@ -44,3 +44,14 @@ export type Scenario = {
   targetWeakness?: SkillName;
   openingLine?: string;
 };
+
+// Per-turn grade of a user reply, like a chess move classification.
+// Best first; "neutral" is a fine reply that neither helps nor hurts.
+export type MoveClass = "great" | "good" | "neutral" | "inaccuracy" | "mistake" | "blunder";
+
+export type MoveEvaluation = {
+  turnIndex: number; // index of the user turn in the transcript
+  classification: MoveClass;
+  confidence: number; // 0–1, Jev's probability for the classification
+  scores: Record<SkillName, number>; // 1–10, same scale as Evaluation.scores
+};

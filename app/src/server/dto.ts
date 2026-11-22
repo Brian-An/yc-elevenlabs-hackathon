@@ -4,6 +4,7 @@ import type {
   Difficulty,
   Evaluation,
   EvidencedPoint,
+  MoveEvaluation,
   Persona,
   Scenario,
   SkillName,
@@ -75,11 +76,15 @@ export type DateSessionDTO = {
   userContext: string | null;
   /** ElevenLabs agent for this persona (persona-specific or the default). null: the call is mocked. */
   agentId: string | null;
+  /** Jev's grade per user turn, in turn order. Fills in during the date as turns are appended. */
+  moves: MoveEvaluation[];
+  /** Whether the server grades replies (a TypeSafe key is set). */
+  gradingEnabled: boolean;
   startedAt: Date;
   endedAt: Date | null;
 };
 
-export type DateSessionSummary = Omit<DateSessionDTO, "transcript"> & {
+export type DateSessionSummary = Omit<DateSessionDTO, "transcript" | "moves" | "gradingEnabled"> & {
   turnCount: number;
 };
 

@@ -46,6 +46,8 @@ export interface ChatMessage {
   reactions?: ChatReaction[];
   /** Delivery state of the current user's own messages. */
   status?: ChatMessageStatus;
+  /** Extra content under the bubble, on the author's side, such as a label or grade. */
+  annotation?: ReactNode;
 }
 
 export interface ChatDraft {
@@ -612,6 +614,7 @@ export const ChatThread = forwardRef<ChatThreadHandle, ChatThreadProps>(function
                           </ul>
                         </motion.div>}
                       </AnimatePresence>
+                      {message.annotation && <div className={styles.annotation}>{message.annotation}</div>}
                       {(showStatus || seenBy.length > 0) && <div className={styles.receipts}>
                         {showStatus && <span className={styles.status} data-status={status}>
                           {status === "failed" ? <>{t.failed}{onRetry && <button type="button" className={styles.retry} onClick={() => onRetry(message.id)}><RotateCw size={12} strokeWidth={2} aria-hidden="true" />{t.retry}</button>}</>

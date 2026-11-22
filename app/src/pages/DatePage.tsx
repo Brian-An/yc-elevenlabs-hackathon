@@ -7,6 +7,7 @@ import { routes } from "wasp/client/router";
 import { AppShell } from "@/components/AppShell";
 import { Panel } from "@/components/Panel";
 import { AvatarStage } from "@/components/AvatarStage";
+import { MoveBadge } from "@/components/MoveReview";
 import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
 import { ChatThread, type ChatMessage } from "@/components/arc/chat-thread/chat-thread";
@@ -18,6 +19,7 @@ import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
 import { getUserId } from "@/client/userId";
 import type { DateSessionDTO } from "../server/dto";
 import { useDateConversation, type ConversationStatus, type DateConversation } from "@/client/useDateConversation";
+import { movesByTurn } from "@/client/liveMoves";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +32,7 @@ const STATUS_LABEL: Record<ConversationStatus, string> = {
 };
 
 const SUBTITLES_KEY = "bantr:subtitles";
+const GRADES_KEY = "bantr:liveGrades";
 
 export function DatePage() {
   const { sessionId = "" } = useParams();
@@ -96,17 +99,39 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
   });
   const [ending, setEnding] = useState(false);
 
+  // Live grades: a badge under each of the user's replies. On by default; the choice is remembered.
+  const [showGrades, setShowGrades] = useState(() => localStorage.getItem(GRADES_KEY) !== "off");
+  const toggleGrades = () =>
+    setShowGrades((on) => {
+      localStorage.setItem(GRADES_KEY, on ? "off" : "on");
+      return !on;
+    });
+  // appendTranscript grades each saved reply, and Wasp refetches getDateSession after it, so `session.moves` fills in live.
+  const moves = useMemo(
+    () => movesByTurn(call.transcript, session.transcript, session.moves, session.gradingEnabled),
+    [call.transcript, session.transcript, session.moves, session.gradingEnabled],
+  );
+
   // Arc ChatThread wants absolute times; anchor turn offsets to a fixed start.
   const [anchor] = useState(() => Date.now());
   const messages = useMemo<ChatMessage[]>(
     () =>
-      call.transcript.map((turn, i) => ({
-        id: `${i}`,
-        authorId: turn.speaker,
-        text: turn.text,
-        createdAt: anchor + turn.timestamp,
-      })),
-    [call.transcript, anchor],
+      call.transcript.map((turn, i) => {
+        const move = showGrades ? moves.get(i) : undefined;
+        return {
+          id: `${i}`,
+          authorId: turn.speaker,
+          text: turn.text,
+          createdAt: anchor + turn.timestamp,
+          annotation:
+            move === "failed" ? (
+              <span className="text-xs text-faint">Couldn't grade this reply</span>
+            ) : move ? (
+              <MoveBadge move={move.classification} />
+            ) : undefined,
+        };
+      }),
+    [call.transcript, anchor, moves, showGrades],
   );
 
   async function endDate() {
@@ -252,12 +277,17 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
         </div>
 
         {/* Live transcript */}
-        <Panel className="flex h-[32rem] min-h-0 flex-col p-0 sm:p-0 lg:h-auto">
+        <Panel id="live-transcript" className="flex h-[32rem] min-h-0 flex-col p-0 sm:p-0 lg:h-auto">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-base text-foreground">Live transcript</h2>
-            <span className="text-xs text-faint">
-              {turns} {turns === 1 ? "turn" : "turns"}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-faint">
+                {turns} {turns === 1 ? "turn" : "turns"}
+              </span>
+              <Button size="sm" variant="ghost" onClick={toggleGrades} aria-pressed={showGrades}>
+                {showGrades ? "Hide grades" : "Show grades"}
+              </Button>
+            </div>
           </div>
           {(call.error || saveError) && (
             <div className="px-5 pt-4">
