@@ -1,0 +1,23 @@
+app/src/world/Character.tsx
+  s_40e5b68b92b6a3::t_7bcc550cb044ca 42-43,46-49,72-73,75,81
+app/src/world/People.tsx
+  s_40e5b68b92b6a3::t_f5b33339bfe56c 9,145-153
+app/src/world/layout.ts
+  s_40e5b68b92b6a3::t_434bdc284e6870 54-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bad606d2ad3d8fb4ccd45254e4dfb84086740277",
+  "prompts": {},
+  "sessions": {
+    "s_40e5b68b92b6a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58d37d34-061f-4fd9-92fd-36130ba3151e",
+        "model": "unknown"
+      },
+      "human_author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
