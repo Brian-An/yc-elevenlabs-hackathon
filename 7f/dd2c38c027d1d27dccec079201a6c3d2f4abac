@@ -1,0 +1,125 @@
+app/main.wasp.ts
+  s_bc89df247dc072::t_5346e5df0ec9c0 35-36
+  s_bc89df247dc072::t_588e12e91bf4f0 6
+app/src/world/People.tsx
+  s_4c553b77babaae::t_4ce5d5016c14de 28-29,31,34,36-37,45,47,49-50
+  s_bc89df247dc072::t_e82c64d2dd9400 141
+  s_bc89df247dc072::t_b1ae7caef17bd1 1-6,8,12-27,30,32-33,35,38-44,46,48,51-138,140,142-155
+  s_4c553b77babaae::t_f5381471069f6e 7,9-11
+  s_bc89df247dc072::t_59b6dc07dadf97 139
+app/src/pages/WorldPage.tsx
+  s_4c553b77babaae::t_e230706131b84e 462-466
+  s_4c553b77babaae::t_25c1c0d1336ab7 28,51-55
+  s_4c553b77babaae::t_65a4e088264b46 256-259,261-266,270,275-277,279-285
+  s_bc89df247dc072::t_942a60230985c9 3-8,10-21,23-27,33-49,56-114,117-145,198-202,204-255,267,288-370,372-461,467-500
+  s_4c553b77babaae::t_b47a5b8e493d7d 278
+  s_bc89df247dc072::t_e2ccdae7a483ad 286-287
+  s_4c553b77babaae::t_5469a533f016ac 177-181
+  s_4c553b77babaae::t_daf8dc68d47d9a 50
+  s_4c553b77babaae::t_78465610f8ade9 2,22,29-32,115-116,146-176,182-197,203,260,268-269,271-274
+  s_f9e11cfde568af::t_8692f79a617277 9,371
+  s_bc89df247dc072::t_588e12e91bf4f0 1
+app/src/pages/DatePage.tsx
+  s_f9e11cfde568af::t_8692f79a617277 10,92
+  s_4c553b77babaae::t_e230706131b84e 240-242
+  s_bc89df247dc072::t_23a2e49904ebbe 1-2,13,21
+app/src/world/stroll.ts
+  s_4c553b77babaae::t_c2d418efd0d208 80-83
+  s_4c553b77babaae::t_9ac02c06b9814d 109-110,112-113,115-121,123,125-126,129-133
+  s_4c553b77babaae::t_1087783e3df031 1-4,6-12,16-28,31-45,47-68,76-79,84-99,107-108,134-148
+  s_4c553b77babaae::t_c2039a4061aff4 13,69,100-106
+  s_4c553b77babaae::t_4ce5d5016c14de 5
+  s_4c553b77babaae::t_43b91696ddbf69 14,29-30,46,70-75
+  s_4c553b77babaae::t_2268a5ba8f65ea 15,111,114,122,124,127-128
+app/src/world/navigation.test.ts
+  s_4c553b77babaae::t_04660317141476 1-78,80-81
+  s_4c553b77babaae::t_fe5dad0bd482fa 79
+app/src/world/Plaza.tsx
+  s_bc89df247dc072::t_e58e195eb267bc 1-20,22-25,27-35,41-90,93-102
+  s_bc89df247dc072::t_99a3ce2fa3efbe 21
+  s_bc89df247dc072::t_c293234632217f 26
+  s_bc89df247dc072::t_5c2ba8443d1c9a 36-40
+  s_bc89df247dc072::t_0482bf09e61b2c 91-92
+app/src/world/collision.ts
+  s_bc89df247dc072::t_850e7ae0256296 1-16,22-61,63-84
+  s_bc89df247dc072::t_4d181b5f9235b6 17-21,62
+app/src/components/AppShell.tsx
+  s_bc89df247dc072::t_5346e5df0ec9c0 50-53
+  s_bc89df247dc072::t_239da2b7567a18 22-23,25-35,37,66-68,70
+  s_bc89df247dc072::t_3e5f15a68c3d6c 6,20
+  s_bc89df247dc072::t_06ff9677c18713 40
+app/src/world/navigation.ts
+  s_4c553b77babaae::t_43b91696ddbf69 12-13,78
+  s_4c553b77babaae::t_f292fec1059633 1-7,10-11,14-76,79-213
+  s_4c553b77babaae::t_f5381471069f6e 8-9,77
+app/src/world/collision.test.ts
+  s_bc89df247dc072::t_6b4382c4b73fa2 1-68
+app/src/world/layout.ts
+  s_bc89df247dc072::t_f1d944b3329579 1-15,17-23,45-68,71-80,82,84,87,99-101,105,108,112-182
+  s_bc89df247dc072::t_e82c64d2dd9400 24-44
+  s_bc89df247dc072::t_0a2d74a2bc883c 102-104,106-107,109-111
+  s_bc89df247dc072::t_99a3ce2fa3efbe 16,69-70,83,85-86,88-98
+  s_bc89df247dc072::t_4ea5762ccb8c10 81
+app/src/world/bus.ts
+  s_bc89df247dc072::t_d3fdd63edfbec2 1-22
+app/src/world/controls.ts
+  s_4c553b77babaae::t_d51e632eb83819 1-15
+app/src/world/Character.tsx
+  s_bc89df247dc072::t_e82c64d2dd9400 4,6,54-67,70
+  s_bc89df247dc072::t_bb1e7019b6be64 110-112,114-118,122-124
+  s_bc89df247dc072::t_225aa60250c856 1-3,5,7-53,68-69,71-109,113,119-121,125-147
+app/public/models/CREDITS.md
+  s_bc89df247dc072::t_02172f9df28c30 1-22
+app/src/world/Player.tsx
+  s_4c553b77babaae::t_78465610f8ade9 6
+  s_bc89df247dc072::t_3bc192475b33f9 1-5,7-131,133-238,248-253,263-266
+  s_bc89df247dc072::t_68c97ae662b4c5 132,239-247,254-262
+app/src/world/WorldScene.tsx
+  s_bc89df247dc072::t_e85deb23f805d8 2-5,7-10,12-49,52-88,90,92-105,107-115,117-118
+  s_bc89df247dc072::t_29089c59a1d256 1,89,91,116
+  s_4c553b77babaae::t_f5381471069f6e 6,11,50-51,106
+app/src/pages/DashboardPage.tsx
+  s_bc89df247dc072::t_ce6c8d05e91890 1-2,10
+  s_bc89df247dc072::t_74a781b4991110 24,31,33,96,108-109
+app/src/client/useDateConversation.ts
+  s_bc89df247dc072::t_67c9f468be891d 36-37,240-250
+app/package.json
+  s_bc89df247dc072::t_d6ede4852f8956 16-17,29,36
+app/src/components/DateCall.tsx
+  s_bc89df247dc072::t_85c58c7dc3b872 1-54,56-65,67-79,81-82
+  s_f9e11cfde568af::t_8692f79a617277 55,66,80
+app/package-lock.json
+  s_bc89df247dc072::t_fa655b6076a552 20-21,33,40,57-59,85-87,109,209,234,908-913,2070-2075,2101-2112,4386-4473,5803-5808,5878-5883,5935-5940,5972-5980,6022-6027,6034-6047,6054-6059,6342-6359,6553-6555,6566-6568,6603-6605,7134-7153,7293-7316,7380-7392,7737-7754,7957-7965,8053-8058,9023-9028,9109-9114,9205-9224,9241-9246,9574-9585,9781-9789,10189-10198,10323-10337,11543-11548,11633-11648,11994-12008,12713-12738,12911-12919,12983-13020,13149-13178,13222-13258,13577-13585,13786-13796,14047-14075
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7fdd2c38c027d1d27dccec079201a6c3d2f4abac",
+  "prompts": {},
+  "sessions": {
+    "s_4c553b77babaae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b4682b27-fbae-4b30-ba32-9ee37ac2e765",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    },
+    "s_bc89df247dc072": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "559fc96f-3742-454a-b001-c1109387f41d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    },
+    "s_f9e11cfde568af": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6a01216-2edc-4657-b746-4ce04ac9f464",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
