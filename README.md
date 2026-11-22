@@ -16,7 +16,7 @@ wasp start                           # client :3000, server :3001
 
 Where things are:
 
-- `main.wasp.ts`: routes, auth (username + password), operations, the ElevenLabs signed-URL API
+- `main.wasp.ts`: routes, operations, the ElevenLabs signed-URL API. There is no login: the browser keeps a user ID in localStorage (`src/client/userId.ts`) and every operation takes it as `userId`, e.g. `useQuery(getProfile, { userId: getUserId() })`
 - `schema.prisma`: `User`, `DateSession`, `UserMemory` (PostgreSQL `Json` columns, typed in `src/server/dto.ts`)
 - `src/server/`: operations, personas, `evaluator.ts` (rule-based stub, replace with the LLM evaluator), `memory.ts` (skill profile, training focus, strengths and weaknesses, stored in Postgres), `elevenlabs.ts`
 - `src/pages/`: all pages, currently on mock data from `src/client/mockData.ts` (each page has a `useQuery` swap noted inline)
@@ -49,7 +49,7 @@ User memory lives in Postgres (`User.preferences` + `UserMemory`). `getProfile` 
 | Technology       | Responsibility                                                                  |
 | ---------------- | ------------------------------------------------------------------------------- |
 | **ElevenLabs**   | Real-time voice conversations, AI character voice and avatar presentation       |
-| **Wasp + PostgreSQL** | Backend, authentication, API orchestration, and persistent user memory (preferences, skill profile, strengths, weaknesses, past sessions) |
+| **Wasp + PostgreSQL** | Backend, API orchestration, and persistent user memory (preferences, skill profile, strengths, weaknesses, past sessions) |
 | **assistant-ui** | Chat interface, live transcripts, and coaching feedback                         |
 | **TraceRoot**    | Agent tracing, evaluation, and monitoring                                       |
 

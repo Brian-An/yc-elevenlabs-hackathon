@@ -37,13 +37,13 @@ function snapshot(row: UserMemory | null): MemorySnapshot {
   };
 }
 
-export async function getMemory(userId: number): Promise<MemorySnapshot> {
+export async function getMemory(userId: string): Promise<MemorySnapshot> {
   const row = await prisma.userMemory.findUnique({ where: { userId } });
   return snapshot(row);
 }
 
 export async function saveMemory(
-  userId: number,
+  userId: string,
   evaluation: Evaluation,
   meta: { sessionId: string; personaId: string },
 ): Promise<MemorySnapshot> {

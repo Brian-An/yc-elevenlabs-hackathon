@@ -59,7 +59,7 @@ export function DashboardPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
         <Panel>
-          <PanelHeader title="Your skills" description="From your latest date. Change is since the one before." />
+          <PanelHeader title="Your skills" description="Scores from your latest date, with the change since the one before." />
           <SkillScoreList scores={skills} delta={skillDelta} />
         </Panel>
 

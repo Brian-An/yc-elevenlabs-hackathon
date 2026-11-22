@@ -1,4 +1,4 @@
-// GET /api/elevenlabs/signed-url?agentId=...  (auth required) -> { signedUrl }
+// GET /api/elevenlabs/signed-url?agentId=...  -> { signedUrl }
 // Proxies ElevenLabs Conversational AI "get signed url" so the API key stays server side.
 // https://elevenlabs.io/docs/api-reference/conversations/get-signed-url
 import type { MiddlewareConfigFn } from "wasp/server";
@@ -12,11 +12,7 @@ export const elevenLabsMiddleware: MiddlewareConfigFn = (config) => config;
 export const getElevenLabsSignedUrl: GetElevenLabsSignedUrl<
   never,
   { signedUrl: string } | { error: string }
-> = async (req, res, context) => {
-  if (!context.user) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
-  }
+> = async (req, res) => {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   const agentId =
     (typeof req.query.agentId === "string" && req.query.agentId) || process.env.ELEVENLABS_AGENT_ID;

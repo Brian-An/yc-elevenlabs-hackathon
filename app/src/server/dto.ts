@@ -10,6 +10,7 @@ import type {
   Transcript,
   TranscriptTurn,
 } from "../shared/types";
+import type { WithUser } from "./user";
 
 export type SessionStatus = "active" | "ended" | "evaluated";
 // JSON-safe preference values (operations payloads must be superjson-serializable).
@@ -48,8 +49,7 @@ export type MemorySnapshot = {
 };
 
 export type Profile = {
-  id: number;
-  username: string | null;
+  id: string;
   displayName: string | null;
   goals: string | null;
   experienceLevel: string | null;
@@ -80,16 +80,16 @@ export type DateSessionSummary = Omit<DateSessionDTO, "transcript"> & {
 };
 
 // Operation args
-export type UpdateProfileArgs = {
+export type UpdateProfileArgs = WithUser & {
   displayName?: string;
   goals?: string;
   experienceLevel?: string;
   preferences?: Preferences;
 };
-export type CreateDateSessionArgs = { personaId: string; scenario?: Scenario };
-export type IdArgs = { id: string };
-export type AppendTranscriptArgs = { id: string; turns: TranscriptTurn[] };
-export type SaveTranscriptArgs = { id: string; transcript: Transcript };
-export type EndDateSessionArgs = { id: string; transcript?: Transcript };
-export type GetNextScenarioArgs = { personaId?: string } | void;
+export type CreateDateSessionArgs = WithUser & { personaId: string; scenario?: Scenario };
+export type IdArgs = WithUser & { id: string };
+export type AppendTranscriptArgs = WithUser & { id: string; turns: TranscriptTurn[] };
+export type SaveTranscriptArgs = WithUser & { id: string; transcript: Transcript };
+export type EndDateSessionArgs = WithUser & { id: string; transcript?: Transcript };
+export type GetNextScenarioArgs = WithUser & { personaId?: string };
 export type TranscriptResult = { id: string; turnCount: number };
