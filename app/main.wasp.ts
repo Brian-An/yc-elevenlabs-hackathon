@@ -22,6 +22,10 @@ import {
   getElevenLabsSignedUrl,
   elevenLabsMiddleware,
 } from "./src/server/elevenlabs" with { type: "ref" };
+import {
+  getHeyGenSessionToken,
+  heyGenMiddleware,
+} from "./src/server/heygen" with { type: "ref" };
 
 export default app({
   name: "bantr",
@@ -54,5 +58,9 @@ export default app({
     // ElevenLabs signed URL for the Conversational AI widget/SDK
     apiNamespace("/api/elevenlabs", { middlewareConfigFn: elevenLabsMiddleware }),
     api("GET", "/api/elevenlabs/signed-url", getElevenLabsSignedUrl),
+
+    // HeyGen LiveAvatar session token (real-time lip-synced video)
+    apiNamespace("/api/heygen", { middlewareConfigFn: heyGenMiddleware }),
+    api("GET", "/api/heygen/session-token", getHeyGenSessionToken),
   ],
 });

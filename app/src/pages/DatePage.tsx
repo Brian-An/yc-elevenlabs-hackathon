@@ -18,7 +18,9 @@ import { Skeleton } from "@/components/arc/skeleton/skeleton";
 import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
 import { getUserId } from "@/client/userId";
 import type { DateSessionDTO } from "../server/dto";
+import type { TranscriptTurn } from "../shared/types";
 import { useDateConversation, type ConversationStatus, type DateConversation } from "@/client/useDateConversation";
+import { useAvatarSession } from "@/client/useAvatarSession";
 import { movesByTurn } from "@/client/liveMoves";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -83,20 +85,26 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
   const { id: sessionId, persona, scenario } = session;
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Live ElevenLabs call when the session has an agent, the mock otherwise (src/client/useDateConversation.ts).
-  const call = useDateConversation({
+  // Save each turn as it arrives, so a closed tab doesn't lose the date.
+  const onTurn = (turn: TranscriptTurn) => {
+    appendTranscript({ userId: getUserId(), id: sessionId, turns: [turn] }).catch((err) =>
+      console.warn("[date] couldn't save a turn:", err),
+    );
+  };
+  // HeyGen LiveAvatar when this server has it configured (real video, lip-synced to the ElevenLabs
+  // agent); otherwise ElevenLabs voice-only, or the mock when the session has no agent at all.
+  // Both hooks are always called (rules of hooks); only the active one's start()/end() ever run.
+  const useAvatar = session.avatarEnabled && Boolean(session.agentId);
+  const avatarCall = useAvatarSession({ agentId: session.agentId ?? "", onTurn });
+  const voiceCall = useDateConversation({
     persona,
     scenario,
     agentId: session.agentId,
     userContext: session.userContext,
     sampleTranscript,
-    // Save each turn as it arrives, so a closed tab doesn't lose the date.
-    onTurn: (turn) => {
-      appendTranscript({ userId: getUserId(), id: sessionId, turns: [turn] }).catch((err) =>
-        console.warn("[date] couldn't save a turn:", err),
-      );
-    },
+    onTurn,
   });
+  const call = useAvatar ? avatarCall : voiceCall;
   const [ending, setEnding] = useState(false);
 
   // Live grades: a badge under each of the user's replies. On by default; the choice is remembered.
@@ -203,6 +211,8 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
             <AvatarStage
               persona={persona}
               stream={call.videoStream}
+              attach={useAvatar ? avatarCall.attach : undefined}
+              videoReady={useAvatar ? avatarCall.videoReady : undefined}
               speaking={call.isSpeaking}
               className={cn("aspect-video lg:aspect-auto lg:h-full", fullscreen && "aspect-auto h-full rounded-none border-0")}
               overlay={

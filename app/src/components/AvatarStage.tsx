@@ -4,32 +4,43 @@ import { PersonaAvatar } from "@/components/PersonaAvatar";
 import { cn } from "@/lib/utils";
 
 /**
- * The persona's live video. ElevenLabs agents get their video avatar from a partner
- * (LiveAvatar/HeyGen, Runway or D-ID), which arrives as a WebRTC MediaStream.
- * Pass it as `stream`; until it arrives the persona's initial stands in.
- * `overlay` sits on top of the video (status, timer, name).
+ * The persona's live video. Either a WebRTC `stream` (muted; audio plays through the
+ * ElevenLabs session separately), or `attach` for providers like HeyGen LiveAvatar that
+ * hand back video by attaching to an element directly instead of exposing a MediaStream
+ * (their audio comes through this same element, so it stays unmuted). Pass `videoReady`
+ * with `attach` since attaching doesn't by itself mean a frame has arrived yet.
+ * Until video is ready, the persona's photo stands in. `overlay` sits on top (status, timer, name).
  */
 export function AvatarStage({
   persona,
   stream,
+  attach,
+  videoReady,
   speaking = false,
   overlay,
   className,
 }: {
   persona: Persona;
   stream: MediaStream | null;
+  attach?: (el: HTMLVideoElement) => void;
+  videoReady?: boolean;
   speaking?: boolean;
   overlay?: ReactNode;
   className?: string;
 }) {
   const video = useRef<HTMLVideoElement>(null);
+  const ready = attach ? Boolean(videoReady) : Boolean(stream);
 
   useEffect(() => {
     const el = video.current;
     if (!el) return;
+    if (attach) {
+      attach(el);
+      return;
+    }
     el.srcObject = stream;
     if (stream) void el.play().catch(() => {});
-  }, [stream]);
+  }, [stream, attach]);
 
   return (
     <div
@@ -38,16 +49,15 @@ export function AvatarStage({
         className,
       )}
     >
-      {/* Audio plays through the ElevenLabs session, so the video stays muted. */}
       <video
         ref={video}
         autoPlay
         playsInline
-        muted
+        muted={!attach}
         aria-label={`${persona.name}'s video`}
-        className={cn("absolute inset-0 size-full object-cover", !stream && "hidden")}
+        className={cn("absolute inset-0 size-full object-cover", !ready && "hidden")}
       />
-      {!stream && (
+      {!ready && (
         <div className="absolute inset-0 grid place-items-center">
           <PersonaAvatar persona={persona} size={168} speaking={speaking} />
         </div>

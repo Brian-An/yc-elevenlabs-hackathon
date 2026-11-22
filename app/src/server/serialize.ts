@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import type { DateSession } from "wasp/entities";
 import type { Evaluation, MoveEvaluation, Scenario, Transcript } from "../shared/types";
 import type { DateSessionDTO, DateSessionSummary, SessionStatus } from "./dto";
+import { heyGenEnabled } from "./heygen";
 import { jevEnabled } from "./jev";
 import { getPersona } from "./personas";
 
@@ -31,6 +32,7 @@ export function toSessionDTO(row: DateSession, moves: MoveEvaluation[] = []): Da
     evaluation: readJson<Evaluation | null>(row.evaluation, null),
     userContext: row.userContext,
     agentId: getPersona(row.personaId)?.elevenLabsAgentId ?? process.env.ELEVENLABS_AGENT_ID ?? null,
+    avatarEnabled: heyGenEnabled(),
     moves,
     gradingEnabled: jevEnabled(),
     startedAt: row.startedAt,
