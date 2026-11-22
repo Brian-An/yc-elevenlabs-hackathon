@@ -1,0 +1,43 @@
+README.md
+  s_40e5b68b92b6a3::t_f8fd1cba787953 19,52
+app/main.wasp.ts
+  s_40e5b68b92b6a3::t_c9e8e92fb4185d 32-37,46,56
+app/migrations/20261122164957_remove_login/migration.sql
+  s_40e5b68b92b6a3::t_b051c865973e12 1-51
+app/schema.prisma
+  s_40e5b68b92b6a3::t_a0253e43c87342 15,17,31,47
+app/src/client/userId.ts
+  s_40e5b68b92b6a3::t_316f82e1799387 1-18
+app/src/components/AppShell.tsx
+  s_40e5b68b92b6a3::t_26a72b0112475f 7,13,20-21,31,37,41,59
+app/src/pages/DashboardPage.tsx
+  s_40e5b68b92b6a3::t_fb371c07a8b2f4 62
+app/src/server/dto.ts
+  s_40e5b68b92b6a3::t_e2d7adef7db43a 13,52,83,89-94
+app/src/server/elevenlabs.ts
+  s_40e5b68b92b6a3::t_5c1debc64e3f50 1,15
+app/src/server/memory.ts
+  s_40e5b68b92b6a3::t_639cfa6955fae6 40,46
+app/src/server/profile.ts
+  s_40e5b68b92b6a3::t_5c14946108d436 5,7-10,12-18,23,25,27,29-33,36,39
+app/src/server/sessions.ts
+  s_40e5b68b92b6a3::t_ac4ea6d2226819 30,32,34-36,38,53,61,71,73,75,82,93,109,126,130-132
+app/src/server/user.ts
+  s_40e5b68b92b6a3::t_d27951d6d42baa 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "80eaa685fdffb1848102edc24d683b933d268eb7",
+  "prompts": {},
+  "sessions": {
+    "s_40e5b68b92b6a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58d37d34-061f-4fd9-92fd-36130ba3151e",
+        "model": "unknown"
+      },
+      "human_author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
