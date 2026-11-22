@@ -1,0 +1,19 @@
+README.md
+  s_c02e86b6475639::t_125cb25046f398 2-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a9818fbfbc4aae3f7743445856b850344707d269",
+  "prompts": {},
+  "sessions": {
+    "s_c02e86b6475639": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cd7dfb2f-0c7c-4fff-a397-6b41bb4b7ad7",
+        "model": "unknown"
+      },
+      "human_author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
