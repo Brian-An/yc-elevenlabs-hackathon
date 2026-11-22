@@ -152,8 +152,18 @@ export function evaluateMoves(transcript: Transcript, scenario: Scenario, moves:
     return transcript[move.turnIndex]?.text ?? "";
   };
 
-  const good = strengthCopy(name);
-  const bad = weaknessCopy(name);
+  const good = {
+    ...strengthCopy(name),
+    engagement: "You gave your date something relevant to respond to.",
+    confidence: "You expressed your point clearly.",
+    flow: "You gave your date a natural way to continue.",
+  };
+  const bad = {
+    ...weaknessCopy(name),
+    engagement: "Add a relevant detail or follow-up to invite your date into the exchange.",
+    confidence: "Try stating your answer or preference more directly.",
+    flow: "Try building on the current topic or making a clear transition.",
+  };
   const ranked = [...SKILLS].sort((a, b) => scores[b] - scores[a]);
   const strengths: EvidencedPoint[] = ranked
     .slice(0, 2)
