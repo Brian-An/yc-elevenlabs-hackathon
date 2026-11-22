@@ -1,0 +1,14 @@
+app/src/pages/WorldPage.tsx
+  h_1a0e607fe5f58f 1,42,135-137,145,316,364,427,595,599,604,607-608,611-614,619-620,623-650,653-677
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "acf9ca8a77afb2ddbc3d5c7339fde5a745b57a71",
+  "prompts": {},
+  "humans": {
+    "h_1a0e607fe5f58f": {
+      "author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
