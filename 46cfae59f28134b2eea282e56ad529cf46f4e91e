@@ -1,0 +1,19 @@
+app/package-lock.json
+  s_40e5b68b92b6a3::t_6f2542ebcdb2b3 57-59,85-87,109,209,234,6360-6389,6553-6555,6565-6601,6603-6605
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "46cfae59f28134b2eea282e56ad529cf46f4e91e",
+  "prompts": {},
+  "sessions": {
+    "s_40e5b68b92b6a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "58d37d34-061f-4fd9-92fd-36130ba3151e",
+        "model": "unknown"
+      },
+      "human_author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
