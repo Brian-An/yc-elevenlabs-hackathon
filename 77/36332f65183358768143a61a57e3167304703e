@@ -1,0 +1,112 @@
+app/src/server/heygen.ts
+  s_4ab6f7952349b3::t_ec0aaaaa664fe5 49,61-65
+app/src/shared/types.ts
+  s_4ab6f7952349b3::t_633dd92cc40b59 39-59
+app/migrations/20261123185657_custom_personas/migration.sql
+  s_4ab6f7952349b3::t_646cb96c4f827c 1-47
+app/src/components/PersonaAvatar.tsx
+  s_4ab6f7952349b3::t_48c85f9c19f5a7 68-69
+app/src/server/customPersonas.test.ts
+  s_4ab6f7952349b3::t_285505dc7786fe 1-8,10-28
+  s_4ab6f7952349b3::t_f4ec84e98c271d 9
+app/src/client/useDateConversation.ts
+  s_4ab6f7952349b3::t_8e1d43bfc8b8f5 151,153,155-156
+app/src/server/voices.ts
+  s_4ab6f7952349b3::t_cca5dffc1d193f 1-89
+app/src/server/voices.test.ts
+  s_4ab6f7952349b3::t_f4ec84e98c271d 20,22-25
+  s_4ab6f7952349b3::t_285505dc7786fe 1-19,21,26-31
+app/src/pages/FeedbackPage.tsx
+  s_4ab6f7952349b3::t_7de7115ef33649 34
+app/src/server/anthropic.ts
+  s_4ab6f7952349b3::t_699a13657d72ff 1-29
+app/schema.prisma
+  s_4ab6f7952349b3::t_1d4566c43936fa 27,101-141
+  s_4ab6f7952349b3::t_c7cb6e6f019f01 142
+app/main.wasp.ts
+  s_4ab6f7952349b3::t_1ca991871b3904 26-30,61,71-76
+  s_4ab6f7952349b3::t_f82c4c9850f75c 7,53
+  s_4ab6f7952349b3::t_c5b58169544e13 25,77
+app/src/client/useFirstRun.ts
+  s_4ab6f7952349b3::t_7de7115ef33649 1-15
+app/package.json
+  s_4ab6f7952349b3::t_b7ce2a70d21b24 9,13
+app/src/components/AppShell.tsx
+  s_4ab6f7952349b3::t_1623810f67b2dc 6,20,53-55
+  s_4ab6f7952349b3::t_962e4305122d9a 56
+app/src/pages/DashboardPage.tsx
+  s_4ab6f7952349b3::t_7de7115ef33649 13,27
+app/src/server/characterGen.test.ts
+  s_4ab6f7952349b3::t_285505dc7786fe 1-58
+app/src/pages/OnboardingPage.tsx
+  s_4ab6f7952349b3::t_bbbba93429e1ba 18,168
+  s_4ab6f7952349b3::t_c92e7e65de6f15 4,8-9,19,56-59,74-159,161-167,169-177,183-198,200-203,208-217,219-225
+  s_4ab6f7952349b3::t_96f0176a59ea08 63-64
+  s_4ab6f7952349b3::t_2e367f468411f5 1,60-62,65-73,178-182,199,204-207
+  s_4ab6f7952349b3::t_4ec4585e110317 160,218
+app/src/server/avatarCatalog.ts
+  s_4ab6f7952349b3::t_6da156c1b75c8c 1-10,12-147
+  s_4ab6f7952349b3::t_e6565dde5121ab 11
+app/src/server/personas.ts
+  s_4ab6f7952349b3::t_cecac43864c100 1-7,9,89,95-171
+  s_4ab6f7952349b3::t_d9a00ad7cabdc1 172
+app/src/server/elevenlabs.ts
+  s_4ab6f7952349b3::t_ec0aaaaa664fe5 16,46
+app/src/world/WorldScene.tsx
+  s_4ab6f7952349b3::t_8af98c60a223d5 11,87,98
+app/src/world/layout.ts
+  s_4ab6f7952349b3::t_6488d14a15b807 92
+  s_4ab6f7952349b3::t_4dead3aac10138 93-94
+  s_4ab6f7952349b3::t_8af98c60a223d5 5,66-73
+  s_4ab6f7952349b3::t_b155558bca81b4 82-85
+  s_4ab6f7952349b3::t_e51014dca34842 74-75
+app/src/server/serialize.ts
+  s_4ab6f7952349b3::t_98a6332c03111c 5,36-37,44,51,63-65,67,76,78
+app/src/server/sessionBrief.ts
+  s_4ab6f7952349b3::t_7427cc1e197f9e 4,14,17,34-37,47,59-67,84-86,97-100,102-108
+app/src/pages/WorldPage.tsx
+  s_4ab6f7952349b3::t_7de7115ef33649 12,50-52
+app/src/server/customPersonas.db.test.ts
+  s_4ab6f7952349b3::t_6a5533702821c5 1-154
+app/.env.server.example
+  s_4ab6f7952349b3::t_62d4a443df7fd5 16-17,26-27
+app/src/world/People.tsx
+  s_4ab6f7952349b3::t_8af98c60a223d5 9,147
+app/src/server/customPersonas.ts
+  s_4ab6f7952349b3::t_ec9aeafd78da4e 1-139
+app/src/components/LabeledSegments.tsx
+  s_4ab6f7952349b3::t_bbbba93429e1ba 1-11
+app/src/pages/CharactersPage.tsx
+  s_4ab6f7952349b3::t_235ccc5bf65e81 114-115,117-118,129
+  s_4ab6f7952349b3::t_4ec4585e110317 212-213
+  s_4ab6f7952349b3::t_a6c27fd87f8ffb 1-22,24-83,86-95,97-106,108-109,112-113,116,121-128,130-134,136-137,139-167,169-185,187-189,191-200,202-207,209-211,214-219,221-230,232-240,242-247,249-255,257-260,262-283,286-310,312-314,317-370
+  s_4ab6f7952349b3::t_c02881d037aef9 119-120
+  s_4ab6f7952349b3::t_bbbba93429e1ba 23,201,208
+  s_4ab6f7952349b3::t_22f70df7d6110a 231
+  s_4ab6f7952349b3::t_bf00672c40c482 84-85,96,107,110-111,135,138,168,186,190,220,241,248,256,261,284-285,311,315-316
+app/src/server/sessions.ts
+  s_4ab6f7952349b3::t_6e967ecb8f51e1 34,63-65,69-70,99,102-104,110,116,120,122,126-127,143,158,184-185,196
+app/src/server/reviewJobs.ts
+  s_4ab6f7952349b3::t_7427cc1e197f9e 25,163
+app/src/server/characterGen.ts
+  s_4ab6f7952349b3::t_e590812cf9289c 1-111
+README.md
+  s_4ab6f7952349b3::t_eeac332ff4f361 72-73
+  s_4ab6f7952349b3::t_62d4a443df7fd5 64-71,74-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7736332f65183358768143a61a57e3167304703e",
+  "prompts": {},
+  "sessions": {
+    "s_4ab6f7952349b3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7410ff4e-2888-4460-a12d-0d5cbaef9420",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
