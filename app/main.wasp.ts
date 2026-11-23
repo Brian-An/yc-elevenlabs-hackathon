@@ -4,6 +4,7 @@ import { DashboardPage } from "./src/pages/DashboardPage" with { type: "ref" };
 import { DatePage } from "./src/pages/DatePage" with { type: "ref" };
 import { FeedbackPage } from "./src/pages/FeedbackPage" with { type: "ref" };
 import { WorldPage } from "./src/pages/WorldPage" with { type: "ref" };
+import { CharactersPage } from "./src/pages/CharactersPage" with { type: "ref" };
 import {
   getProfile,
   updateProfile,
@@ -21,6 +22,12 @@ import {
   getNextScenario,
 } from "./src/server/sessions" with { type: "ref" };
 import { runDateReview, sweepDateReviews } from "./src/server/reviewJobs" with { type: "ref" };
+import {
+  generateCustomPersona,
+  updateCustomPersona,
+  deleteCustomPersona,
+} from "./src/server/customPersonas" with { type: "ref" };
+import { refreshAvatarCatalog } from "./src/server/avatarCatalog" with { type: "ref" };
 import {
   getElevenLabsSignedUrl,
   elevenLabsMiddleware,
@@ -43,6 +50,7 @@ export default app({
     route("OnboardingRoute", "/onboarding", page(OnboardingPage)),
     route("DateRoute", "/date/:sessionId", page(DatePage)),
     route("FeedbackRoute", "/feedback/:sessionId", page(FeedbackPage)),
+    route("CharactersRoute", "/characters", page(CharactersPage)),
 
     // Profile + memory
     query(getProfile, { entities: ["User", "UserMemory"] }),
@@ -50,7 +58,7 @@ export default app({
     query(getMemory, { entities: ["UserMemory"] }),
 
     // Personas + date sessions
-    query(getPersonas),
+    query(getPersonas, { entities: ["CustomPersona"] }),
     action(createDateSession, { entities: ["User", "DateSession", "UserMemory", "PersonaCallback"] }),
     query(getDateSession, { entities: ["DateSession", "Move", "ReviewJob"] }),
     query(listDateSessions, { entities: ["DateSession"] }),
@@ -59,6 +67,13 @@ export default app({
     action(endDateSession, { entities: ["DateSession", "Move", "ReviewJob", "PersonaCallback"] }),
     action(retryDateReview, { entities: ["DateSession", "ReviewJob"] }),
     query(getNextScenario, { entities: ["User", "UserMemory"] }),
+
+    // Practice characters users generate from a description
+    action(generateCustomPersona, { entities: ["User", "CustomPersona", "AvatarProfile"] }),
+    action(updateCustomPersona, { entities: ["CustomPersona"] }),
+    action(deleteCustomPersona, { entities: ["CustomPersona", "PersonaCallback"] }),
+    // Describes LiveAvatar avatars from their previews so generated characters get a matching video avatar.
+    job(refreshAvatarCatalog, { executor: "PgBoss", entities: ["AvatarProfile"], schedule: { cron: "0 * * * *" } }),
 
     // Whole-date reviews. A ReviewJob row is the durable queue entry; runDateReview is its fast wake-up,
     // and the sweep recovers lost wake-ups, expired leases, and reviews waiting on configuration.

@@ -31,7 +31,7 @@ import { mergeTurns } from "./transcript";
 import { generateNextScenario, SKILLS } from "./evaluator";
 import { getMemory } from "./memory";
 import { gradePendingMoves, gradePendingMovesInBackground, movesForTranscript } from "./moves";
-import { getPersona, listPersonas } from "./personas";
+import { listPersonasFor, personaLookup, resolvePersona } from "./personas";
 import { asJson, readJson, summaryColumns, toSessionDTO, toSessionSummary, transcriptColumns } from "./serialize";
 import { ensureUser, userIdFrom, type WithUser } from "./user";
 
@@ -60,12 +60,14 @@ function cleanTurns(turns: unknown): TranscriptTurn[] {
     }));
 }
 
-export const getPersonas: GetPersonas<void, PersonaWithScenario[]> = async () => listPersonas();
+/** Stock personas, plus the caller's generated characters when a userId is given. */
+export const getPersonas: GetPersonas<Partial<WithUser> | void, PersonaWithScenario[]> = async (args) =>
+  listPersonasFor(args?.userId ? userIdFrom(args) : null);
 
 export const createDateSession: CreateDateSession<CreateDateSessionArgs, DateSessionDTO> = async (args, context) => {
   const userId = await ensureUser(args);
-  const persona = getPersona(args?.personaId);
-  if (!persona) throw new HttpError(400, `Unknown personaId: ${args?.personaId}`);
+  const persona = typeof args?.personaId === "string" ? (await resolvePersona(args.personaId, userId))?.persona : undefined;
+  if (!persona || persona.custom?.deleted) throw new HttpError(400, `Unknown personaId: ${args?.personaId}`);
   const scenario: Scenario = args.scenario
     ? { ...args.scenario, personaId: persona.id }
     : persona.defaultScenario;
@@ -94,32 +96,35 @@ export const createDateSession: CreateDateSession<CreateDateSessionArgs, DateSes
       userContext: kind === "date" && source === "live" ? await pendingCallback(userId, persona.id) : null,
     },
   });
-  return toSessionDTO(row);
+  return toSessionDTO(row, persona);
 };
 
-function sessionContext(row: DateSession) {
-  const persona = getPersona(row.personaId)!;
+async function sessionContext(row: DateSession) {
+  const persona = (await resolvePersona(row.personaId, row.userId))?.persona;
+  if (!persona) throw new HttpError(404, "This date's character no longer exists");
   return { persona, scenario: readJson<Scenario>(row.scenario, persona.defaultScenario) };
 }
 
 export const getDateSession: GetDateSession<IdArgs, DateSessionDTO> = async (args, context) => {
   const row = await ownedSession(context, args);
-  const { persona, scenario } = sessionContext(row);
+  const { persona, scenario } = await sessionContext(row);
   const [moves, job] = await Promise.all([
     context.entities.Move.findMany({ where: { sessionId: row.id } }),
     latestReviewJob(row.id),
   ]);
   const transcript = readJson<Transcript>(row.transcript, []);
-  return toSessionDTO(row, movesForTranscript(moves, transcript, scenario, persona, row.status === "evaluated"), toReviewJobDTO(job));
+  return toSessionDTO(row, persona, movesForTranscript(moves, transcript, scenario, persona, row.status === "evaluated"), toReviewJobDTO(job));
 };
 
 export const listDateSessions: ListDateSessions<WithUser, DateSessionSummary[]> = async (args, context) => {
+  const userId = userIdFrom(args);
   const rows = await context.entities.DateSession.findMany({
-    where: { userId: userIdFrom(args) },
+    where: { userId },
     orderBy: { startedAt: "desc" },
     select: summaryColumns,
   });
-  return rows.map(toSessionSummary);
+  const lookup = await personaLookup(userId, [...new Set(rows.map((row) => row.personaId))]);
+  return rows.map((row) => toSessionSummary(row, lookup(row.personaId)?.persona));
 };
 
 export const appendTranscript: AppendTranscript<AppendTranscriptArgs, TranscriptResult> = async (args, context) => {
@@ -135,7 +140,7 @@ export const appendTranscript: AppendTranscript<AppendTranscriptArgs, Transcript
     if (!count) continue;
 
     // Wasp refetches the live badges after grading. The voice call does not wait on this action.
-    const { persona, scenario } = sessionContext(row);
+    const { persona, scenario } = await sessionContext(row);
     if (row.kind === "date" && row.source === "live") await gradePendingMoves(row.id, transcript, scenario, persona);
     return { id: row.id, turnCount: transcript.length };
   }
@@ -150,7 +155,7 @@ export const saveTranscript: SaveTranscript<SaveTranscriptArgs, TranscriptResult
     data: transcriptColumns(transcript),
   });
   if (!count) throw new HttpError(409, "Date session has already ended");
-  const { persona, scenario } = sessionContext(row);
+  const { persona, scenario } = await sessionContext(row);
   if (row.kind === "date" && row.source === "live") gradePendingMovesInBackground(row.id, transcript, scenario, persona);
   return { id: row.id, turnCount: transcript.length };
 };
@@ -176,7 +181,8 @@ async function freezeSession(row: DateSession, supplied: Transcript | undefined)
 }
 
 async function withReviewJob(row: DateSession): Promise<DateSessionDTO> {
-  return toSessionDTO(row, [], toReviewJobDTO(await latestReviewJob(row.id)));
+  const [persona, job] = await Promise.all([resolvePersona(row.personaId, row.userId), latestReviewJob(row.id)]);
+  return toSessionDTO(row, persona?.persona, [], toReviewJobDTO(job));
 }
 
 /** Ends the date and returns as soon as the transcript is saved. The review runs in a background job. */
@@ -187,7 +193,7 @@ export const endDateSession: EndDateSession<EndDateSessionArgs, DateSessionDTO> 
     : row;
   const job = frozen.status === "ended" ? await latestReviewJob(frozen.id) : null;
   if (job?.status === "queued") await wakeReview(job.id);
-  return toSessionDTO(frozen, [], toReviewJobDTO(job));
+  return toSessionDTO(frozen, (await resolvePersona(frozen.personaId, frozen.userId))?.persona, [], toReviewJobDTO(job));
 };
 
 /**

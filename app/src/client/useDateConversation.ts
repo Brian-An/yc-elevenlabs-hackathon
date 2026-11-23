@@ -148,11 +148,12 @@ export function useDateConversation({
     try {
       const warm = await navigator.mediaDevices.getUserMedia({ audio: true });
       warm.getTracks().forEach((track) => track.stop());
-      const { signedUrl, dynamicVariables } = await api
+      const { signedUrl, dynamicVariables, voiceId } = await api
         .get("api/elevenlabs/signed-url", { searchParams: { sessionId }, headers: { "X-Bantr-User": getUserId() } })
-        .json<{ signedUrl: string; dynamicVariables: Record<string, string> }>();
+        .json<{ signedUrl: string; dynamicVariables: Record<string, string>; voiceId: string | null }>();
       recorder.reconnect();
-      await conversation.startSession({ signedUrl, stripAudioTags: true, dynamicVariables });
+      // A generated character speaks in its matched voice. The agent must allow the voice override.
+      await conversation.startSession({ signedUrl, stripAudioTags: true, dynamicVariables, ...(voiceId ? { overrides: { tts: { voiceId } } } : {}) });
     } catch (err) {
       setError(
         err instanceof DOMException && err.name === "NotAllowedError"

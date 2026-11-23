@@ -13,7 +13,7 @@ export const elevenLabsMiddleware: MiddlewareConfigFn = (config) => config;
 
 export const getElevenLabsSignedUrl: GetElevenLabsSignedUrl<
   never,
-  { signedUrl: string; dynamicVariables: SessionVariables } | { error: string }
+  { signedUrl: string; dynamicVariables: SessionVariables; voiceId: string | null } | { error: string }
 > = async (req, res) => {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   res.set("Cache-Control", "no-store");
@@ -43,7 +43,7 @@ export const getElevenLabsSignedUrl: GetElevenLabsSignedUrl<
       res.status(502).json({ error: "ElevenLabs response had no signed_url" });
       return;
     }
-    res.json({ signedUrl: body.signed_url, dynamicVariables: call.dynamicVariables });
+    res.json({ signedUrl: body.signed_url, dynamicVariables: call.dynamicVariables, voiceId: call.voiceId });
   } catch (err) {
     console.error("[elevenlabs] signed url error:", err);
     res.status(502).json({ error: "Could not reach ElevenLabs" });

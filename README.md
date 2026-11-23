@@ -61,6 +61,27 @@ With no reviewed date Riley asks what to practice.
 The inline LiveAvatar connector receives these values in `elevenlabs_agent_config.dynamic_variables`.
 [LiveAvatar connector](https://docs.liveavatar.com/docs/lite-mode/connectors/elevenlabs-agent)
 
+### Onboarding and generated characters
+
+A browser that has not finished or skipped onboarding goes to a three-step first run: who to practice with, what to work on, and a first date.
+The goals become the profile's focus skills, and the last step starts a date with a starter character or opens the character generator.
+After that, `/onboarding` edits the profile.
+
+On the Characters page a user describes someone, and Claude writes a fictional character like them, with its own invented name.
+Choices the user makes (gender, age, background, voice, setting, difficulty) override the model, and the preview shows which traits came from the notes and which the model chose.
+Characters are private to the browser user, limited to 12 at a time and 20 generations a day.
+The four newest wait at the plaza's spare café tables, and any of them can be dated from the Characters page.
+Deleting one keeps its name for date history and erases the user's notes and any follow-up detail.
+
+Generated characters share one hosted agent, `ELEVENLABS_AGENT_ID_CUSTOM` (falling back to `ELEVENLABS_AGENT_ID`), set up with the same session template.
+Each character gets a voice from the account's ElevenLabs voices, chosen by gender, accent, age and tone, and sent as a per-session override.
+In that agent's **Security** tab, enable the **Voice** override, or calls with a generated character fail to start.
+The same voice reaches HeyGen video through the LiveAvatar connector's `voice_id`.
+
+With HeyGen out of sandbox mode and an Anthropic key, the hourly `refreshAvatarCatalog` job lists the account's and public LiveAvatar avatars and describes each preview image once with Claude.
+A new character is matched to the closest described avatar of its gender; until the catalog is described, characters use the default avatar.
+`ANTHROPIC_CHARACTER_MODEL` selects the model for both, and refusals fall back to another model server-side.
+
 ### Whole-date reviews
 
 Set `ANTHROPIC_API_KEY` on the server to enable full-transcript reviews.

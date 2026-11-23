@@ -1,8 +1,7 @@
 import { prisma } from "wasp/server";
 import type { DateReview } from "../shared/dateReview";
 import type { Scenario, Transcript } from "../shared/types";
-import type { PersonaWithScenario } from "./dto";
-import { getPersona } from "./personas";
+import { resolvePersona, type ResolvedPersona } from "./personas";
 import { userIdFrom } from "./user";
 
 const DATE_DIRECTION: Record<string, string> = {
@@ -12,11 +11,10 @@ const DATE_DIRECTION: Record<string, string> = {
 };
 const COACH_DIRECTION = "You are Riley, a practical dating coach. Use the supplied review of the user's practice date. Discuss one concrete moment, invite them to rehearse the original prompt, wait for their reply, and give one specific observation. Keep original dialogue and suggested alternatives distinct. If there is no reviewed date, ask what they want to practice. Accept a change of topic.";
 
-type ReviewedDate = { personaId: string; endedAt: Date | null; transcript: Transcript; review: DateReview };
+type ReviewedDate = { partner: string; endedAt: Date | null; transcript: Transcript; review: DateReview };
 
 function coachContext(date: ReviewedDate) {
-  const { review, transcript } = date;
-  const partner = getPersona(date.personaId)?.name ?? "your date";
+  const { review, transcript, partner } = date;
   const exchange = ({ agentTurnIndex, userTurnIndex }: { agentTurnIndex: number; userTurnIndex: number }) => {
     const agent = transcript[agentTurnIndex];
     const user = transcript[userTurnIndex];
@@ -33,7 +31,10 @@ function coachContext(date: ReviewedDate) {
   };
 }
 
-export function buildSessionVariables(persona: PersonaWithScenario, scenario: Scenario, userContext: string | null, goal: string | null, reviewedDate: ReviewedDate | null) {
+export function buildSessionVariables(
+  { persona, direction }: Pick<ResolvedPersona, "persona" | "direction">,
+  scenario: Scenario, userContext: string | null, goal: string | null, reviewedDate: ReviewedDate | null,
+) {
   const coach = persona.id === "coach";
   const review = coach && reviewedDate ? coachContext(reviewedDate) : null;
   const replay = review?.practice?.dateSaid;
@@ -43,7 +44,7 @@ export function buildSessionVariables(persona: PersonaWithScenario, scenario: Sc
       : `Want to revisit a moment from your practice date with ${review.partner}?`
     : scenario.openingLine ?? persona.defaultScenario.openingLine ?? `Hi, I'm ${persona.name}.`;
   return {
-    character_direction: coach ? COACH_DIRECTION : `You are ${persona.name}. ${persona.bio} ${persona.personality} ${DATE_DIRECTION[persona.id] ?? ""} Stay in character. Draw on a remembered detail once if it fits. Respect a change of subject.`,
+    character_direction: coach ? COACH_DIRECTION : `You are ${persona.name}. ${persona.bio} ${persona.personality} ${direction ?? DATE_DIRECTION[persona.id] ?? ""} Stay in character. Draw on a remembered detail once if it fits. Respect a change of subject.`,
     session_context: JSON.stringify(coach ? { goal, reviewedDate: review } : {
       setting: scenario.setting, difficulty: scenario.difficulty, practiceFocus: scenario.targetWeakness ?? null,
       rememberedDetail: userContext,
@@ -55,7 +56,15 @@ export function buildSessionVariables(persona: PersonaWithScenario, scenario: Sc
 }
 
 export type SessionVariables = ReturnType<typeof buildSessionVariables>;
-type Connection = { personaId: string; agentId: string; dynamicVariables: SessionVariables };
+type Connection = {
+  personaId: string;
+  agentId: string;
+  dynamicVariables: SessionVariables;
+  /** A generated character's voice, sent as a per-session override. The agent must allow voice overrides. */
+  voiceId: string | null;
+  /** A generated character's matched LiveAvatar avatar. */
+  avatarId: string | null;
+};
 type ConnectionError = { error: string; status: number };
 
 export async function resolveCallSession(sessionId: unknown, identity: unknown): Promise<Connection | ConnectionError> {
@@ -72,8 +81,9 @@ export async function resolveCallSession(sessionId: unknown, identity: unknown):
   } });
   if (!session) return { status: 404, error: "Session not found." };
   if (session.status !== "active" || session.source === "demo") return { status: 409, error: "This session cannot start a live call." };
-  const persona = getPersona(session.personaId);
-  if (!persona) return { status: 400, error: "Unknown persona." };
+  const resolved = await resolvePersona(session.personaId, userId);
+  if (!resolved) return { status: 400, error: "Unknown persona." };
+  const { persona } = resolved;
   const agentId = persona.elevenLabsAgentId || process.env.ELEVENLABS_AGENT_ID;
   if (!agentId) return { status: 503, error: "No voice agent is configured for this session." };
 
@@ -84,10 +94,16 @@ export async function resolveCallSession(sessionId: unknown, identity: unknown):
     select: { personaId: true, endedAt: true, transcript: true, review: true },
   }) : null;
   const reviewedDate = previous?.review ? {
-    ...previous, review: previous.review as unknown as DateReview, transcript: previous.transcript as unknown as Transcript,
+    partner: (await resolvePersona(previous.personaId, userId))?.persona.name ?? "your date",
+    endedAt: previous.endedAt,
+    review: previous.review as unknown as DateReview,
+    transcript: previous.transcript as unknown as Transcript,
   } : null;
-  return { personaId: persona.id, agentId, dynamicVariables: buildSessionVariables(
-    persona, (session.scenario as unknown as Scenario) ?? persona.defaultScenario,
-    session.userContext, session.user.goals, reviewedDate,
-  ) };
+  return {
+    personaId: persona.id, agentId, voiceId: resolved.voiceId, avatarId: resolved.avatarId,
+    dynamicVariables: buildSessionVariables(
+      resolved, (session.scenario as unknown as Scenario) ?? persona.defaultScenario,
+      session.userContext, session.user.goals, reviewedDate,
+    ),
+  };
 }
