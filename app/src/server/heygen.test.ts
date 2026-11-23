@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getHeyGenSessionToken } from "./heygen";
 
+const { resolveCallSession } = vi.hoisted(() => ({ resolveCallSession: vi.fn() }));
+vi.mock("./sessionBrief", () => ({ resolveCallSession }));
+const variables = { opening_line: "Hello", session_context: "{}", character_direction: "Practice", user_context: "None" };
+
 const fetchMock = vi.fn<typeof fetch>();
 
 beforeEach(() => {
@@ -10,6 +14,8 @@ beforeEach(() => {
   vi.stubEnv("HEYGEN_AVATAR_ID_PRIYA", "priya-avatar");
   vi.stubEnv("ELEVENLABS_AGENT_ID_PRIYA", "current-priya-agent");
   vi.stubEnv("HEYGEN_IS_SANDBOX", "true");
+  resolveCallSession.mockReset();
+  resolveCallSession.mockResolvedValue({ agentId: "current-priya-agent", personaId: "priya", dynamicVariables: variables });
   fetchMock.mockReset();
   fetchMock.mockResolvedValue(Response.json({ data: { session_token: "token", session_id: "session" } }));
   vi.stubGlobal("fetch", fetchMock);
@@ -21,14 +27,14 @@ afterEach(() => {
 });
 
 async function requestToken() {
-  const response = { status: vi.fn(), json: vi.fn() };
+  const response = { status: vi.fn(), json: vi.fn(), set: vi.fn() };
   response.status.mockReturnValue(response);
   // The HTTP boundary supplies Express objects; the handler only reads query and writes JSON here.
   const handler = getHeyGenSessionToken as unknown as (
-    request: { query: Record<string, string> },
+    request: { query: Record<string, string>; get: (key: string) => string },
     reply: typeof response,
   ) => Promise<void>;
-  await handler({ query: { agentId: "obsolete-agent", personaId: "priya" } }, response);
+  await handler({ query: { sessionId: "date", agentId: "obsolete-agent", personaId: "maya" }, get: () => "user" }, response);
   return response;
 }
 
@@ -39,8 +45,16 @@ describe("avatar connection configuration", () => {
     expect(body).toMatchObject({
       is_sandbox: true,
       avatar_id: "dd73ea75-1218-4ef3-92ce-606d5f7fbc0a",
-      elevenlabs_agent_config: { agent_id: "current-priya-agent" },
+      elevenlabs_agent_config: { agent_id: "current-priya-agent", dynamic_variables: variables },
     });
+  });
+
+  it("only mints tokens for owned active sessions", async () => {
+    resolveCallSession.mockResolvedValue({ error: "Session not found.", status: 404 });
+    const response = await requestToken();
+    expect(resolveCallSession).toHaveBeenCalledWith("date", "user");
+    expect(response.status).toHaveBeenCalledWith(404);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("keeps the selected persona avatar in live mode", async () => {

@@ -1,26 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { MemorySnapshot } from "./dto";
-import type { Evaluation } from "../shared/types";
-import { saveMemory } from "./memory";
+import { describe, expect, it, vi } from "vitest";
+import { getMemory } from "./memory";
 
-const { upsert } = vi.hoisted(() => ({ upsert: vi.fn() }));
-vi.mock("wasp/server", () => ({ prisma: { userMemory: { findUnique: async () => null, upsert } } }));
+const { findUnique } = vi.hoisted(() => ({ findUnique: vi.fn() }));
+vi.mock("wasp/server", () => ({ prisma: { userMemory: { findUnique } } }));
 
-beforeEach(() => {
-  upsert.mockReset();
-  upsert.mockImplementation(async ({ create }) => create);
-});
-
-describe("saved coaching memory", () => {
-  it("keeps tied skill labels aligned with the evaluation's stable ranking", async () => {
-    const evaluation: Evaluation = {
-      scores: { listening: 9, engagement: 9, confidence: 7, flow: 10 },
-      strengths: [{ point: "Flow strength", quote: "" }, { point: "Listening strength", quote: "" }],
-      weaknesses: [{ point: "Confidence weakness", quote: "" }],
-      summary: "Practice confidence.",
-    };
-    const memory: MemorySnapshot = await saveMemory("user", evaluation, { sessionId: "session", personaId: "maya" });
-    expect(memory.strengths.map((point) => point.skill)).toEqual(["flow", "listening"]);
-    expect(memory.weaknesses[0].skill).toBe("confidence");
+describe("reviewed date progress", () => {
+  it("excludes unverified history and averages only observed skills", async () => {
+    findUnique.mockResolvedValue({
+      trainingFocus: "confidence", sessionsCount: 3,
+      skillHistory: [
+        { sessionId: "legacy", scores: { confidence: 1 } },
+        { sessionId: "first", rubricVersion: "1", scores: { engagement: 7 } },
+        { sessionId: "second", rubricVersion: "1", scores: { listening: 8, engagement: 5 } },
+      ],
+      strengths: [{ point: "Legacy", sessionId: "legacy" }, { point: "Listening", sessionId: "second" }],
+      weaknesses: [],
+    });
+    const memory = await getMemory("user");
+    expect(memory.sessionsCount).toBe(2);
+    expect(memory.skillProfile).toEqual({ listening: 0.8, engagement: 0.6 });
+    expect(memory.trainingFocus).toBe("engagement");
+    expect(memory.strengths.map((point) => point.point)).toEqual(["Listening"]);
   });
 });

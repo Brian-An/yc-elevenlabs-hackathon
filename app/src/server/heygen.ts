@@ -1,6 +1,3 @@
-// GET /api/heygen/session-token?agentId=...&personaId=...  -> { sessionToken, sessionId }
-// personaId picks HEYGEN_AVATAR_ID_<PERSONA> (e.g. HEYGEN_AVATAR_ID_THEO) when set, falling back
-// to the shared HEYGEN_AVATAR_ID.
 // Proxies LiveAvatar's "create session token" so the HeyGen key stays server side.
 // LiveAvatar's ElevenLabs Agent Connector talks to the ElevenLabs agent directly (no audio
 // forwarding through this server or the browser): https://docs.liveavatar.com/docs/lite-mode/connectors/elevenlabs-agent
@@ -12,7 +9,7 @@
 // Put the returned id in HEYGEN_ELEVENLABS_SECRET_ID. Needs a paid ElevenLabs plan (not free tier).
 import type { MiddlewareConfigFn } from "wasp/server";
 import type { GetHeyGenSessionToken } from "wasp/server/api";
-import { getPersona } from "./personas";
+import { resolveCallSession } from "./sessionBrief";
 
 const LIVEAVATAR_API = "https://api.liveavatar.com/v1/sessions/token";
 // LiveAvatar sandbox sessions support Wayne only, independently of the live persona's avatar.
@@ -40,25 +37,20 @@ export const getHeyGenSessionToken: GetHeyGenSessionToken<
 > = async (req, res) => {
   const apiKey = process.env.HEYGEN_API_KEY;
   const secretId = process.env.HEYGEN_ELEVENLABS_SECRET_ID;
-  const requestedAgent = typeof req.query.agentId === "string" && req.query.agentId;
-  const personaId = typeof req.query.personaId === "string" && req.query.personaId;
-  // An open page can retain an agent ID after the server's persona configuration changes.
-  const agentId = personaId
-    ? getPersona(personaId)?.elevenLabsAgentId || process.env.ELEVENLABS_AGENT_ID || requestedAgent
-    : requestedAgent || process.env.ELEVENLABS_AGENT_ID;
-  const sandbox = process.env.HEYGEN_IS_SANDBOX !== "false";
-  const avatarId = sandbox ? SANDBOX_AVATAR_ID :
-    (personaId && process.env[`HEYGEN_AVATAR_ID_${personaId.toUpperCase()}`]) || process.env.HEYGEN_AVATAR_ID;
-  if (!apiKey || !avatarId || !secretId) {
-    res.status(500).json({ error: "HEYGEN_API_KEY, HEYGEN_AVATAR_ID and HEYGEN_ELEVENLABS_SECRET_ID must all be set" });
-    return;
-  }
-  if (!agentId) {
-    res.status(400).json({ error: "agentId is required" });
-    return;
-  }
-
+  res.set("Cache-Control", "no-store");
   try {
+    const call = await resolveCallSession(req.query.sessionId, req.get("X-Bantr-User"));
+    if ("error" in call) {
+      res.status(call.status).json({ error: call.error });
+      return;
+    }
+    const sandbox = process.env.HEYGEN_IS_SANDBOX !== "false";
+    const avatarId = sandbox ? SANDBOX_AVATAR_ID :
+      process.env[`HEYGEN_AVATAR_ID_${call.personaId.toUpperCase()}`] || process.env.HEYGEN_AVATAR_ID;
+    if (!apiKey || !avatarId || !secretId) {
+      res.status(503).json({ error: "The avatar is not configured for this session." });
+      return;
+    }
     const upstream = await fetch(LIVEAVATAR_API, {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
@@ -66,7 +58,7 @@ export const getHeyGenSessionToken: GetHeyGenSessionToken<
         mode: "LITE",
         avatar_id: avatarId,
         is_sandbox: sandbox,
-        elevenlabs_agent_config: { agent_id: agentId, secret_id: secretId },
+        elevenlabs_agent_config: { agent_id: call.agentId, secret_id: secretId, dynamic_variables: call.dynamicVariables },
       }),
       signal: AbortSignal.timeout(10_000),
     });

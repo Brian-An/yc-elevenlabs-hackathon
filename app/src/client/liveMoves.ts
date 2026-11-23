@@ -12,6 +12,7 @@ function replyKeys(transcript: Transcript): (string | null)[] {
   const seen = new Map<string, number>();
   return transcript.map((turn) => {
     if (turn.speaker !== "user") return null;
+    if (turn.sequence !== undefined) return JSON.stringify([turn.sequence, turn.revision ?? 0, turn.text]);
     const n = seen.get(turn.text) ?? 0;
     seen.set(turn.text, n + 1);
     return `${n}:${turn.text}`;

@@ -54,6 +54,7 @@ describe("Jev grades", () => {
     await expect(gradeTurn("{}", 1)).resolves.toMatchObject({
       classification: "neutral",
       confidence: 0.3,
+      decision: { rawLabel: "mistake", probabilities: { mistake: 0.45, neutral: 0.3 } },
       scores: { listening: 5.5 },
     });
   });

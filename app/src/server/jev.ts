@@ -132,7 +132,7 @@ export async function gradeTurn(body: string, turnIndex: number): Promise<MoveEv
 
   const move = answers?.move as ChoiceAnswer | undefined;
   if (move?.type !== "choice" || !ORDER.includes(move.choice as MoveClass)
-    || ORDER.some((label) => !(move.probabilities?.[label] >= 0 && move.probabilities[label] <= 1))) {
+    || ORDER.some((label) => !Number.isFinite(move.probabilities?.[label]) || move.probabilities[label] < 0 || move.probabilities[label] > 1)) {
     throw new Error("Jev returned an invalid move classification");
   }
   const classification = soften(move);
@@ -150,6 +150,7 @@ export async function gradeTurn(body: string, turnIndex: number): Promise<MoveEv
   return {
     turnIndex,
     classification,
+    decision: { rawLabel: move.choice as MoveClass, probabilities: Object.fromEntries(ORDER.map((label) => [label, move.probabilities[label]])) as Record<MoveClass, number> },
     confidence: Math.round((move.probabilities[classification] ?? 0) * 100) / 100,
     scores,
   };

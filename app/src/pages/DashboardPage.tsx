@@ -10,7 +10,7 @@ import { Button } from "@/components/arc/button/button";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Skeleton } from "@/components/arc/skeleton/skeleton";
 import { getUserId } from "@/client/userId";
-import { completedSessions, type SessionSummary, type SkillScores as SkillScoresT } from "@/client/results";
+import { completedSessions, type SessionSummary } from "@/client/results";
 import { formatDate, formatDuration } from "@/lib/format";
 import { practiceStreak } from "@/lib/streak";
 import { cn } from "@/lib/utils";
@@ -110,8 +110,6 @@ function StreakCard({ dates }: { dates: string[] }) {
   );
 }
 
-const average = (scores: SkillScoresT) => Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length;
-
 function PastDates({ sessions }: { sessions: SessionSummary[] }) {
   const navigate = useNavigate();
   return (
@@ -142,12 +140,13 @@ function PastDates({ sessions }: { sessions: SessionSummary[] }) {
           </thead>
           <tbody className="divide-y divide-border">
             {sessions.map((s, i) => {
-              const score = s.scores ? average(s.scores) : undefined;
-              const prev = sessions[i + 1]?.scores;
-              const change = score !== undefined && prev ? Math.round((score - average(prev)) * 10) / 10 : undefined;
+              const score = s.overallScore;
+              const prev = sessions[i + 1];
+              const change = score !== undefined && prev?.overallScore !== undefined && prev.rubricVersion === s.rubricVersion ? score - prev.overallScore : undefined;
               return (
                 <tr key={s.id}>
-                  <td className="px-5 py-3 sm:px-6">
+                  {/* Takes the remaining width and lets the setting truncate instead of widening the table. */}
+                  <td className="w-full max-w-0 px-5 py-3 sm:px-6">
                     <div className="flex items-center gap-3">
                       <PersonaAvatar persona={s.persona} size={36} />
                       <div className="min-w-0">
@@ -161,10 +160,10 @@ function PastDates({ sessions }: { sessions: SessionSummary[] }) {
                       <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
                         {change !== undefined && change !== 0 && (
                           <span className={cn("text-xs", change > 0 ? "text-success" : "text-danger")}>
-                            {change > 0 ? "▲" : "▼"} {Math.abs(change).toFixed(1)}
+                            {change > 0 ? "▲" : "▼"} {Math.abs(change)}
                           </span>
                         )}
-                        <span className="font-heading text-base text-foreground">{score.toFixed(1)}</span>
+                        <span className="font-heading text-base text-foreground">{score + "/100"}</span>
                       </span>
                     ) : (
                       <span className="text-faint">–</span>

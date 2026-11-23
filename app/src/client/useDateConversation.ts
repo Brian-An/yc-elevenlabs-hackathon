@@ -3,8 +3,7 @@
  *
  * Live mode (the session has an ElevenLabs `agentId`): fetches a signed URL from our server
  * (GET /api/elevenlabs/signed-url, so the API key stays server-side) and starts an
- * @elevenlabs/react session. `userContext` is passed as the dynamic variable {{user_context}},
- * which the agent's prompt uses to follow up on something the user said last time.
+ * @elevenlabs/react session with the server-selected character and practice brief.
  * Must render inside <ConversationProvider> (DatePage does this).
  *
  * Mock mode (no agentId, e.g. no ELEVENLABS_* keys set): replays a sample transcript so the
@@ -17,6 +16,10 @@ import { useConversation } from "@elevenlabs/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "wasp/client/api";
 import type { Persona, Scenario, Transcript, TranscriptTurn } from "../shared/types";
+
+import { CallTranscript } from "./callTranscript";
+import { getUserId } from "./userId";
+import { requestErrorMessage } from "./requestError";
 
 export type ConversationStatus = "idle" | "connecting" | "live" | "paused" | "ended";
 
@@ -47,6 +50,9 @@ export type DateConversation = {
 };
 
 export function useDateConversation({
+  sessionId,
+  source,
+  initialTranscript,
   persona,
   scenario,
   agentId,
@@ -54,6 +60,9 @@ export function useDateConversation({
   sampleTranscript = [],
   onTurn,
 }: {
+  sessionId: string;
+  source: "live" | "demo" | "legacy";
+  initialTranscript: Transcript;
   persona: Persona;
   scenario: Scenario;
   /** ElevenLabs agent for this date. null runs the mock. */
@@ -65,19 +74,19 @@ export function useDateConversation({
   /** Called for every new turn (the page saves them as they arrive). */
   onTurn?: (turn: TranscriptTurn) => void;
 }): DateConversation {
-  const isLive = Boolean(agentId);
+  const isLive = source === "live" || (source === "legacy" && Boolean(agentId));
   const [status, setStatus] = useState<ConversationStatus>("idle");
   const [mockSpeaking, setMockSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [transcript, setTranscript] = useState<Transcript>([]);
+  const [recorder] = useState(() => new CallTranscript(initialTranscript));
+  const [transcript, setTranscript] = useState<Transcript>(recorder.turns);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [videoStream] = useState<MediaStream | null>(null); // avatar provider not connected yet
 
   // elapsedMs = time live so far; `liveSince` is when the current live stretch began.
-  const elapsedBefore = useRef(0);
+  const elapsedBefore = useRef(initialTranscript.at(-1)?.timestamp ?? 0);
   const liveSince = useRef(0);
-  const transcriptRef = useRef<Transcript>([]);
   const statusRef = useRef(status);
   statusRef.current = status;
   const onTurnRef = useRef(onTurn);
@@ -86,18 +95,16 @@ export function useDateConversation({
   const elapsedNow = () =>
     elapsedBefore.current + (statusRef.current === "live" ? Date.now() - liveSince.current : 0);
 
-  const append = useCallback((turn: TranscriptTurn) => {
-    transcriptRef.current = [...transcriptRef.current, turn];
-    setTranscript(transcriptRef.current);
-    onTurnRef.current?.(turn);
-  }, []);
+  const append = useCallback((turn: TranscriptTurn, eventIds?: string[], correctionOnly = false) => {
+    const final = recorder.finish(turn, eventIds, correctionOnly);
+    if (!final) return;
+    setTranscript(recorder.turns);
+    onTurnRef.current?.(final);
+  }, [recorder]);
 
   const goLive = () => {
-    elapsedBefore.current = 0;
     liveSince.current = Date.now();
-    transcriptRef.current = [];
-    setTranscript([]);
-    setElapsedMs(0);
+    setElapsedMs(elapsedBefore.current);
     setStatus("live");
   };
 
@@ -120,9 +127,14 @@ export function useDateConversation({
         setStatus("ended");
       }
     },
-    onMessage: ({ message, role }) => {
+    onMessage: ({ message, role, event_id, response_id }) => {
       if (!message.trim() || statusRef.current === "paused") return;
-      append({ speaker: role === "user" ? "user" : "agent", text: message, timestamp: elapsedNow() });
+      const ids = [`event/${event_id}`, ...(response_id ? [`response/${response_id}`] : [])];
+      append({ speaker: role, text: message, timestamp: elapsedNow() }, ids);
+    },
+    onAgentResponseCorrection: ({ corrected_agent_response, event_id, response_id }) => {
+      const ids = [`event/${event_id}`, ...(response_id ? [`response/${response_id}`] : [])];
+      if (corrected_agent_response.trim()) append({ speaker: "agent", text: corrected_agent_response, timestamp: elapsedNow() }, ids, true);
     },
     onError: (message) => {
       setError(message || "The voice connection failed.");
@@ -134,21 +146,18 @@ export function useDateConversation({
     setError(null);
     setStatus("connecting");
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      const { signedUrl } = await api
-        .get("api/elevenlabs/signed-url", { searchParams: { agentId: agentId! } })
-        .json<{ signedUrl: string }>();
-      conversation.startSession({
-        signedUrl,
-        stripAudioTags: true,
-        // Every {{variable}} in the agent prompt needs a value, so send "None" when there's nothing to follow up on.
-        dynamicVariables: { user_context: userContext ?? "None" },
-      });
+      const warm = await navigator.mediaDevices.getUserMedia({ audio: true });
+      warm.getTracks().forEach((track) => track.stop());
+      const { signedUrl, dynamicVariables } = await api
+        .get("api/elevenlabs/signed-url", { searchParams: { sessionId }, headers: { "X-Bantr-User": getUserId() } })
+        .json<{ signedUrl: string; dynamicVariables: Record<string, string> }>();
+      recorder.reconnect();
+      await conversation.startSession({ signedUrl, stripAudioTags: true, dynamicVariables });
     } catch (err) {
       setError(
         err instanceof DOMException && err.name === "NotAllowedError"
           ? "Microphone access is needed for the date. Allow it in your browser and try again."
-          : "Couldn't start the call. Check the ElevenLabs keys on the server and try again.",
+          : await requestErrorMessage(err, "Couldn't start the call. Try again."),
       );
       setStatus("idle");
     }
@@ -195,7 +204,7 @@ export function useDateConversation({
       timestamp: 0,
     };
     const rest = sampleTranscript.length ? sampleTranscript.slice(sampleTranscript[0]?.speaker === "agent" ? 1 : 0) : [];
-    queue.current = [opener, ...rest];
+    queue.current = [opener, ...rest].slice(recorder.turns.length);
     playQueue();
   };
 
@@ -203,7 +212,7 @@ export function useDateConversation({
   const start = useCallback(async () => {
     if (isLive) await startLive();
     else await startMock();
-  }, [isLive, agentId, userContext, sampleTranscript, scenario.openingLine, persona.name]);
+  }, [isLive, sessionId, userContext, sampleTranscript, scenario.openingLine, persona.name, recorder]);
 
   const pause = useCallback(() => {
     if (statusRef.current !== "live") return;
@@ -226,13 +235,13 @@ export function useDateConversation({
   const end = useCallback(async () => {
     elapsedBefore.current = elapsedNow();
     setStatus("ended");
-    if (isLive) conversation.endSession();
+    if (isLive) await conversation.endSession();
     else {
       clearTimers();
       setMockSpeaking(false);
     }
-    return transcriptRef.current;
-  }, [isLive, conversation]);
+    return recorder.turns;
+  }, [isLive, conversation, recorder]);
 
   const toggleMute = useCallback(() => setIsMuted((m) => !m), []);
 

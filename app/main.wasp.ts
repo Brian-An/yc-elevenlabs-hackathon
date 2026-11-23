@@ -1,4 +1,4 @@
-import { action, api, apiNamespace, app, page, query, route } from "@wasp.sh/spec";
+import { action, api, apiNamespace, app, job, page, query, route } from "@wasp.sh/spec";
 import { OnboardingPage } from "./src/pages/OnboardingPage" with { type: "ref" };
 import { DashboardPage } from "./src/pages/DashboardPage" with { type: "ref" };
 import { DatePage } from "./src/pages/DatePage" with { type: "ref" };
@@ -17,8 +17,10 @@ import {
   appendTranscript,
   saveTranscript,
   endDateSession,
+  retryDateReview,
   getNextScenario,
 } from "./src/server/sessions" with { type: "ref" };
+import { runDateReview, sweepDateReviews } from "./src/server/reviewJobs" with { type: "ref" };
 import {
   getElevenLabsSignedUrl,
   elevenLabsMiddleware,
@@ -50,12 +52,22 @@ export default app({
     // Personas + date sessions
     query(getPersonas),
     action(createDateSession, { entities: ["User", "DateSession", "UserMemory", "PersonaCallback"] }),
-    query(getDateSession, { entities: ["DateSession", "Move"] }),
+    query(getDateSession, { entities: ["DateSession", "Move", "ReviewJob"] }),
     query(listDateSessions, { entities: ["DateSession"] }),
     action(appendTranscript, { entities: ["DateSession", "Move"] }),
     action(saveTranscript, { entities: ["DateSession", "Move"] }),
-    action(endDateSession, { entities: ["DateSession", "Move", "UserMemory", "PersonaCallback"] }),
-    query(getNextScenario, { entities: ["UserMemory"] }),
+    action(endDateSession, { entities: ["DateSession", "Move", "ReviewJob", "PersonaCallback"] }),
+    action(retryDateReview, { entities: ["DateSession", "ReviewJob"] }),
+    query(getNextScenario, { entities: ["User", "UserMemory"] }),
+
+    // Whole-date reviews. A ReviewJob row is the durable queue entry; runDateReview is its fast wake-up,
+    // and the sweep recovers lost wake-ups, expired leases, and reviews waiting on configuration.
+    job(runDateReview, { executor: "PgBoss", entities: ["DateSession", "ReviewJob", "UserMemory"] }),
+    job(sweepDateReviews, {
+      executor: "PgBoss",
+      entities: ["DateSession", "ReviewJob", "UserMemory"],
+      schedule: { cron: "* * * * *" },
+    }),
 
     // ElevenLabs signed URL for the Conversational AI widget/SDK
     apiNamespace("/api/elevenlabs", { middlewareConfigFn: elevenLabsMiddleware }),

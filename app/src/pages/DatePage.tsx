@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Alert } from "@/components/arc/alert/alert";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
 import { Skeleton } from "@/components/arc/skeleton/skeleton";
-import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
+import { coachingDemo, DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
 import { getUserId } from "@/client/userId";
 import type { DateSessionDTO } from "../server/dto";
 import type { TranscriptTurn } from "../shared/types";
@@ -65,7 +65,7 @@ export function DatePage() {
   // The ElevenLabs hooks need a provider above them.
   return (
     <ConversationProvider>
-      <DateRoom session={session as DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> }} />
+      <DateRoom key={session.id} session={session as DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> }} />
     </ConversationProvider>
   );
 }
@@ -85,13 +85,16 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
   // agent); otherwise ElevenLabs voice-only, or the mock when the session has no agent at all.
   // Both hooks are always called (rules of hooks); only the active one's start()/end() ever run.
   const useAvatar = session.avatarEnabled && Boolean(session.agentId);
-  const avatarCall = useAvatarSession({ agentId: session.agentId ?? "", personaId: persona.id, onTurn });
+  const avatarCall = useAvatarSession({ sessionId, initialTranscript: session.transcript, onTurn });
   const voiceCall = useDateConversation({
+    source: session.source,
+    sessionId,
+    initialTranscript: session.transcript,
     persona,
     scenario,
     agentId: session.agentId,
     userContext: session.userContext,
-    sampleTranscript,
+    sampleTranscript: session.kind === "coaching" ? coachingDemo : sampleTranscript,
     onTurn,
   });
   const call = useAvatar ? avatarCall : voiceCall;
@@ -101,9 +104,9 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
 
   async function endDate() {
     setEnding(true);
-    const transcript = await call.end();
     try {
-      // Scores the date, updates memory and saves anything worth a follow-up next time.
+      const transcript = await call.end();
+      // Saves the transcript and any follow-up detail. The review runs in the background, and the feedback page shows it.
       await endDateSession({ userId: getUserId(), id: sessionId, transcript });
       navigate(routes.FeedbackRoute.build({ params: { sessionId } }));
     } catch (err) {
@@ -178,7 +181,7 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
                   <GradePop call={call} session={session} />
                   <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 p-4">
                     <Badge size="sm" tone={live ? "success" : call.status === "paused" ? "warning" : "neutral"} dot pill>
-                      {STATUS_LABEL[call.status]}
+                      {session.source === "demo" && "Demo · "}{STATUS_LABEL[call.status]}
                     </Badge>
                     <div className="flex items-center gap-2">
                       <Badge size="sm" pill aria-live="off">
@@ -208,7 +211,7 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
                   {fullscreen && (
                     <div className="absolute inset-x-0 bottom-0 flex justify-center p-6">
                       <div className="flex items-center gap-2 rounded-full border border-border bg-background/85 p-2 shadow-(--shadow-resting) backdrop-blur-md">
-                        <CallButtons call={call} ending={ending} onEnd={() => void endDate()} />
+                        <CallButtons call={call} coaching={session.kind === "coaching"} ending={ending} onEnd={() => void endDate()} />
                         <Tooltip content="Exit fullscreen">
                           <Button size="lg" variant="ghost" onClick={() => void toggleFullscreen()} aria-label="Exit fullscreen">
                             <Minimize2 className="size-4" aria-hidden="true" />
@@ -240,7 +243,7 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <CallButtons call={call} ending={ending} onEnd={() => void endDate()} />
+              <CallButtons call={call} coaching={session.kind === "coaching"} ending={ending} onEnd={() => void endDate()} />
             </div>
           </Panel>
         </div>
