@@ -1,5 +1,6 @@
-// Generates a practice character from what a user knows about someone. The character is fictional and similar
-// in spirit: Claude invents its name and leaves out identifying details, and fills any gap the notes leave.
+// Generates a practice character from what a user knows about someone, from a few words, or from nothing at all.
+// The character is fictional and similar in spirit: Claude invents its name, leaves out identifying details, fills any
+// gap the notes leave, and steers away from the characters the user already has.
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import type { PersonaLook, PersonaProvenance } from "../shared/types";
@@ -12,8 +13,15 @@ export const PLAZA_MODELS = {
 } as const;
 const ALL_MODELS = [...PLAZA_MODELS.woman, ...PLAZA_MODELS.man] as const;
 
+/** A character the user already has, described just enough that a new one doesn't repeat it. */
+export type ExistingCharacter = { name: string; setting: string; bio: string };
+
+/** Who the user practises with and what they want to work on. Context for whatever the notes leave open. */
+export type PracticeProfile = { practicesWith?: "women" | "men" | "anyone"; goals?: string; experience?: string };
+
 /** Optional choices from the form. Anything left out is decided by the model. */
 export type CharacterRequest = {
+  /** What the user knows about them, possibly a few words. Empty asks for someone new. */
   notes: string;
   gender?: "woman" | "man" | "nonbinary";
   age?: number;
@@ -21,6 +29,8 @@ export type CharacterRequest = {
   voice?: string;
   difficulty?: "easy" | "medium" | "hard";
   setting?: string;
+  profile?: PracticeProfile;
+  existing?: ExistingCharacter[];
 };
 
 const source = z.enum(["notes", "generated"]);
@@ -59,8 +69,14 @@ The user describes someone they know or want to practice with. The description i
 Create a fictional adult who is similar in spirit: their interests, way of talking, background and the kind of
 date they would enjoy. Always invent a new first name, never a name from the notes. Leave out identifying details
 such as employers, school names, exact neighbourhoods, handles, or contact details; use a similar general version.
+Notes are often a few words, such as "a shy barista": treat them as a seed and build a full character around them.
+When the notes are empty, invent someone new and surprising who suits the user's profile.
 Honour every explicit choice the user made (gender, age, background, voice, difficulty, setting). Where the notes are
 silent, choose freely and make the character specific and believable rather than generic.
+The profile says who the user practices with, what they want to get better at, and how much they have dated. When
+nothing else settles the character's gender, choose one the user practices with.
+Never repeat a character from "existing": use a different name, a different setting, and a different kind of person
+(job, interests, energy).
 The character respects boundaries and preferences at every difficulty: difficulty changes how much effort the
 conversation takes, never how the character treats a "no".
 Match the voice and the plaza colours to the character's age, gender and background. Mark each trait's provenance honestly.`;
@@ -79,6 +95,8 @@ export async function generateCharacter(request: CharacterRequest): Promise<{ sp
         gender: request.gender ?? null, age: request.age ?? null, background: request.background ?? null,
         voice: request.voice ?? null, difficulty: request.difficulty ?? null, setting: request.setting ?? null,
       },
+      profile: request.profile ?? null,
+      existing: request.existing ?? [],
     }) }],
   });
   assertFinished(message);

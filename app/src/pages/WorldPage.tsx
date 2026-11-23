@@ -207,9 +207,9 @@ function ControlsHint({ onDone }: { onDone: () => void }) {
         <p className="text-sm font-medium text-foreground">Find someone to meet</p>
         <p className="mt-0.5 text-sm text-subtle">
           <span className="[@media(pointer:coarse)]:hidden">
-            Walk with <Kbd done={walked}>W A S D</Kbd> or the arrow keys, hold <Kbd done={ran}>Shift</Kbd> to run and drag to look around.
+            <Kbd done={walked}>W A S D</Kbd> to walk, <Kbd done={ran}>Shift</Kbd> to run, drag to look.
           </span>
-          <span className="hidden [@media(pointer:coarse)]:inline">Tap the ground to walk there and drag to look around.</span>
+          <span className="hidden [@media(pointer:coarse)]:inline">Tap to walk, drag to look.</span>
         </p>
       </div>
     </div>

@@ -15,9 +15,15 @@ describe("character form", () => {
       .toEqual({ notes: "Loves hiking and old films.", gender: "woman", age: 29, background: undefined, voice: undefined, difficulty: undefined, setting: undefined });
   });
 
+  it("accepts empty notes, which ask for someone new, and a few words as a seed", () => {
+    expect(characterRequest({}).notes).toBe("");
+    expect(characterRequest({ notes: "   " }).notes).toBe("");
+    expect(characterRequest({ notes: "shy barista" }).notes).toBe("shy barista");
+  });
+
   it.each([
-    [{ notes: "short" }, /10 to 2,000/],
-    [{ notes: "x".repeat(2001) }, /10 to 2,000/],
+    [{ notes: "hi" }, /few more words/],
+    [{ notes: "x".repeat(2001) }, /2,000/],
     [{ notes: "Loves hiking a lot.", age: 17 }, /between 21 and 70/],
     [{ notes: "Loves hiking a lot.", gender: "robot" }, /Gender/],
     [{ notes: "Loves hiking a lot.", difficulty: "extreme" }, /Difficulty/],

@@ -1,14 +1,16 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { routes } from "wasp/client/router";
-import { createDateSession, getPersonas, getProfile, updateProfile, useQuery } from "wasp/client/operations";
+import { getPersonas, getProfile, updateProfile, useQuery } from "wasp/client/operations";
 import { getUserId } from "@/client/userId";
 import { Alert } from "@/components/arc/alert/alert";
+import { InlineError } from "@/components/InlineError";
 import { Skeleton } from "@/components/arc/skeleton/skeleton";
 import type { PersonaWithScenario, Profile } from "../server/dto";
 import { PersonaAvatar } from "@/components/PersonaAvatar";
 import { AppShell } from "@/components/AppShell";
-import { PageHeader, Panel, PanelHeader } from "@/components/Panel";
+import { PageHeader, Panel } from "@/components/Panel";
+import { Disclosure } from "@/components/Disclosure";
 import { Button } from "@/components/arc/button/button";
 import { ChipGroup } from "@/components/arc/chip-group/chip-group";
 import { RadioCards } from "@/components/arc/radio-cards/radio-cards";
@@ -16,7 +18,11 @@ import { Select } from "@/components/arc/select/select";
 import { Textarea } from "@/components/arc/textarea/textarea";
 import { Input } from "@/components/arc/input/input";
 import { LabeledSegments } from "@/components/LabeledSegments";
-import { Sparkles } from "lucide-react";
+import { ArrowLeft, Dices, PenLine, RefreshCw, Sparkles } from "lucide-react";
+import { Progress } from "@/components/arc/progress/progress";
+import { CharacterCard } from "@/components/CharacterCard";
+import { difficultyFor, useGenerateCharacter, useStartDate } from "@/client/practice";
+import { cn } from "@/lib/utils";
 import type { SkillName } from "../shared/types";
 import type { ExperienceLevel } from "@/client/mockData";
 import { SKILLS } from "@/client/mockData";
@@ -41,9 +47,9 @@ const GOALS = [
 ];
 
 const EXPERIENCE = [
-  { value: "beginner", label: "Pretty new", description: "A handful of dates, or none yet." },
-  { value: "intermediate", label: "Some experience", description: "I date, but it doesn't always click." },
-  { value: "experienced", label: "Experienced", description: "Lots of dates, want to sharpen up." },
+  { value: "beginner", label: "New to it" },
+  { value: "intermediate", label: "Some" },
+  { value: "experienced", label: "A lot" },
 ];
 
 export function OnboardingPage() {
@@ -53,20 +59,24 @@ export function OnboardingPage() {
   if (!profile.data) return <AppShell variant="focus"><Alert tone="danger" title="Couldn't load your profile">
     <Button variant="secondary" onClick={() => void profile.refetch()}>Try again</Button>
   </Alert></AppShell>;
-  // First visit: a short stepped flow that ends on a first date. Afterwards this page edits the profile.
-  return profile.data.onboardedAt ? <OnboardingForm profile={profile.data} /> : <FirstRun profile={profile.data} />;
+  return <OnboardingMode profile={profile.data} />;
 }
 
-/** A first-date option: a portrait beside the name and one line about them. */
-function StarterLabel({ media, title, detail }: { media: ReactNode; title: string; detail: string }) {
+/**
+ * First visit: a short stepped flow that ends on a first date. Afterwards this page edits the profile. The mode is
+ * fixed on arrival: the first run saves the profile before its last step, and must not turn into the edit form then.
+ */
+function OnboardingMode({ profile }: { profile: Profile }) {
+  const [firstRun] = useState(profile.onboardedAt === null);
+  return firstRun ? <FirstRun profile={profile} /> : <OnboardingForm profile={profile} />;
+}
+
+/** A first-date option: a portrait or icon beside the name. */
+function StarterLabel({ media, title }: { media: ReactNode; title: string }) {
   return (
-    // The card's label text truncates on one line by default; these labels wrap instead.
-    <span className="flex items-center gap-3 whitespace-normal">
+    <span className="flex items-center gap-3">
       {media}
-      <span className="grid gap-0.5">
-        <span>{title}</span>
-        <span className="text-sm font-normal text-subtle">{detail}</span>
-      </span>
+      <span className="truncate">{title}</span>
     </span>
   );
 }
@@ -76,12 +86,16 @@ const GOAL_SKILLS: Record<string, SkillName> = {
   nerves: "confidence", "keep-going": "flow", "be-myself": "confidence", flirt: "engagement", "second-date": "engagement", deeper: "listening",
 };
 
+/** The goals the first run offers: one tap, so only the four that differ most. */
+const FIRST_RUN_GOALS = GOALS.filter(({ value }) => ["nerves", "keep-going", "flirt", "deeper"].includes(value));
+
 /** Starter characters and who they suit. Riley coaches and is not a date. */
 const STARTERS: { id: string; for: "women" | "men" }[] = [
   { id: "maya", for: "women" },
   { id: "theo", for: "men" },
   { id: "priya", for: "women" },
 ];
+const SURPRISE = "surprise";
 const DESCRIBE = "describe";
 
 const INTEREST = [
@@ -90,140 +104,220 @@ const INTEREST = [
   { value: "anyone", label: "Anyone" },
 ];
 
+const QUESTIONS = ["What should we call you?", "Who do you want to practice with?", "What do you want to get better at?", "How much have you dated?", "Who's your first date?"];
+
+/** Big tap targets that answer the question and move on, one question per screen. */
+function Choices({ labelledBy, options, value, onChoose }: {
+  labelledBy: string;
+  options: { value: string; label: string }[];
+  value: string | null;
+  onChoose: (value: string) => void;
+}) {
+  return (
+    <div role="group" aria-labelledby={labelledBy} className="grid gap-2">
+      {options.map((option) => (
+        <button key={option.value} type="button" aria-pressed={value === option.value} onClick={() => onChoose(option.value)}
+          className={cn(
+            "flex min-h-14 w-full items-center rounded-[20px] border border-border bg-surface px-5 text-left text-base font-medium text-foreground",
+            "transition-colors motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--control-on)",
+            "[@media(hover:hover)_and_(pointer:fine)]:hover:bg-surface-muted",
+            "aria-pressed:border-(--control-on) aria-pressed:bg-[color-mix(in_oklab,var(--control-on)_4%,var(--surface))]",
+          )}>
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function FirstRun({ profile }: { profile: Profile }) {
   const navigate = useNavigate();
   const personas = useQuery(getPersonas);
+  const dates = useStartDate();
+  const characters = useGenerateCharacter();
   const [step, setStep] = useState(0);
   const [name, setName] = useState(profile.displayName ?? "");
-  const [interestedIn, setInterestedIn] = useState("anyone");
-  const [goals, setGoals] = useState<string[]>([]);
-  const [experience, setExperience] = useState<ExperienceLevel>("intermediate");
+  const [interestedIn, setInterestedIn] = useState<string | null>(null);
+  const [goal, setGoal] = useState<string | null>(null);
+  const [experience, setExperience] = useState<ExperienceLevel | null>(null);
   const [choice, setChoice] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"start" | "skip" | null>(null);
+  const [description, setDescription] = useState("");
+  const [draft, setDraft] = useState<PersonaWithScenario | null>(null);
+  const [saving, setSaving] = useState<"skip" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const headingId = useId();
+  const lastStep = QUESTIONS.length - 1;
 
+  const difficulty = difficultyFor(experience);
   const starters = STARTERS
-    .filter((starter) => interestedIn === "anyone" || starter.for === interestedIn)
+    .filter((starter) => !interestedIn || interestedIn === "anyone" || starter.for === interestedIn)
     .flatMap((starter) => personas.data?.filter((persona: PersonaWithScenario) => persona.id === starter.id) ?? []);
-  const chosen = starters.find((persona) => persona.id === choice) ?? null;
-  const steps = ["Who you'd like to meet", "What to work on", "Your first date"];
+  // The starter that matches how much they've dated is picked for them, so one tap starts the date.
+  const recommended = starters.find((persona) => persona.difficulty === difficulty) ?? starters[0] ?? null;
+  const picked = choice ?? recommended?.id ?? SURPRISE;
+
+  // Each new question takes focus, so a screen reader announces it and the keyboard starts from the top.
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    heading.current?.focus();
+  }, [step, draft]);
+
+  function answer<T>(set: (value: T) => void) {
+    return (value: string) => { set(value as T); setStep((current) => Math.min(current + 1, lastStep)); };
+  }
 
   async function saveProfile() {
-    const selectedGoals = new Set(goals);
-    const focusSkills = [...new Set(goals.map((goal) => GOAL_SKILLS[goal]).filter((skill): skill is SkillName => Boolean(skill)))];
+    const focusSkills = goal && GOAL_SKILLS[goal] ? [GOAL_SKILLS[goal]!] : [];
     await updateProfile({
       userId: profile.id,
       displayName: name,
-      experienceLevel: experience,
-      goals: GOALS.filter(({ value }) => selectedGoals.has(value)).map(({ label }) => label).join(", "),
-      preferences: { ...profile.preferences, goals, focusSkills, interestedIn },
+      experienceLevel: experience ?? undefined,
+      goals: GOALS.find(({ value }) => value === goal)?.label ?? undefined,
+      preferences: { ...profile.preferences, goals: goal ? [goal] : [], focusSkills, interestedIn: interestedIn ?? "anyone" },
     });
   }
 
-  async function finish() {
-    if (!choice) return;
-    setBusy("start");
+  async function withProfileSaved(then: () => Promise<void>) {
+    setSaving("save");
     setError(null);
     try {
       await saveProfile();
-      if (choice === DESCRIBE) {
-        navigate(`${routes.CharactersRoute.build()}?from=onboarding`);
-        return;
-      }
-      const session = await createDateSession({ userId: profile.id, personaId: choice });
-      navigate(routes.DateRoute.build({ params: { sessionId: session.id } }));
     } catch {
       setError("Your answers are still here. Try again.");
-      setBusy(null);
+      setSaving(null);
+      return;
     }
+    setSaving(null);
+    await then();
+  }
+
+  /** Saves the answers first: the character is shaped by them. */
+  async function create(replaceId?: string) {
+    await withProfileSaved(async () => {
+      const notes = picked === DESCRIBE ? description : "";
+      const persona = await characters.generate({ notes, difficulty, ...(replaceId ? { replaceId } : {}) });
+      if (persona) setDraft(persona);
+    });
   }
 
   async function skip() {
-    setBusy("skip");
+    setSaving("skip");
     setError(null);
     try {
       await updateProfile({ userId: profile.id });
       navigate(routes.WorldRoute.build());
     } catch {
       setError("Couldn't skip right now. Try again.");
-      setBusy(null);
+      setSaving(null);
     }
   }
 
-  const finishLabel = choice === DESCRIBE ? "Describe someone" : chosen ? `Start a date with ${chosen.name}` : "Choose who to meet";
+  const busy = saving !== null || characters.generating || dates.starting !== null;
+  const shownError = error ?? characters.error ?? dates.error;
+  const title = draft ? "Meet your first date" : QUESTIONS[step];
+
+  function back() {
+    if (draft) { setDraft(null); return; }
+    setStep(step - 1);
+  }
 
   return (
     <AppShell variant="focus">
-      <div className="mx-auto grid max-w-2xl gap-6">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-subtle tabular-nums" aria-live="polite">Step {step + 1} of {steps.length} · {steps[step]}</p>
-          <Button variant="ghost" size="sm" className="-mr-[calc(var(--space-3)+1px)]" loading={busy === "skip"} disabled={busy !== null} onClick={() => void skip()}>Skip to the plaza</Button>
+      <div className="mx-auto grid max-w-md gap-8 sm:pt-6">
+        <div className="flex items-center gap-2">
+          {/* The arrow and Skip keep their place on every question, so the bar never shifts. */}
+          <Button variant="ghost" size="sm" aria-label="Back" className={cn("-ml-[calc(var(--space-3)+1px)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11", step === 0 && !draft && "invisible")}
+            disabled={busy} onClick={back}>
+            <ArrowLeft className="size-4" aria-hidden="true" />
+          </Button>
+          {/* Meeting the generated date is the last stretch, so the bar only completes once they're on screen. */}
+          <Progress className="flex-1" value={draft ? QUESTIONS.length + 1 : step + 1} max={QUESTIONS.length + 1} />
+          <Button variant="ghost" size="sm" className="-mr-[calc(var(--space-3)+1px)] [@media(pointer:coarse)]:min-h-11" loading={saving === "skip"} disabled={busy} onClick={() => void skip()}>Skip</Button>
         </div>
 
+        <h1 ref={heading} id={headingId} tabIndex={-1} className="font-heading text-3xl text-balance text-foreground outline-none sm:text-4xl">{title}</h1>
+
         {step === 0 && (
-          <Panel>
-            <PageHeader title="Practice dates, out loud" description="Talk with AI characters by voice, then get feedback on how the conversation went." />
-            <div className="grid gap-5">
-              <Input label="What should your dates call you?" placeholder="Sam" value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" />
-              <LabeledSegments label="Who would you like to practice with?" options={INTEREST} value={interestedIn} onValueChange={setInterestedIn} />
-            </div>
-          </Panel>
+          <form className="grid gap-6" onSubmit={(event: FormEvent) => { event.preventDefault(); setStep(1); }}>
+            <Input label="First name" placeholder="Sam" value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" autoFocus />
+            <Button type="submit" size="lg">Continue</Button>
+          </form>
         )}
 
-        {step === 1 && (
-          <Panel>
-            <PageHeader title="What do you want to get better at?" description="Your first dates and feedback focus on these." />
-            <div className="grid gap-6">
-              <ChipGroup label="Goals" options={GOALS} value={goals} onValueChange={setGoals} />
-              <div className="grid gap-2">
-                <span aria-hidden="true" className="text-sm font-medium text-foreground">How much have you dated?</span>
-                <RadioCards aria-label="How much have you dated?" options={EXPERIENCE} value={experience}
-                  onValueChange={(v) => setExperience(v as ExperienceLevel)} layout="grid" minColumnWidth={160} />
-              </div>
-            </div>
-          </Panel>
-        )}
+        {step === 1 && <Choices labelledBy={headingId} options={INTEREST} value={interestedIn} onChoose={answer(setInterestedIn)} />}
+        {step === 2 && <Choices labelledBy={headingId} options={FIRST_RUN_GOALS} value={goal} onChoose={answer(setGoal)} />}
+        {step === 3 && <Choices labelledBy={headingId} options={EXPERIENCE} value={experience} onChoose={answer(setExperience)} />}
 
-        {step === 2 && (
-          <Panel>
-            <PageHeader title="Who's your first date?" description="Pick someone to meet now, or describe a person you'd like to practice with." />
+        {step === lastStep && draft && (
+          <CharacterCard persona={draft} actions={<>
+            <Button size="lg" loading={dates.starting === draft.id} disabled={busy} onClick={() => void dates.start(draft.id)}>Start date</Button>
+            <Button size="lg" variant="secondary" loading={characters.generating} disabled={busy} onClick={() => void create(draft.id)}>
+              <RefreshCw className="size-4" aria-hidden="true" />
+              Try another
+            </Button>
+          </>} />
+        )}
+        {/* The final question shows its errors under its own button; the others under their answers. */}
+        {shownError && (step < lastStep || draft) && <InlineError className={draft ? "justify-start" : undefined}>{shownError}</InlineError>}
+
+        {step === lastStep && !draft && (
+          <div className="grid gap-6" aria-busy={characters.generating}>
             {personas.isLoading ? <Skeleton label="Loading characters" lines={3} /> : (
               <RadioCards
-                aria-label="First date"
+                aria-labelledby={headingId}
                 layout="list"
-                value={choice}
+                value={picked}
                 onValueChange={setChoice}
+                disabled={busy}
                 options={[
                   ...starters.map((persona) => ({
                     value: persona.id,
-                    label: <StarterLabel media={<PersonaAvatar persona={persona} size={44} />} title={`${persona.name}, ${persona.age}`} detail={persona.bio} />,
-                    meta: `${persona.difficulty.charAt(0).toUpperCase()}${persona.difficulty.slice(1)}`,
+                    label: <StarterLabel media={<PersonaAvatar persona={persona} size={40} />} title={`${persona.name}, ${persona.age}`} />,
+                    meta: capitalize(persona.difficulty),
                   })),
-                  {
-                    value: DESCRIBE,
-                    label: <StarterLabel
-                      media={<span className="grid size-11 place-items-center rounded-full bg-brand-subtle text-brand-strong"><Sparkles className="size-5" aria-hidden="true" /></span>}
-                      title="Someone like a person you know"
-                      detail="Describe them, and AI creates a character with a matching voice and look." />,
-                  },
+                  { value: SURPRISE, label: <StarterLabel media={<OptionIcon><Dices className="size-5" aria-hidden="true" /></OptionIcon>} title="Surprise me" /> },
+                  { value: DESCRIBE, label: <StarterLabel media={<OptionIcon><PenLine className="size-5" aria-hidden="true" /></OptionIcon>} title="Describe someone" /> },
                 ]}
               />
             )}
-          </Panel>
+            {picked === DESCRIBE && (
+              <Textarea label="Who are they?" placeholder="A shy barista who loves jazz" rows={2} maxLength={2000} value={description}
+                onChange={(e) => setDescription(e.target.value)} autoFocus />
+            )}
+            {picked === SURPRISE || picked === DESCRIBE ? (
+              <div className="grid gap-2">
+                <Button size="lg" loading={characters.generating || saving === "save"} disabled={busy || (picked === DESCRIBE && description.trim().length < 3)}
+                  onClick={() => void create()}>
+                  <Sparkles className="size-4" aria-hidden="true" />
+                  {picked === SURPRISE ? "Surprise me" : "Create"}
+                </Button>
+                <p role="status" aria-live="polite" className="text-center text-sm text-subtle tabular-nums empty:hidden">
+                  {characters.generating ? `Creating your date · ${characters.elapsed}s` : ""}
+                </p>
+                {shownError && !characters.generating && <InlineError>{shownError}</InlineError>}
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                <Button size="lg" loading={saving === "save" || dates.starting !== null} disabled={busy}
+                  onClick={() => void withProfileSaved(() => dates.start(picked))}>Start date</Button>
+                {shownError && <InlineError>{shownError}</InlineError>}
+              </div>
+            )}
+          </div>
         )}
 
-        {error && <Alert tone="danger" title="Something went wrong">{error}</Alert>}
-
-        <div className="flex justify-between gap-3">
-          {step > 0 ? <Button variant="ghost" className="-ml-[calc(var(--space-4)+1px)]" disabled={busy !== null} onClick={() => setStep(step - 1)}>Back</Button> : <span />}
-          {step < steps.length - 1
-            ? <Button onClick={() => setStep(step + 1)}>Continue</Button>
-            : <Button loading={busy === "start"} disabled={!choice || busy !== null} onClick={() => void finish()}>{finishLabel}</Button>}
-        </div>
       </div>
     </AppShell>
   );
 }
+
+function OptionIcon({ children }: { children: ReactNode }) {
+  return <span className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-subtle text-brand-strong">{children}</span>;
+}
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 function OnboardingForm({ profile }: { profile: Profile }) {
   const navigate = useNavigate();
@@ -267,82 +361,46 @@ function OnboardingForm({ profile }: { profile: Profile }) {
   return (
     <AppShell variant="focus">
       <div className="mx-auto max-w-2xl">
-        <PageHeader title="Tell us about you" description="This shapes who you'll meet and what your coach watches for. You can change it later." />
+        <PageHeader title="Your profile" />
         <form onSubmit={onSubmit} className="grid gap-5">
-          <Panel>
-            <PanelHeader title="The basics" />
-            <Input label="What should your dates call you?" placeholder="Sam" value={form.name} onChange={(e) => set("name", e.target.value)} autoComplete="given-name" />
-          </Panel>
-
-          <Panel>
-            <PanelHeader title="Your goals" description="Pick any that sound like you." />
+          <Panel className="grid gap-6">
+            <Input label="First name" placeholder="Sam" value={form.name} onChange={(e) => set("name", e.target.value)} autoComplete="given-name" />
+            <LabeledSegments label="Practice with" options={INTEREST} value={form.interestedIn} onValueChange={(v) => set("interestedIn", v)} />
             <ChipGroup label="Goals" options={GOALS} value={form.goals} onValueChange={(v) => set("goals", v)} />
-          </Panel>
-
-          <Panel>
-            <PanelHeader title="Dating experience" />
-            <RadioCards
-              aria-label="Dating experience"
-              options={EXPERIENCE}
-              value={form.experience}
-              onValueChange={(v) => set("experience", v as ExperienceLevel)}
-              layout="grid"
-              minColumnWidth={160}
-            />
-          </Panel>
-
-          <Panel>
-            <PanelHeader title="Preferences" />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Select
-                label="Looking for"
-                value={form.lookingFor}
-                onValueChange={(v) => set("lookingFor", v)}
-                options={[
-                  { value: "serious", label: "Something serious" },
-                  { value: "casual", label: "Something casual" },
-                  { value: "unsure", label: "Not sure yet" },
-                ]}
-              />
-              <Select
-                label="Practice dates with"
-                value={form.interestedIn}
-                onValueChange={(v) => set("interestedIn", v)}
-                options={[
-                  { value: "women", label: "Women" },
-                  { value: "men", label: "Men" },
-                  { value: "anyone", label: "Anyone" },
-                ]}
-              />
-            </div>
-          </Panel>
-
-          <Panel>
-            <PanelHeader title="What do you want to work on?" description="Your first dates will lean into these." />
-            <ChipGroup
-              label="Skills to work on"
-              options={SKILLS.map((s) => ({ value: s.key, label: s.label }))}
-              value={form.focusSkills}
-              onValueChange={(v) => set("focusSkills", v as SkillName[])}
-            />
-            <div className="mt-4">
-              <Textarea
-                label="In your own words"
-                description="What tends to go wrong? The more specific, the better the practice."
-                placeholder="I run out of things to say after the small talk, and I get quiet when they ask about me."
-                rows={4}
-                value={form.focusNote}
-                onChange={(e) => set("focusNote", e.target.value)}
-              />
-            </div>
+            <LabeledSegments label="Dating experience" options={EXPERIENCE} value={form.experience} onValueChange={(v) => set("experience", v as ExperienceLevel)} />
+            <Disclosure label="More">
+              <div className="grid gap-6">
+                <Select
+                  label="Looking for"
+                  value={form.lookingFor}
+                  onValueChange={(v) => set("lookingFor", v)}
+                  options={[
+                    { value: "serious", label: "Something serious" },
+                    { value: "casual", label: "Something casual" },
+                    { value: "unsure", label: "Not sure yet" },
+                  ]}
+                />
+                <ChipGroup
+                  label="Skills to work on"
+                  options={SKILLS.map((s) => ({ value: s.key, label: s.label }))}
+                  value={form.focusSkills}
+                  onValueChange={(v) => set("focusSkills", v as SkillName[])}
+                />
+                <Textarea
+                  label="What tends to go wrong?"
+                  placeholder="I run out of things to say after the small talk."
+                  rows={3}
+                  value={form.focusNote}
+                  onChange={(e) => set("focusNote", e.target.value)}
+                />
+              </div>
+            </Disclosure>
           </Panel>
 
           {error && <Alert title="Couldn't save your profile" tone="danger">Your answers are still here. Try saving again.</Alert>}
           <div className="flex justify-end gap-3">
-            <Button type="button" disabled={saving} variant="ghost" onClick={() => navigate(routes.DashboardRoute.build())}>
-              Skip for now
-            </Button>
-            <Button type="submit" loading={saving}>Save and continue</Button>
+            <Button type="button" disabled={saving} variant="ghost" onClick={() => navigate(routes.DashboardRoute.build())}>Cancel</Button>
+            <Button type="submit" loading={saving}>Save</Button>
           </div>
         </form>
       </div>
