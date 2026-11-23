@@ -146,6 +146,19 @@ describe.skipIf(!databaseUrl)("generated characters (PostgreSQL)", () => {
     await expect(generate(owner)).rejects.toThrow(/up to 12 characters/);
   });
 
+  it("invents someone the user practices with when nothing is written, distinct from characters they have met", async () => {
+    const owner = newUser();
+    await generate(owner);
+    await db.client!.user.update({ where: { id: owner }, data: { experienceLevel: "beginner", preferences: { interestedIn: "men" } } });
+    parse.mockClear();
+    const persona = await generate(owner, { notes: "" });
+
+    const sent = JSON.parse(parse.mock.calls[0]![0].messages[0].content);
+    expect(sent).toMatchObject({ notes: "", choices: { gender: "man" }, profile: { practicesWith: "men", experience: "beginner" } });
+    expect(sent.existing.map((character: { name: string }) => character.name)).toEqual(expect.arrayContaining(["Maya", "Theo", "Lena"]));
+    expect((await db.client!.customPersona.findUniqueOrThrow({ where: { id: persona.id } })).notes).toBeNull();
+  });
+
   it("explains when generation is not configured, without calling the provider", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     await expect(generate(newUser())).rejects.toThrow(/not configured/);

@@ -31,10 +31,24 @@ describe("generated characters", () => {
     expect(JSON.parse(request.messages[0].content)).toEqual({
       notes: "Loves climbing and baking, very teasing.",
       choices: { gender: "woman", age: null, background: null, voice: null, difficulty: "hard", setting: null },
+      profile: null,
+      existing: [],
     });
     expect(result.spec.difficulty).toBe("hard");
     expect(result.provenance.name).toBe("generated");
     expect(result.model).toBe("test-model");
+  });
+
+  it("invents someone new from the profile when the notes are empty, distinct from existing characters", async () => {
+    parse.mockResolvedValue({ stop_reason: "end_turn", model: "test-model", parsed_output: spec });
+    const existing = [{ name: "Maya", setting: "Sunday afternoon coffee shop", bio: "UX designer." }];
+    await generateCharacter({ notes: "", difficulty: "easy", profile: { practicesWith: "women", experience: "beginner" }, existing });
+    const request = parse.mock.calls[0]![0];
+    expect(request.system).toMatch(/notes are empty, invent someone new/i);
+    expect(request.system).toMatch(/Never repeat a character from "existing"/);
+    expect(JSON.parse(request.messages[0].content)).toMatchObject({
+      notes: "", profile: { practicesWith: "women", experience: "beginner" }, existing,
+    });
   });
 
   it("rejects a refused or truncated response instead of saving it", async () => {

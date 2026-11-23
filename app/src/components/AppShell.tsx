@@ -70,15 +70,6 @@ export function AppShell({
       <main className={cn(bleed ? "relative flex min-h-0 flex-1 flex-col" : cn("mx-auto w-full flex-1 px-4 py-8 sm:px-6 sm:py-10", width))}>
         {children}
       </main>
-
-      {variant !== "focus" && !bleed && (
-        <footer className="border-t border-border">
-          <div className={cn("mx-auto flex flex-col gap-1 px-4 py-6 text-xs text-faint sm:flex-row sm:justify-between sm:px-6", width)}>
-            <span>bantr</span>
-            <span>Voice by ElevenLabs</span>
-          </div>
-        </footer>
-      )}
     </div>
   );
 }

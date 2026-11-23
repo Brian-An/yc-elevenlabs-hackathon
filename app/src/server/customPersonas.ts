@@ -1,21 +1,25 @@
 // Operations for the practice characters a user generates. Every operation is scoped to the caller's user ID.
 import Anthropic from "@anthropic-ai/sdk";
+import type { Prisma } from "@prisma/client";
 import { HttpError, prisma } from "wasp/server";
 import type { DeleteCustomPersona, GenerateCustomPersona, UpdateCustomPersona } from "wasp/server/operations";
 import { anthropicEnabled, GenerationError } from "./anthropic";
 import { matchAvatar } from "./avatarCatalog";
-import { generateCharacter, type CharacterRequest } from "./characterGen";
+import { generateCharacter, type CharacterRequest, type ExistingCharacter, type PracticeProfile } from "./characterGen";
 import type { PersonaWithScenario } from "./dto";
-import { fromCustomPersona } from "./personas";
-import { asJson } from "./serialize";
+import { fromCustomPersona, listPersonas } from "./personas";
+import { asJson, readJson } from "./serialize";
 import { ensureUser, userIdFrom, type WithUser } from "./user";
 import { pickVoice } from "./voices";
 
 export const MAX_ACTIVE_CHARACTERS = 12;
 export const MAX_GENERATIONS_PER_DAY = 20;
+/** How many of the user's past characters, retired ones included, a new character is kept distinct from. */
+const DISTINCT_FROM_RECENT = 30;
 
-export type GenerateCustomPersonaArgs = WithUser & Partial<Omit<CharacterRequest, "notes">> & {
-  notes: string;
+export type GenerateCustomPersonaArgs = WithUser & Partial<Omit<CharacterRequest, "notes" | "profile" | "existing">> & {
+  /** Empty asks for someone new, shaped by the user's profile. */
+  notes?: string;
   /** A character to replace with the new one, when the user regenerates. */
   replaceId?: string;
 };
@@ -39,7 +43,8 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[], field: s
 /** Validates the form. Exported for tests. */
 export function characterRequest(args: Partial<GenerateCustomPersonaArgs>): CharacterRequest {
   const notes = typeof args.notes === "string" ? args.notes.trim() : "";
-  if (notes.length < 10 || notes.length > 2000) throw new HttpError(400, "Describe them in 10 to 2,000 characters");
+  if (notes.length > 0 && notes.length < 3) throw new HttpError(400, "Describe them in a few more words, or leave it blank");
+  if (notes.length > 2000) throw new HttpError(400, "Describe them in at most 2,000 characters");
   const age = args.age == null ? undefined : Number(args.age);
   if (age !== undefined && (!Number.isInteger(age) || age < 21 || age > 70)) throw new HttpError(400, "Age must be between 21 and 70");
   return {
@@ -51,6 +56,27 @@ export function characterRequest(args: Partial<GenerateCustomPersonaArgs>): Char
     difficulty: oneOf(args.difficulty, DIFFICULTIES, "Difficulty"),
     setting: optionalText(args.setting, "Setting", 160),
   };
+}
+
+const PRACTICES_WITH = ["women", "men", "anyone"] as const;
+
+/** The onboarding answers that shape a character the notes leave open. */
+function practiceProfile(user: { goals: string | null; experienceLevel: string | null; preferences: Prisma.JsonValue } | null): PracticeProfile {
+  const preferences = readJson<Record<string, unknown>>(user?.preferences, {});
+  const practicesWith = PRACTICES_WITH.find((value) => value === preferences.interestedIn);
+  return {
+    ...(practicesWith ? { practicesWith } : {}),
+    ...(user?.goals ? { goals: user.goals } : {}),
+    ...(user?.experienceLevel ? { experience: user.experienceLevel } : {}),
+  };
+}
+
+/** The stock characters and the user's recent ones, so a new character is someone the user hasn't met. */
+function existingCharacters(recent: { name: string; setting: string; bio: string }[]): ExistingCharacter[] {
+  return [
+    ...listPersonas().map((persona) => ({ name: persona.name, setting: persona.defaultScenario.setting, bio: persona.bio })),
+    ...recent,
+  ].map(({ name, setting, bio }) => ({ name, setting, bio: bio.slice(0, 160) }));
 }
 
 async function ownedCharacter(userId: string, id: unknown) {
@@ -69,17 +95,27 @@ async function withPreview(row: Parameters<typeof fromCustomPersona>[0]): Promis
 
 export const generateCustomPersona: GenerateCustomPersona<GenerateCustomPersonaArgs, PersonaWithScenario> = async (args) => {
   const userId = await ensureUser(args);
-  const request = characterRequest(args);
+  const form = characterRequest(args);
   if (!anthropicEnabled()) throw new HttpError(503, "Character generation is not configured on this server");
   const replaced = args.replaceId ? await ownedCharacter(userId, args.replaceId) : null;
 
-  const [active, recent, others] = await Promise.all([
+  const [active, recent, others, past, user] = await Promise.all([
     prisma.customPersona.count({ where: { userId, deletedAt: null } }),
     prisma.customPersona.count({ where: { userId, createdAt: { gt: new Date(Date.now() - 24 * 60 * 60_000) } } }),
     prisma.customPersona.findMany({ where: { userId, deletedAt: null }, select: { voiceId: true } }),
+    prisma.customPersona.findMany({
+      where: { userId }, orderBy: { createdAt: "desc" }, take: DISTINCT_FROM_RECENT, select: { name: true, setting: true, bio: true },
+    }),
+    prisma.user.findUnique({ where: { id: userId }, select: { goals: true, experienceLevel: true, preferences: true } }),
   ]);
   if (!replaced && active >= MAX_ACTIVE_CHARACTERS) throw new HttpError(409, `You can keep up to ${MAX_ACTIVE_CHARACTERS} characters. Delete one to make another.`);
   if (recent >= MAX_GENERATIONS_PER_DAY) throw new HttpError(429, "You've created a lot of characters today. Try again tomorrow.");
+
+  const profile = practiceProfile(user);
+  // With nothing written, the character is someone the user practices with. Written notes may say otherwise.
+  const surpriseGender = !form.notes && !form.gender && profile.practicesWith && profile.practicesWith !== "anyone"
+    ? (profile.practicesWith === "women" ? "woman" : "man") : undefined;
+  const request: CharacterRequest = { ...form, ...(surpriseGender ? { gender: surpriseGender } : {}), profile, existing: existingCharacters(past) };
 
   let generated: Awaited<ReturnType<typeof generateCharacter>>;
   try {
@@ -104,7 +140,7 @@ export const generateCustomPersona: GenerateCustomPersona<GenerateCustomPersonaA
       userId, name: spec.name, age: spec.age, gender: spec.gender, bio: spec.bio, personality: spec.personality,
       direction: spec.direction, difficulty: spec.difficulty, setting: spec.setting, openingLine: spec.openingLine,
       appearance: spec.appearance, look: asJson(look), voiceId: voice?.voiceId ?? null, voiceName: voice?.name ?? null,
-      avatarId, provenance: asJson(provenance), notes: request.notes, model,
+      avatarId, provenance: asJson(provenance), notes: form.notes || null, model,
     } });
   });
   return withPreview(row);

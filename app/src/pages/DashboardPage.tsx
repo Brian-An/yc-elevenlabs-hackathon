@@ -58,11 +58,11 @@ export function DashboardPage() {
         <aside className="grid grid-cols-[minmax(0,1fr)] gap-6" aria-label="Your progress">
           <StreakCard dates={sessions.map((s) => s.startedAt)} />
           <Panel>
-            <PanelHeader title="Your skills" description="From your latest date, with the change since the one before." />
+            <PanelHeader title="Your skills" />
             {skills ? <SkillScoreList scores={skills} previous={previous} /> : <p className="text-sm text-subtle">Complete a date to see your skill scores.</p>}
           </Panel>
           <Panel>
-            <PanelHeader title="What we remember" description="Carried into every new date." />
+            <PanelHeader title="What we remember" />
             <MemoryList title="Strengths" items={memory.strengths.map((point) => point.point)} kind="strength" />
             <div className="my-5 h-px bg-border" />
             <MemoryList title="Working on" items={memory.weaknesses.map((point) => point.point)} kind="weakness" />
@@ -124,7 +124,7 @@ function PastDates({ sessions }: { sessions: SessionSummary[] }) {
           <EmptyState
             icon={<MessageSquare width={24} height={24} strokeWidth={1.5} />}
             title="No dates yet"
-            description="Walk up to someone in the plaza to start a date. Your past dates and their feedback will show up here."
+            description="Your dates and feedback show up here."
             action={<Button onClick={() => navigate(routes.WorldRoute.build())}>Find someone to meet</Button>}
           />
         </div>

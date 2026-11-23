@@ -306,7 +306,6 @@ function FeedbackContent({ session, history, nextScenario, personas, starting, a
           open={savedToast}
           onOpenChange={setSavedToast}
           title="Feedback saved"
-          description="Your transcript and feedback are available here."
         />
       </div>
     </AppShell>
