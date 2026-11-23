@@ -1,0 +1,57 @@
+app/src/pages/OnboardingPage.tsx
+  s_ec1d2e0cd6d568::t_a682a9a471a8ca 62,65-71
+  s_ec1d2e0cd6d568::t_d46f8937b99de3 296,299,302-306
+  s_ec1d2e0cd6d568::t_ffda00017708a9 7,260,262-263
+  s_ec1d2e0cd6d568::t_7c540fe23e8cd4 231,237
+  s_ec1d2e0cd6d568::t_5449c5a67ed1c4 235-236,240
+  s_ec1d2e0cd6d568::t_8ccce18d979deb 1,4,21-25,72,74-75,77,79,89-91,98,107-132,136-137,140-142,144-146,148-150,152,154,156-169,172,176-178,182-183,189-190,192-202,206,213,217-224,228-230,232-234,241,243-246,249-250,252-259,265-266,269,271,273,277-278,280-281,285-295,297-298,300-301,307-308,316-320
+  s_ec1d2e0cd6d568::t_2bc1b90d7fe961 12-13,50-52,251,364,366-368,370-397,402-403
+  s_ec1d2e0cd6d568::t_eb650a38df8ea8 73,321
+app/src/components/Disclosure.tsx
+  s_ec1d2e0cd6d568::t_7c540fe23e8cd4 19
+  s_ec1d2e0cd6d568::t_db78732c83e5e1 1-18,20-28
+app/src/components/CharacterCard.tsx
+  s_ec1d2e0cd6d568::t_effe6af2ba5031 1-71
+app/src/server/customPersonas.ts
+  s_ec1d2e0cd6d568::t_d901cc13ece316 8,10-11,17-18,20-22,46-47,61-63,65-81,98,102,106-109,114-119,143
+  s_ec1d2e0cd6d568::t_101b9dc7b77eae 3,64
+app/src/server/characterGen.test.ts
+  s_ec1d2e0cd6d568::t_093311ac6a8f83 34-35,42-51
+  s_ec1d2e0cd6d568::t_dfb8bb4b9574d4 52-53
+app/src/pages/CharactersPage.tsx
+  s_ec1d2e0cd6d568::t_56517f88372f6b 287
+  s_ec1d2e0cd6d568::t_9ffb3771e7c0ea 110
+  s_ec1d2e0cd6d568::t_ffda00017708a9 21,24,33-34,38,41,50,54,57-75,79,86-87,174-175,177,184,187-188,190,192,197-204,208,213,220-227,229-245
+  s_ec1d2e0cd6d568::t_5a219b690c9f31 2,6,11,13-14,89,91,94-95,101-109,118,120,122-125,127,129-130,132,135-137,140-141,146,148-150,154,156-157,159,162-165,168,171-172
+app/src/server/customPersonas.db.test.ts
+  s_ec1d2e0cd6d568::t_a8bafcc4aec079 149-161
+app/src/client/practice.ts
+  s_ec1d2e0cd6d568::t_c15a62335e7bf5 1-72
+app/src/server/customPersonas.test.ts
+  s_ec1d2e0cd6d568::t_093311ac6a8f83 18-23,25-26
+app/src/server/characterGen.ts
+  s_ec1d2e0cd6d568::t_559ade3aae6b0f 1-3,16-21,24,32-33,72-73,76-79,98-99
+app/src/pages/DashboardPage.tsx
+  s_ec1d2e0cd6d568::t_56517f88372f6b 61,65,127
+app/src/pages/WorldPage.tsx
+  s_ec1d2e0cd6d568::t_7850a5e5d9d87c 210,212
+app/src/components/InlineError.tsx
+  s_ec1d2e0cd6d568::t_d46f8937b99de3 7
+  s_ec1d2e0cd6d568::t_27e7dc99ceecf0 1-6,8-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ee9103027f7e8e981ab9f3b745aaeb39bea98f7",
+  "prompts": {},
+  "sessions": {
+    "s_ec1d2e0cd6d568": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8bde8e1e-b0b4-4b40-988d-ae93599ce2e3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
