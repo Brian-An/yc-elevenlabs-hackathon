@@ -65,7 +65,8 @@ export function PersonaAvatar({
   }, [volume, speaking, reduce]);
 
   const hue = hueFor(persona);
-  const photo = src ?? PHOTOS[persona.id];
+  // A generated character shows its matched video avatar, when it has one.
+  const photo = src ?? PHOTOS[persona.id] ?? persona.custom?.avatarPreviewUrl ?? undefined;
   return (
     <span className={cn("relative inline-grid shrink-0 place-items-center", className)} style={{ width: size, height: size }}>
       {volume && speaking && !reduce && (

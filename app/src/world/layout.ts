@@ -2,6 +2,7 @@
  * Where everything in the plaza stands, in metres. +X is east, -Z is north, and a model faces +Z at yaw 0.
  * Models live in public/models (see CREDITS.md there); props are named nodes inside a packed .glb.
  */
+import type { Persona } from "../shared/types";
 import type { Bounds, Collider, Vec2 } from "./collision";
 
 export const MODELS = {
@@ -62,19 +63,35 @@ export const PERSONA_LOOK: Record<string, { skin: string; hair: string }> = {
   coach: { skin: "#f0c9aa", hair: "#5b3a24" }, // Riley: white, brown hair
 };
 
+/** A persona's plaza model: a generated character carries its own, stock personas use PERSONA_MODEL. */
+export const personaModel = (persona: Pick<Persona, "id" | "custom">) =>
+  persona.custom?.look.model ?? PERSONA_MODEL[persona.id] ?? FALLBACK_PERSONA_MODEL;
+
+/** A persona's skin and hair colours, when it overrides the model's defaults. */
+export const personaLook = (persona: Pick<Persona, "id" | "custom">): { skin?: string; hair?: string } => {
+  const look = persona.custom?.look ?? PERSONA_LOOK[persona.id];
+  return look ? { skin: look.skin, hair: look.hair } : {};
+};
+
 /** Walkable area: the paved plaza between the buildings and the road. */
 export const BOUNDS: Bounds = { minX: -19, maxX: 19, minZ: -15, maxZ: 15.5 };
 
 /** A café table for two. The persona waits beside it and both sit on its chairs during the date. */
 export type Table = { id: string; x: number; z: number };
 
-/** Date tables first, one per persona in order; the rest are decoration. */
+/**
+ * Date tables, one per persona in order: the stock personas take the first four, and the user's generated
+ * characters, newest first, take the rest. A table with no persona is decoration.
+ */
 export const TABLES: Table[] = [
   { id: "t1", x: -7, z: -5 },
   { id: "t2", x: 7, z: -5 },
   { id: "t3", x: 0, z: 3 },
   { id: "t4", x: -11, z: 6 },
   { id: "t5", x: 12, z: 6 },
+  { id: "t6", x: -11, z: -8 },
+  { id: "t7", x: 0, z: -6 },
+  { id: "t8", x: 10, z: -10 },
 ];
 
 const CHAIR_OFFSET = 1.69;

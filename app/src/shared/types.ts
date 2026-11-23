@@ -36,6 +36,27 @@ export type Persona = {
   bio: string;
   personality: string;
   elevenLabsAgentId?: string;
+  /** Set on characters a user generated. Stock personas take their look from src/world/layout.ts. */
+  custom?: CustomPersonaDetails;
+};
+
+/** Plaza model (a file in public/models/characters) and colour overrides. */
+export type PersonaLook = { model: string; skin: string; hair: string };
+
+/** Where each generated trait came from: the user's notes, or the model's own choice. */
+export type TraitSource = "notes" | "generated";
+export type PersonaProvenance = Record<"name" | "age" | "gender" | "appearance" | "personality" | "interests" | "voice" | "setting", TraitSource>;
+
+export type CustomPersonaDetails = {
+  gender: "woman" | "man" | "nonbinary";
+  look: PersonaLook;
+  appearance: string;
+  voiceName: string | null;
+  /** Preview image of the matched video avatar, when one was matched. */
+  avatarPreviewUrl: string | null;
+  provenance: PersonaProvenance;
+  createdAt: Date;
+  deleted: boolean;
 };
 
 export type Scenario = {

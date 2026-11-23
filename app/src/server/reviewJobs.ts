@@ -22,7 +22,7 @@ import {
   type ReviewUsage,
 } from "./dateReview";
 import { saveReviewMemory } from "./memory";
-import { getPersona } from "./personas";
+import { resolvePersona } from "./personas";
 import { asJson, readJson } from "./serialize";
 
 export const MAX_ATTEMPTS = 5;
@@ -160,7 +160,7 @@ export async function completeClaimedReview({ job, session, token }: Claim, metr
   const held = { id: job.id, leaseToken: token };
   let review = hasStoredReview(session, job) ? readJson<DateReview | null>(session.review, null) : null;
   if (!review) {
-    const persona = getPersona(session.personaId);
+    const persona = (await resolvePersona(session.personaId, session.userId))?.persona;
     if (!persona) throw new DateReviewError("Date review persona is unknown.", "internal");
     const transcript = readJson<Transcript>(session.transcript, []);
     const started = performance.now();

@@ -46,7 +46,7 @@ export const getHeyGenSessionToken: GetHeyGenSessionToken<
     }
     const sandbox = process.env.HEYGEN_IS_SANDBOX !== "false";
     const avatarId = sandbox ? SANDBOX_AVATAR_ID :
-      process.env[`HEYGEN_AVATAR_ID_${call.personaId.toUpperCase()}`] || process.env.HEYGEN_AVATAR_ID;
+      call.avatarId || process.env[`HEYGEN_AVATAR_ID_${call.personaId.toUpperCase()}`] || process.env.HEYGEN_AVATAR_ID;
     if (!apiKey || !avatarId || !secretId) {
       res.status(503).json({ error: "The avatar is not configured for this session." });
       return;
@@ -58,7 +58,11 @@ export const getHeyGenSessionToken: GetHeyGenSessionToken<
         mode: "LITE",
         avatar_id: avatarId,
         is_sandbox: sandbox,
-        elevenlabs_agent_config: { agent_id: call.agentId, secret_id: secretId, dynamic_variables: call.dynamicVariables },
+        elevenlabs_agent_config: {
+          agent_id: call.agentId, secret_id: secretId, dynamic_variables: call.dynamicVariables,
+          // A generated character's voice. LiveAvatar forwards it as the conversation's TTS voice override.
+          ...(call.voiceId ? { voice_id: call.voiceId } : {}),
+        },
       }),
       signal: AbortSignal.timeout(10_000),
     });

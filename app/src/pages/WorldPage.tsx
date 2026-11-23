@@ -9,6 +9,7 @@ import { useNavigate } from "react-router";
 import { routes } from "wasp/client/router";
 import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import { reviewNotice, reviewPollMs } from "@/client/results";
+import { useFirstRunRedirect } from "@/client/useFirstRun";
 import { AppShell } from "@/components/AppShell";
 import { AvatarStage } from "@/components/AvatarStage";
 import { CallButtons, GradePop, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
@@ -46,7 +47,9 @@ type Phase =
 
 /** A walkable plaza. Walk up to someone waiting at a café table and start a practice date right there. */
 export function WorldPage() {
-  const { data: personas, isLoading, error } = useQuery(getPersonas);
+  useFirstRunRedirect();
+  // Stock personas and this browser's generated characters, which wait at the remaining tables.
+  const { data: personas, isLoading, error } = useQuery(getPersonas, { userId: getUserId() });
   const bus = useMemo(createWorldBus, []);
   const [ready, setReady] = useState(false);
   const onReady = useCallback(() => setReady(true), []);

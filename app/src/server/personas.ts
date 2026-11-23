@@ -1,8 +1,12 @@
-// Hard-coded fictional personas. Each one can use its own ElevenLabs agent via
-// ELEVENLABS_AGENT_ID_<ID> (e.g. ELEVENLABS_AGENT_ID_MAYA); otherwise the
-// client falls back to ELEVENLABS_AGENT_ID through the signed-url endpoint.
-import type { Difficulty, Persona, Scenario, SkillName } from "../shared/types";
+// Hard-coded fictional personas, plus characters users generate (CustomPersona rows).
+// A stock persona can use its own ElevenLabs agent via ELEVENLABS_AGENT_ID_<ID> (e.g. ELEVENLABS_AGENT_ID_MAYA);
+// generated characters share ELEVENLABS_AGENT_ID_CUSTOM and get their voice as a per-session override.
+// Without a dedicated agent, the server falls back to ELEVENLABS_AGENT_ID.
+import type { CustomPersona } from "wasp/entities";
+import { prisma } from "wasp/server";
+import type { Difficulty, Persona, PersonaLook, PersonaProvenance, Scenario, SkillName } from "../shared/types";
 import type { PersonaWithScenario } from "./dto";
+import { readJson } from "./serialize";
 
 type PersonaDef = Persona & { difficulty: Difficulty; defaultScenario: Scenario };
 
@@ -82,9 +86,88 @@ export function listPersonas(): PersonaWithScenario[] {
   return PERSONAS.map(withAgentId);
 }
 
+/** A stock persona. Use resolvePersona or personaLookup when the id may belong to a generated character. */
 export function getPersona(id: string): PersonaWithScenario | undefined {
   const p = PERSONAS.find((x) => x.id === id);
   return p ? withAgentId(p) : undefined;
+}
+
+/** A persona plus the call settings that stay on the server. */
+export type ResolvedPersona = {
+  persona: PersonaWithScenario;
+  /** ElevenLabs voice to override the agent's own, for generated characters. */
+  voiceId: string | null;
+  /** LiveAvatar avatar matched to a generated character. */
+  avatarId: string | null;
+  /** The story or choice the character brings into the conversation. */
+  direction: string | null;
+};
+
+const customAgentId = () => process.env.ELEVENLABS_AGENT_ID_CUSTOM || undefined;
+
+export function fromCustomPersona(row: CustomPersona, avatarPreviewUrl: string | null = null): ResolvedPersona {
+  const difficulty = row.difficulty as Difficulty;
+  const agentId = customAgentId();
+  const persona: PersonaWithScenario = {
+    id: row.id,
+    name: row.name,
+    age: row.age,
+    bio: row.bio,
+    personality: row.personality,
+    ...(agentId ? { elevenLabsAgentId: agentId } : {}),
+    difficulty,
+    defaultScenario: { id: `custom-${row.id}`, personaId: row.id, setting: row.setting, difficulty, openingLine: row.openingLine },
+    custom: {
+      gender: row.gender as NonNullable<Persona["custom"]>["gender"],
+      look: readJson<PersonaLook>(row.look, { model: "Casual2_Female", skin: "#d9a47f", hair: "#2b2018" }),
+      appearance: row.appearance,
+      voiceName: row.voiceName,
+      avatarPreviewUrl,
+      provenance: readJson<PersonaProvenance>(row.provenance, {} as PersonaProvenance),
+      createdAt: row.createdAt,
+      deleted: row.deletedAt !== null,
+    },
+  };
+  return { persona, voiceId: row.voiceId, avatarId: row.avatarId, direction: row.direction };
+}
+
+const stockResolved = (persona: PersonaWithScenario): ResolvedPersona =>
+  ({ persona, voiceId: null, avatarId: null, direction: null });
+
+async function avatarPreviews(rows: CustomPersona[]): Promise<Map<string, string>> {
+  const ids = [...new Set(rows.flatMap((row) => (row.avatarId ? [row.avatarId] : [])))];
+  if (!ids.length) return new Map();
+  const profiles = await prisma.avatarProfile.findMany({ where: { avatarId: { in: ids } }, select: { avatarId: true, previewUrl: true } });
+  return new Map(profiles.map((profile) => [profile.avatarId, profile.previewUrl]));
+}
+
+/**
+ * Resolves the personas a user can see: every stock persona and that user's generated characters,
+ * deleted ones included so date history keeps their names. Another user's character never resolves.
+ */
+export async function personaLookup(userId: string, ids?: string[]): Promise<(id: string) => ResolvedPersona | undefined> {
+  const customIds = ids?.filter((id) => !getPersona(id));
+  const rows = customIds && customIds.length === 0 ? [] : await prisma.customPersona.findMany({
+    where: { userId, ...(customIds ? { id: { in: customIds } } : {}) },
+  });
+  const previews = await avatarPreviews(rows);
+  const custom = new Map(rows.map((row) => [row.id, fromCustomPersona(row, row.avatarId ? previews.get(row.avatarId) ?? null : null)]));
+  return (id) => {
+    const stock = getPersona(id);
+    return stock ? stockResolved(stock) : custom.get(id);
+  };
+}
+
+export async function resolvePersona(id: string, userId: string): Promise<ResolvedPersona | undefined> {
+  return (await personaLookup(userId, [id]))(id);
+}
+
+/** Stock personas, then the user's active generated characters, newest first. */
+export async function listPersonasFor(userId: string | null): Promise<PersonaWithScenario[]> {
+  if (!userId) return listPersonas();
+  const rows = await prisma.customPersona.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: "desc" } });
+  const previews = await avatarPreviews(rows);
+  return [...listPersonas(), ...rows.map((row) => fromCustomPersona(row, row.avatarId ? previews.get(row.avatarId) ?? null : null).persona)];
 }
 
 // Which persona best stresses each skill (used by generateNextScenario).

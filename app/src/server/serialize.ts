@@ -2,11 +2,10 @@
 import type { Prisma } from "@prisma/client";
 import type { DateSession } from "wasp/entities";
 import type { DateReview, ReviewScores } from "../shared/dateReview";
-import type { Evaluation, MoveEvaluation, Scenario, Transcript } from "../shared/types";
+import type { Evaluation, MoveEvaluation, Persona, Scenario, Transcript } from "../shared/types";
 import type { DateSessionDTO, DateSessionSummary, ReviewJobDTO, SessionStatus } from "./dto";
 import { heyGenEnabled } from "./heygen";
 import { jevEnabled } from "./jev";
-import { getPersona } from "./personas";
 
 /** Reads a Json column as T, falling back when it is null. */
 export function readJson<T>(value: Prisma.JsonValue | null | undefined, fallback: T): T {
@@ -34,21 +33,22 @@ export const summaryColumns = {
   userContext: true, startedAt: true, endedAt: true,
 } as const satisfies Record<keyof SummaryRow, true>;
 
-function sessionFields(row: SummaryRow) {
+/** The persona comes from personaLookup, so generated characters resolve for their owner only. */
+function sessionFields(row: SummaryRow, persona: Persona | undefined) {
   const scenario = readJson<Scenario>(row.scenario, {
     id: "unknown",
     personaId: row.personaId,
     setting: "first date",
     difficulty: "medium",
   });
-  const agentId = row.source === "demo" ? null : getPersona(row.personaId)?.elevenLabsAgentId ?? process.env.ELEVENLABS_AGENT_ID ?? null;
+  const agentId = row.source === "demo" ? null : persona?.elevenLabsAgentId ?? process.env.ELEVENLABS_AGENT_ID ?? null;
   return {
     id: row.id,
     kind: row.kind as DateSessionDTO["kind"],
     source: row.source as DateSessionDTO["source"],
     reviewStatus: row.reviewStatus as DateSessionDTO["reviewStatus"],
     personaId: row.personaId,
-    persona: getPersona(row.personaId) ?? null,
+    persona: persona ?? null,
     scenario,
     status: row.status as SessionStatus,
     evaluation: readJson<Evaluation | null>(row.evaluation, null),
@@ -60,9 +60,11 @@ function sessionFields(row: SummaryRow) {
   };
 }
 
-export function toSessionDTO(row: DateSession, moves: MoveEvaluation[] = [], reviewJob: ReviewJobDTO | null = null): DateSessionDTO {
+export function toSessionDTO(
+  row: DateSession, persona: Persona | undefined, moves: MoveEvaluation[] = [], reviewJob: ReviewJobDTO | null = null,
+): DateSessionDTO {
   return {
-    ...sessionFields(row),
+    ...sessionFields(row, persona),
     review: row.reviewStatus === "ready" ? readJson<DateReview | null>(row.review, null) : null,
     reviewJob,
     transcript: readJson<Transcript>(row.transcript, []),
@@ -71,9 +73,9 @@ export function toSessionDTO(row: DateSession, moves: MoveEvaluation[] = [], rev
   };
 }
 
-export function toSessionSummary(row: SummaryRow): DateSessionSummary {
+export function toSessionSummary(row: SummaryRow, persona: Persona | undefined): DateSessionSummary {
   return {
-    ...sessionFields(row),
+    ...sessionFields(row, persona),
     turnCount: row.turnCount,
     replyCount: row.replyCount,
     reviewScores: row.reviewStatus === "ready" ? readJson<ReviewScores | null>(row.reviewScores, null) : null,

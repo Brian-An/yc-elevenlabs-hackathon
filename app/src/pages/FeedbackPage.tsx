@@ -31,7 +31,7 @@ export function FeedbackPage() {
   });
   const historyQuery = useQuery(listDateSessions, { userId });
   const nextQuery = useQuery(getNextScenario, { userId });
-  const personasQuery = useQuery(getPersonas);
+  const personasQuery = useQuery(getPersonas, { userId });
   const [starting, setStarting] = useState<"next" | "retry" | "coach" | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);

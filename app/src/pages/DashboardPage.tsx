@@ -10,6 +10,7 @@ import { Button } from "@/components/arc/button/button";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Skeleton } from "@/components/arc/skeleton/skeleton";
 import { getUserId } from "@/client/userId";
+import { useFirstRunRedirect } from "@/client/useFirstRun";
 import { completedSessions, type SessionSummary } from "@/client/results";
 import { formatDate, formatDuration } from "@/lib/format";
 import { practiceStreak } from "@/lib/streak";
@@ -23,6 +24,7 @@ function greeting(now = new Date()) {
 
 export function DashboardPage() {
   const userId = getUserId();
+  useFirstRunRedirect();
   const profileQuery = useQuery(getProfile, { userId });
   const sessionsQuery = useQuery(listDateSessions, { userId });
   if (profileQuery.isLoading || sessionsQuery.isLoading) {

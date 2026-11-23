@@ -24,6 +24,7 @@ model User {
   sessions        DateSession[]
   memory          UserMemory?
   callbacks       PersonaCallback[]
+  personas        CustomPersona[]
 }
 
 model DateSession {
@@ -95,6 +96,48 @@ model ReviewJob {
 
   @@unique([sessionId, transcriptHash, rubricVersion])
   @@index([status, runAfter])
+}
+
+// A practice character a user generated. Private to that user. DateSession.personaId holds its id.
+// Deleting keeps the character's public fields for date history and erases the user's notes.
+model CustomPersona {
+  id           String    @id @default(uuid())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  name         String
+  age          Int
+  gender       String // "woman" | "man" | "nonbinary"
+  bio          String
+  personality  String
+  direction    String // a story or choice the character brings up, like the stock personas' scene directions
+  difficulty   String // Difficulty
+  setting      String
+  openingLine  String
+  appearance   String // short visual description used to match the avatar
+  look         Json // PersonaLook: plaza model, skin and hair colour
+  voiceId      String? // ElevenLabs voice, sent as a per-session override
+  voiceName    String?
+  avatarId     String? // LiveAvatar avatar
+  provenance   Json // PersonaProvenance: which traits came from the user's notes and which the model chose
+  notes        String? // what the user wrote, kept for regeneration; null once deleted
+  model        String? // generating model
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  @@index([userId, deletedAt, createdAt])
+}
+
+// LiveAvatar avatars described once from their preview images, so generated characters can be matched by appearance.
+model AvatarProfile {
+  avatarId    String   @id
+  name        String
+  previewUrl  String
+  gender      String? // "woman" | "man" | "unclear"
+  ageRange    String? // e.g. "20s"
+  description String? // apparent appearance, for matching only
+  taggedAt    DateTime?
+  failedAt    DateTime?
+  updatedAt   DateTime @updatedAt
 }
 
 // What the coach remembers about a user, updated after every evaluated date.

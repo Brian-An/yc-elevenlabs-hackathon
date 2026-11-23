@@ -8,7 +8,7 @@ import type { WorldBus, WorldDate } from "./bus";
 import { DatePersona, Extra } from "./People";
 import { Player } from "./Player";
 import { Plaza } from "./Plaza";
-import { BOUNDS, CHARACTER_RADIUS, COLLIDERS, EXTRAS, FALLBACK_PERSONA_MODEL, PERSONA_MODEL, PLAYER, TABLES, seats } from "./layout";
+import { BOUNDS, CHARACTER_RADIUS, COLLIDERS, EXTRAS, FALLBACK_PERSONA_MODEL, PERSONA_MODEL, PLAYER, TABLES, personaModel, seats } from "./layout";
 
 preloadCharacters([PLAYER.model, ...Object.values(PERSONA_MODEL), FALLBACK_PERSONA_MODEL, ...EXTRAS.map((e) => e.model)]);
 
@@ -84,7 +84,7 @@ export default function WorldScene({
       />
 
       <Suspense fallback={null}>
-        <Plaza personaModels={placed.map(({ persona }) => PERSONA_MODEL[persona.id] ?? FALLBACK_PERSONA_MODEL)} />
+        <Plaza personaModels={placed.map(({ persona }) => personaModel(persona))} />
         {/* An invisible floor that catches taps to walk. */}
         <mesh rotation-x={-Math.PI / 2} position-y={0.02} onClick={walkTo}>
           <planeGeometry args={[60, 60]} />
@@ -95,7 +95,7 @@ export default function WorldScene({
           <DatePersona
             key={persona.id}
             persona={persona}
-            model={PERSONA_MODEL[persona.id] ?? FALLBACK_PERSONA_MODEL}
+            model={personaModel(persona)}
             table={table}
             bus={bus}
             nav={nav}
