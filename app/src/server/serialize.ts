@@ -1,8 +1,9 @@
 // Json column helpers (PostgreSQL) plus DB row -> DTO mapping.
 import type { Prisma } from "@prisma/client";
 import type { DateSession } from "wasp/entities";
+import type { DateReview, ReviewScores } from "../shared/dateReview";
 import type { Evaluation, MoveEvaluation, Scenario, Transcript } from "../shared/types";
-import type { DateSessionDTO, DateSessionSummary, SessionStatus } from "./dto";
+import type { DateSessionDTO, DateSessionSummary, ReviewJobDTO, SessionStatus } from "./dto";
 import { heyGenEnabled } from "./heygen";
 import { jevEnabled } from "./jev";
 import { getPersona } from "./personas";
@@ -15,32 +16,66 @@ export function readJson<T>(value: Prisma.JsonValue | null | undefined, fallback
 /** Casts a typed value for writing into a Json column. */
 export const asJson = <T>(value: T) => value as unknown as Prisma.InputJsonValue;
 
-export function toSessionDTO(row: DateSession, moves: MoveEvaluation[] = []): DateSessionDTO {
+/** Transcript writes keep the denormalized counts that history lists read. */
+export function transcriptColumns(transcript: Transcript) {
+  return {
+    transcript: asJson(transcript),
+    turnCount: transcript.length,
+    replyCount: transcript.filter((turn) => turn.speaker === "user").length,
+  };
+}
+
+type SummaryRow = Omit<DateSession, "transcript" | "review">;
+
+/** Every DateSession column except the two large ones, for history lists. */
+export const summaryColumns = {
+  id: true, userId: true, personaId: true, kind: true, source: true, scenario: true, status: true, evaluation: true,
+  reviewStatus: true, turnCount: true, replyCount: true, reviewScores: true, coachSourceSessionId: true,
+  userContext: true, startedAt: true, endedAt: true,
+} as const satisfies Record<keyof SummaryRow, true>;
+
+function sessionFields(row: SummaryRow) {
   const scenario = readJson<Scenario>(row.scenario, {
     id: "unknown",
     personaId: row.personaId,
     setting: "first date",
     difficulty: "medium",
   });
+  const agentId = row.source === "demo" ? null : getPersona(row.personaId)?.elevenLabsAgentId ?? process.env.ELEVENLABS_AGENT_ID ?? null;
   return {
     id: row.id,
+    kind: row.kind as DateSessionDTO["kind"],
+    source: row.source as DateSessionDTO["source"],
+    reviewStatus: row.reviewStatus as DateSessionDTO["reviewStatus"],
     personaId: row.personaId,
     persona: getPersona(row.personaId) ?? null,
     scenario,
     status: row.status as SessionStatus,
-    transcript: readJson<Transcript>(row.transcript, []),
     evaluation: readJson<Evaluation | null>(row.evaluation, null),
     userContext: row.userContext,
-    agentId: getPersona(row.personaId)?.elevenLabsAgentId ?? process.env.ELEVENLABS_AGENT_ID ?? null,
+    agentId,
     avatarEnabled: heyGenEnabled(),
-    moves,
-    gradingEnabled: jevEnabled(),
     startedAt: row.startedAt,
     endedAt: row.endedAt,
   };
 }
 
-export function toSessionSummary(row: DateSession): DateSessionSummary {
-  const { transcript, moves: _moves, gradingEnabled: _grading, ...rest } = toSessionDTO(row);
-  return { ...rest, turnCount: transcript.length, replyCount: transcript.filter((turn) => turn.speaker === "user").length };
+export function toSessionDTO(row: DateSession, moves: MoveEvaluation[] = [], reviewJob: ReviewJobDTO | null = null): DateSessionDTO {
+  return {
+    ...sessionFields(row),
+    review: row.reviewStatus === "ready" ? readJson<DateReview | null>(row.review, null) : null,
+    reviewJob,
+    transcript: readJson<Transcript>(row.transcript, []),
+    moves,
+    gradingEnabled: row.kind === "date" && row.source !== "demo" && jevEnabled(),
+  };
+}
+
+export function toSessionSummary(row: SummaryRow): DateSessionSummary {
+  return {
+    ...sessionFields(row),
+    turnCount: row.turnCount,
+    replyCount: row.replyCount,
+    reviewScores: row.reviewStatus === "ready" ? readJson<ReviewScores | null>(row.reviewScores, null) : null,
+  };
 }

@@ -1,10 +1,14 @@
-import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Captions, CaptionsOff, Check, MessageSquare, TriangleAlert, X } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, Captions, CaptionsOff, Check, MessageSquare, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { ConversationProvider } from "@elevenlabs/react";
 import { appendTranscript, createDateSession, endDateSession, getDateSession, getPersonas, useQuery } from "wasp/client/operations";
 import type { DateSessionDTO, PersonaWithScenario } from "../server/dto";
-import type { Evaluation, TranscriptTurn } from "../shared/types";
+import type { TranscriptTurn } from "../shared/types";
+import { useNavigate } from "react-router";
+import { routes } from "wasp/client/router";
+import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
+import { reviewNotice, reviewPollMs } from "@/client/results";
 import { AppShell } from "@/components/AppShell";
 import { AvatarStage } from "@/components/AvatarStage";
 import { CallButtons, GradePop, STATUS_LABEL, useTranscriptMessages } from "@/components/DateCall";
@@ -14,7 +18,7 @@ import { Button } from "@/components/arc/button/button";
 import { ChatThread } from "@/components/arc/chat-thread/chat-thread";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
-import { DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
+import { coachingDemo, DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
 import { useDateConversation } from "@/client/useDateConversation";
 import { useAvatarSession } from "@/client/useAvatarSession";
 import { getUserId } from "@/client/userId";
@@ -38,7 +42,7 @@ type Phase =
   | { kind: "explore" }
   | { kind: "starting"; personaId: string }
   | { kind: "date"; personaId: string; sessionId: string }
-  | { kind: "summary"; personaId: string; evaluation: Evaluation; replyCount: number };
+  | { kind: "summary"; session: DateSessionDTO };
 
 /** A walkable plaza. Walk up to someone waiting at a café table and start a practice date right there. */
 export function WorldPage() {
@@ -131,17 +135,13 @@ export function WorldPage() {
             sessionId={phase.sessionId}
             bus={bus}
             onLeave={() => setPhase({ kind: "explore" })}
-            onEnded={(evaluation, replyCount) => setPhase({
-              kind: "summary", personaId: phase.personaId, evaluation, replyCount,
-            })}
+            onEnded={(session) => setPhase({ kind: "summary", session })}
           />
         )}
 
         {phase.kind === "summary" && (
           <DateSummary
-            persona={list.find((p) => p.id === phase.personaId)!}
-            evaluation={phase.evaluation}
-            replyCount={phase.replyCount}
+            session={phase.session}
             onClose={() => setPhase({ kind: "explore" })}
           />
         )}
@@ -312,7 +312,7 @@ function DateOverlay({
   sessionId: string;
   bus: WorldBus;
   onLeave: () => void;
-  onEnded: (evaluation: Evaluation, replyCount: number) => void;
+  onEnded: (session: DateSessionDTO) => void;
 }) {
   const { data: session, error } = useQuery(getDateSession, { userId: getUserId(), id: sessionId });
   if (error) {
@@ -333,6 +333,7 @@ function DateOverlay({
   return (
     <ConversationProvider>
       <DateStage
+        key={session.id}
         session={session as DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> }}
         bus={bus}
         onLeave={onLeave}
@@ -360,7 +361,7 @@ function DateStage({
   session: DateSessionDTO & { persona: NonNullable<DateSessionDTO["persona"]> };
   bus: WorldBus;
   onLeave: () => void;
-  onEnded: (evaluation: Evaluation, replyCount: number) => void;
+  onEnded: (session: DateSessionDTO) => void;
 }) {
   const { id: sessionId, persona, scenario } = session;
   // Save each turn as it arrives, so a closed tab doesn't lose the date.
@@ -371,13 +372,16 @@ function DateStage({
   // agent); otherwise ElevenLabs voice-only, or the mock when the session has no agent at all.
   // Both hooks are always called (rules of hooks); only the active one's start()/end() ever run.
   const useAvatar = session.avatarEnabled && Boolean(session.agentId);
-  const avatarCall = useAvatarSession({ agentId: session.agentId ?? "", personaId: persona.id, onTurn });
+  const avatarCall = useAvatarSession({ sessionId, initialTranscript: session.transcript, onTurn });
   const voiceCall = useDateConversation({
+    source: session.source,
+    sessionId,
+    initialTranscript: session.transcript,
     persona,
     scenario,
     agentId: session.agentId,
     userContext: session.userContext,
-    sampleTranscript,
+    sampleTranscript: session.kind === "coaching" ? coachingDemo : sampleTranscript,
     onTurn,
   });
   const call = useAvatar ? avatarCall : voiceCall;
@@ -429,11 +433,11 @@ function DateStage({
   const [saveError, setSaveError] = useState<string | null>(null);
   async function endDate() {
     setEnding(true);
-    const transcript = await call.end();
     try {
-      const evaluation = await endDateSession({ userId: getUserId(), id: sessionId, transcript });
+      const transcript = await call.end();
+      const completed = await endDateSession({ userId: getUserId(), id: sessionId, transcript });
       bus.closeUp = false;
-      onEnded(evaluation, transcript.filter((turn) => turn.speaker === "user").length);
+      onEnded(completed);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Couldn't save the date.");
       setEnding(false);
@@ -499,7 +503,7 @@ function DateStage({
                     <p className="truncate text-sm text-subtle">{scenario.setting}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <Badge size="sm" tone={live ? "success" : call.status === "paused" ? "warning" : "neutral"} dot pill>
-                        {STATUS_LABEL[call.status]}
+                        {session.source === "demo" && "Demo · "}{STATUS_LABEL[call.status]}
                       </Badge>
                       <Badge size="sm" pill aria-live="off">
                         <span className="tabular-nums">{formatDuration(call.elapsedMs / 1000)}</span>
@@ -538,7 +542,7 @@ function DateStage({
                     </div>
                   )}
                   <div className="flex flex-wrap items-center justify-center gap-2 rounded-[calc(var(--radius-control)+9px)] border border-border bg-background/85 p-2 shadow-(--shadow-resting) backdrop-blur-md">
-                    <CallButtons call={call} ending={ending} onEnd={() => void endDate()} />
+                    <CallButtons call={call} coaching={session.kind === "coaching"} ending={ending} onEnd={() => void endDate()} />
                     {call.status === "idle" && (
                       <Button size="lg" variant="ghost" onClick={onLeave}>
                         <ArrowLeft className="size-4" aria-hidden="true" /> Back to the plaza
@@ -601,115 +605,34 @@ function DateStage({
   );
 }
 
-/** Back in the plaza after a date: the overall score and coaching notes. */
-function DateSummary({
-  persona,
-  evaluation,
-  replyCount,
-  onClose,
-}: {
-  persona: PersonaWithScenario;
-  evaluation: Evaluation;
-  replyCount: number;
-  onClose: () => void;
-}) {
-  const reduce = useReducedMotion();
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const headingId = useId();
-  const detailsId = useId();
-  const strength = evaluation.strengths[0];
-  const weakness = evaluation.weaknesses[0];
-  const hasDetails = replyCount > 0 && Boolean(strength || weakness);
-  const { listening, engagement, confidence, flow } = evaluation.scores;
-  const overallScore = Math.round(((listening + engagement + confidence + flow) / 40) * 100);
-  const scoreArc = (overallScore / 100) * 270;
-  // Esc keeps exploring, like closing any dialog.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
+function DateSummary({ session: ended, onClose }: { session: DateSessionDTO; onClose: () => void }) {
+  const navigate = useNavigate();
+  // The review finishes in the background after the date ends. The summary fills in when it is ready.
+  const { data } = useQuery(getDateSession, { userId: getUserId(), id: ended.id }, {
+    initialData: ended,
+    refetchInterval: (latest: DateSessionDTO | undefined) => reviewPollMs(latest),
+  });
+  const session = data ?? ended;
+  const { review, persona } = session;
+  const point = review?.strengths[0] ?? review?.weaknesses[0];
+  const notice = reviewNotice(session);
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 flex items-end justify-center overflow-y-auto p-3 sm:items-center sm:p-6">
-      <motion.section
-        role="dialog"
-        aria-labelledby={headingId}
-        className="pointer-events-auto max-h-full w-full max-w-lg overflow-y-auto rounded-(--radius-panel) border border-border bg-surface p-5 shadow-(--shadow-resting) sm:p-6"
-        initial={{ opacity: 0, y: reduce ? 0 : 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: reduce ? 0 : 0.35, ease: "easeOut" }}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <h2 id={headingId} className="text-xl text-foreground">
-            How it went with {persona.name}
-          </h2>
-          <Tooltip content="Keep exploring">
-            <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close summary">
-              <X className="size-4" aria-hidden="true" />
-            </Button>
-          </Tooltip>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent title={review ? `How it went with ${persona?.name ?? "your date"}` : notice.title}
+        description={review?.summary ?? notice.description}>
+        {review?.overallScore != null && <p className="text-sm text-subtle">Overall score <strong className="ml-2 text-xl text-foreground">{review.overallScore}/100</strong></p>}
+        {point && <div className="grid gap-2">
+          <p className="text-sm text-foreground">{point.point}</p>
+          <blockquote className="border-l-2 border-brand pl-3 text-sm text-subtle">“{point.quote}”</blockquote>
+        </div>}
+        {review?.practice && <p className="text-sm text-foreground"><strong>Next time </strong>{review.practice.instruction}</p>}
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => navigate(routes.FeedbackRoute.build({ params: { sessionId: session.id } }))}>
+            {review ? "Open date review" : "View conversation"}
+          </Button>
+          <Button variant="secondary" onClick={onClose}>Keep exploring</Button>
         </div>
-
-        {replyCount > 0 ? (
-          <div className="mt-5 flex flex-col items-center text-center">
-            <div
-              role="meter"
-              aria-label="Overall date score"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={overallScore}
-              aria-valuetext={`${overallScore} out of 100`}
-              className="relative grid size-44 place-items-center sm:size-48"
-            >
-              <div
-                aria-hidden="true"
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background: `conic-gradient(from 225deg, var(--accent) 0deg ${scoreArc}deg, var(--border) ${scoreArc}deg 270deg, transparent 270deg)`,
-                  maskImage: "radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px))",
-                }}
-              />
-              <div aria-hidden="true" className="-mt-2 grid justify-items-center">
-                <span className="text-sm text-subtle">Overall score</span>
-                <span className="font-heading text-6xl leading-none font-medium tabular-nums text-foreground">{overallScore}</span>
-                <span className="mt-1 text-sm text-subtle">out of 100</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-subtle">There were no replies to score on this date.</p>
-        )}
-
-        <div className="mt-5 grid gap-2">
-          {hasDetails && (
-            <>
-              <Button aria-expanded={detailsOpen} aria-controls={detailsId} onClick={() => setDetailsOpen(!detailsOpen)}>
-                {detailsOpen ? "Hide details" : "See details"}
-              </Button>
-              <div id={detailsId} hidden={!detailsOpen}>
-                <ul className="grid gap-3 border-y border-border py-4 text-sm">
-                  {strength && (
-                    <li className="flex gap-2.5">
-                      <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
-                      <p>{strength.point}</p>
-                    </li>
-                  )}
-                  {weakness && (
-                    <li className="flex gap-2.5">
-                      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
-                      <p>{weakness.point}</p>
-                    </li>
-                  )}
-                </ul>
-              </div>
-            </>
-          )}
-          <Button variant={hasDetails ? "ghost" : "primary"} onClick={onClose}>Keep exploring</Button>
-        </div>
-      </motion.section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from "motion/react";
 import type { SkillName } from "../shared/types";
-import { SKILLS, type SkillScores as Scores } from "@/client/mockData";
+import { SKILLS } from "@/client/mockData";
+import type { SkillScores as Scores } from "@/client/results";
 import { cn } from "@/lib/utils";
 
 function toneFor(score: number) {
@@ -16,7 +17,9 @@ export function SkillScoreList({ scores, delta, previous, className }: { scores:
     <ul className={cn("grid gap-4", className)}>
       {SKILLS.map(({ key, label, hint }) => {
         const score = scores[key];
-        const change = delta?.[key] ?? (previous ? score - previous[key] : undefined);
+        if (score === undefined) return <li key={key} className="text-sm text-subtle">{label} · Not assessed</li>;
+        const prior = previous?.[key];
+        const change = delta?.[key] ?? (prior !== undefined ? score - prior : undefined);
         return (
           <li key={key}>
             <div className="mb-1.5 flex items-baseline justify-between gap-3">
@@ -61,15 +64,17 @@ export function SkillScoreGrid({ scores, previous }: { scores: Scores; previous?
   return (
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {SKILLS.map(({ key, label }) => {
-        const change = previous ? scores[key] - previous[key] : 0;
+        const score = scores[key];
+        const prior = previous?.[key];
+        const change = score !== undefined && prior !== undefined ? score - prior : 0;
         return (
           <div key={key} className="rounded-(--radius-control) border border-border bg-surface p-4">
             <dt className="text-xs text-subtle">{label}</dt>
             <dd className="mt-1 flex items-baseline gap-1.5">
-              <span className="font-heading text-3xl font-medium tabular-nums" style={{ color: toneFor(scores[key]) }}>
-                {scores[key]}
+              <span className="font-heading text-3xl font-medium tabular-nums" style={{ color: score === undefined ? undefined : toneFor(score) }}>
+                {score ?? <span className="text-sm text-subtle">Not assessed</span>}
               </span>
-              <span className="text-sm text-faint">/10</span>
+              {score !== undefined && <span className="text-sm text-faint">/10</span>}
               {change !== 0 && (
                 <span className={cn("ml-auto text-xs tabular-nums", change > 0 ? "text-success" : "text-danger")}>
                   {change > 0 ? "+" : ""}

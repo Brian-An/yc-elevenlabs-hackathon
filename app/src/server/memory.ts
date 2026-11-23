@@ -1,80 +1,87 @@
-// User memory: skill profile, training focus, strengths, weaknesses and skill history.
-// PostgreSQL (the UserMemory table) is the single source of truth.
+// UserMemory stores a projection of completed reviews. Older, unattributed scores stay in date history.
+import type { Prisma } from "@prisma/client";
 import { prisma } from "wasp/server";
 import type { UserMemory } from "wasp/entities";
-import type { Evaluation, SkillName } from "../shared/types";
+import type { DateReview } from "../shared/dateReview";
+import type { SkillName } from "../shared/types";
 import type { MemoryPoint, MemorySnapshot, SkillHistoryEntry, SkillProfile } from "./dto";
 import { SKILLS } from "./evaluator";
 import { asJson, readJson } from "./serialize";
 
 const MAX_POINTS = 10;
-const PROFILE_WINDOW = 3; // sessions averaged into the skill profile
+const PROFILE_WINDOW = 3;
 
-/** Averages the last few sessions' scores (1–10) into a 0..1 profile. */
 function buildSkillProfile(history: SkillHistoryEntry[]): SkillProfile | null {
   const recent = history.slice(-PROFILE_WINDOW);
-  if (!recent.length) return null;
-  return Object.fromEntries(
-    SKILLS.map((s) => {
-      const avg = recent.reduce((a, e) => a + (e.scores[s] ?? 0), 0) / recent.length;
-      return [s, Math.round((avg / 10) * 100) / 100];
-    }),
-  ) as SkillProfile;
+  const profile: SkillProfile = {};
+  for (const skill of SKILLS) {
+    const scores = recent.flatMap((entry) => entry.scores[skill] ?? []);
+    if (scores.length) {
+      profile[skill] = Math.round(scores.reduce((sum, score) => sum + score, 0) * 10 / scores.length) / 100;
+    }
+  }
+  return Object.keys(profile).length ? profile : null;
 }
 
-const weakest = (profile: SkillProfile): SkillName => [...SKILLS].sort((a, b) => profile[a] - profile[b])[0];
+function weakest(profile: SkillProfile | null): SkillName | null {
+  if (!profile) return null;
+  return SKILLS.filter((skill) => profile[skill] != null)
+    .sort((a, b) => profile[a]! - profile[b]!)[0] ?? null;
+}
 
 function snapshot(row: UserMemory | null): MemorySnapshot {
-  const skillHistory = readJson<SkillHistoryEntry[]>(row?.skillHistory, []);
+  const skillHistory = readJson<SkillHistoryEntry[]>(row?.skillHistory, []).filter((entry) => entry.rubricVersion);
+  const reviewed = new Set(skillHistory.map((entry) => entry.sessionId));
   const skillProfile = buildSkillProfile(skillHistory);
   return {
     skillProfile,
-    trainingFocus: (row?.trainingFocus as SkillName | null) ?? (skillProfile ? weakest(skillProfile) : null),
-    strengths: readJson<MemoryPoint[]>(row?.strengths, []),
-    weaknesses: readJson<MemoryPoint[]>(row?.weaknesses, []),
+    trainingFocus: weakest(skillProfile),
+    strengths: readJson<MemoryPoint[]>(row?.strengths, []).filter((point) => reviewed.has(point.sessionId)),
+    weaknesses: readJson<MemoryPoint[]>(row?.weaknesses, []).filter((point) => reviewed.has(point.sessionId)),
     skillHistory,
-    sessionsCount: row?.sessionsCount ?? 0,
+    sessionsCount: skillHistory.length,
   };
 }
 
 export async function getMemory(userId: string): Promise<MemorySnapshot> {
-  const row = await prisma.userMemory.findUnique({ where: { userId } });
-  return snapshot(row);
+  return snapshot(await prisma.userMemory.findUnique({ where: { userId } }));
 }
 
-export async function saveMemory(
+export async function saveReviewMemory(
+  tx: Prisma.TransactionClient,
   userId: string,
-  evaluation: Evaluation,
-  meta: { sessionId: string; personaId: string },
-): Promise<MemorySnapshot> {
-  const current = await getMemory(userId);
-  const at = new Date().toISOString();
-
-  // Map an evidenced point to the skill it most likely refers to (by score rank).
-  const ranked = [...SKILLS].sort((a, b) => evaluation.scores[b] - evaluation.scores[a]);
-  const tag = (list: typeof evaluation.strengths, order: SkillName[]): MemoryPoint[] =>
-    list.map((p, i) => ({ ...p, skill: order[i], sessionId: meta.sessionId, at }));
-
-  const strengths = [...tag(evaluation.strengths, ranked), ...current.strengths].slice(0, MAX_POINTS);
-  const weaknesses = [...tag(evaluation.weaknesses, [...ranked].reverse()), ...current.weaknesses].slice(0, MAX_POINTS);
-  const skillHistory = [
-    ...current.skillHistory.filter((e) => e.sessionId !== meta.sessionId),
-    { sessionId: meta.sessionId, personaId: meta.personaId, at, scores: evaluation.scores },
-  ];
-  const skillProfile = buildSkillProfile(skillHistory)!;
-
+  review: DateReview,
+  meta: { sessionId: string; personaId: string; endedAt: Date },
+): Promise<void> {
+  if (review.overallScore === null) return;
+  // Serialize a user's concurrent reviews even before their first UserMemory row exists.
+  await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+  const current = await tx.userMemory.findUnique({ where: { userId } });
+  const at = meta.endedAt.toISOString();
+  const scores: Partial<Record<SkillName, number>> = {};
+  for (const skill of SKILLS) {
+    const score = review.skills[skill].score;
+    if (score != null) scores[skill] = score;
+  }
+  const mergePoints = (previous: MemoryPoint[], next: DateReview["strengths"]) =>
+    [...next.map(({ point, quote, skill }) => ({ point, quote, skill, sessionId: meta.sessionId, at })),
+      ...previous.filter((point) => point.sessionId !== meta.sessionId)]
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .slice(0, MAX_POINTS);
+  const prior = snapshot(current);
+  const extended = [
+    ...readJson<SkillHistoryEntry[]>(current?.skillHistory, []).filter((entry) => entry.sessionId !== meta.sessionId),
+    { sessionId: meta.sessionId, personaId: meta.personaId, at, scores, rubricVersion: review.rubricVersion },
+  ].sort((a, b) => a.at.localeCompare(b.at) || a.sessionId.localeCompare(b.sessionId));
+  const history = extended.filter((entry) => entry.rubricVersion);
+  const skillProfile = buildSkillProfile(history);
   const data = {
-    skillProfile: asJson(skillProfile),
+    skillProfile: asJson(skillProfile ?? {}),
     trainingFocus: weakest(skillProfile),
-    strengths: asJson(strengths),
-    weaknesses: asJson(weaknesses),
-    skillHistory: asJson(skillHistory),
-    sessionsCount: skillHistory.length,
+    strengths: asJson(mergePoints(prior.strengths, review.strengths)),
+    weaknesses: asJson(mergePoints(prior.weaknesses, review.weaknesses)),
+    skillHistory: asJson(extended),
+    sessionsCount: history.length,
   };
-  const row = await prisma.userMemory.upsert({
-    where: { userId },
-    create: { userId, ...data },
-    update: data,
-  });
-  return snapshot(row);
+  await tx.userMemory.upsert({ where: { userId }, create: { userId, ...data }, update: data });
 }

@@ -31,11 +31,15 @@ export function MoveBadge({ move, count }: { move: MoveClass; count?: number }) 
   );
 }
 
+/** Low-confidence decisions stay available for calibration and do not become advice. */
+export function hasClearGrade(move: MoveEvaluation): boolean {
+  return !move.decision || move.decision.probabilities[move.decision.rawLabel] >= 0.5;
+}
+
 /** The date's transcript with Jev's grade beside each of the user's replies. */
 export function MoveReview({ transcript, moves, personaName }: { transcript: Transcript; moves: MoveEvaluation[]; personaName: string }) {
   const byTurn = new Map(moves.map((m) => [m.turnIndex, m]));
-  const counts = ORDER.map((c) => [c, moves.filter((m) => m.classification === c).length] as const).filter(([, n]) => n > 0);
-  const userTurns = transcript.filter((t) => t.speaker === "user").length;
+  const counts = ORDER.map((c) => [c, moves.filter((m) => hasClearGrade(m) && m.classification === c).length] as const).filter(([, n]) => n > 0);
 
   return (
     <Panel id="move-review">
@@ -43,21 +47,19 @@ export function MoveReview({ transcript, moves, personaName }: { transcript: Tra
         title="Move by move"
         description="How each reply landed, as estimated by an AI coach."
       />
-      {moves.length === 0 ? (
+      {transcript.length === 0 ? (
         <p className="text-sm text-subtle">
-          {userTurns === 0
-            ? "You didn't say anything on this date, so there are no replies to grade."
-            : "Reply grades weren't available for this date, so it was scored on the whole conversation instead."}
+          There are no saved replies for this conversation.
         </p>
       ) : (
         <>
-          <ul className="mb-4 flex flex-wrap gap-2" aria-label="Your replies by grade">
+          {counts.length > 0 && <ul className="mb-4 flex flex-wrap gap-2" aria-label="Your replies by grade">
             {counts.map(([c, n]) => (
               <li key={c}>
                 <MoveBadge move={c} count={n} />
               </li>
             ))}
-          </ul>
+          </ul>}
           <ol className="grid gap-3">
             {transcript.map((turn, i) => {
               const move = byTurn.get(i);
@@ -76,7 +78,7 @@ export function MoveReview({ transcript, moves, personaName }: { transcript: Tra
                     </span>{" "}
                     <span className={mine ? "text-foreground" : "text-subtle"}>{turn.text}</span>
                   </p>
-                  {move && (
+                  {move && hasClearGrade(move) && (
                     <span className="shrink-0">
                       <MoveBadge move={move.classification} />
                     </span>

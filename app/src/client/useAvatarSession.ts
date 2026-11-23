@@ -19,6 +19,8 @@ import {
 import { api } from "wasp/client/api";
 import type { Transcript, TranscriptTurn } from "../shared/types";
 import type { ConversationStatus, DateConversation } from "./useDateConversation";
+import { getUserId } from "./userId";
+import { CallTranscript } from "./callTranscript";
 import { requestErrorMessage } from "./requestError";
 
 // SDK 0.0.20's `autoKeepAlive` session option is declared but never actually wired up (no
@@ -32,14 +34,12 @@ const KEEP_ALIVE_MS = 20_000;
 const stripTags = (text: string) => text.replace(/\[[^[\]]{1,30}\]/g, "").replace(/\s{2,}/g, " ").trim();
 
 export function useAvatarSession({
-  agentId,
-  personaId,
+  sessionId,
+  initialTranscript,
   onTurn,
 }: {
-  /** ElevenLabs agent HeyGen's connector talks to. */
-  agentId: string;
-  /** Picks this persona's HeyGen avatar (HEYGEN_AVATAR_ID_<PERSONA>), falling back to the shared one. */
-  personaId: string;
+  sessionId: string;
+  initialTranscript: Transcript;
   /** Called once a turn is final (the page saves it). Chunk updates only touch local state. */
   onTurn?: (turn: TranscriptTurn) => void;
 }): DateConversation & { attach: (el: HTMLVideoElement) => void; videoReady: boolean } {
@@ -47,21 +47,19 @@ export function useAvatarSession({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
-  const [transcript, setTranscript] = useState<Transcript>([]);
+  const [recorder] = useState(() => new CallTranscript(initialTranscript));
+  const [transcript, setTranscript] = useState<Transcript>(recorder.turns);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const sessionRef = useRef<LiveAvatarSession | null>(null);
   const elementRef = useRef<HTMLVideoElement | null>(null);
-  const elapsedBefore = useRef(0);
+  const elapsedBefore = useRef(initialTranscript.at(-1)?.timestamp ?? 0);
   const liveSince = useRef(0);
-  const transcriptRef = useRef<Transcript>([]);
   const statusRef = useRef(status);
   statusRef.current = status;
   const onTurnRef = useRef(onTurn);
   onTurnRef.current = onTurn;
-  // Which speaker's reply is still streaming in via chunk events, if any.
-  const pendingSpeaker = useRef<TranscriptTurn["speaker"] | null>(null);
   const keepAliveTimer = useRef<number | null>(null);
 
   const elapsedNow = () =>
@@ -71,32 +69,18 @@ export function useAvatarSession({
   // turn for immediate feedback, without persisting it yet (kept local until the final event).
   const onChunk = useCallback((speaker: TranscriptTurn["speaker"], text: string, cumulative: boolean) => {
     if (statusRef.current === "paused") return;
-    const clean = stripTags(text);
-    if (!clean) return;
-    if (pendingSpeaker.current === speaker) {
-      const prev = transcriptRef.current[transcriptRef.current.length - 1];
-      const next = { ...prev, text: cumulative ? clean : prev.text + clean };
-      transcriptRef.current = [...transcriptRef.current.slice(0, -1), next];
-    } else {
-      pendingSpeaker.current = speaker;
-      transcriptRef.current = [...transcriptRef.current, { speaker, text: clean, timestamp: elapsedNow() }];
-    }
-    setTranscript(transcriptRef.current);
-  }, []);
+    const chunk = text.replace(/\[[^[\]]{1,30}\]/g, "");
+    if (chunk) setTranscript(recorder.chunk(speaker, chunk, elapsedNow(), cumulative));
+  }, [recorder]);
 
-  // Final: the authoritative text for a turn. Replaces whatever chunks built up, then persists it.
-  const onFinal = useCallback((speaker: TranscriptTurn["speaker"], text: string) => {
-    pendingSpeaker.current = null;
+  const onFinal = useCallback((speaker: TranscriptTurn["speaker"], text: string, eventId: string) => {
     if (statusRef.current === "paused") return;
     const clean = stripTags(text);
     if (!clean) return;
-    const prev = transcriptRef.current[transcriptRef.current.length - 1];
-    const turn: TranscriptTurn = { speaker, text: clean, timestamp: prev?.speaker === speaker ? prev.timestamp : elapsedNow() };
-    transcriptRef.current =
-      prev?.speaker === speaker ? [...transcriptRef.current.slice(0, -1), turn] : [...transcriptRef.current, turn];
-    setTranscript(transcriptRef.current);
-    onTurnRef.current?.(turn);
-  }, []);
+    const turn = recorder.finish({ speaker, text: clean, timestamp: elapsedNow() }, [eventId]);
+    setTranscript(recorder.display());
+    if (turn) onTurnRef.current?.(turn);
+  }, [recorder]);
 
   useEffect(() => {
     if (status !== "live") return;
@@ -122,11 +106,9 @@ export function useAvatarSession({
     setStatus("connecting");
     setError(null);
     setVideoReady(false);
-    transcriptRef.current = [];
-    pendingSpeaker.current = null;
-    setTranscript([]);
-    elapsedBefore.current = 0;
-    setElapsedMs(0);
+    recorder.reconnect();
+    setTranscript(recorder.turns);
+    setElapsedMs(elapsedBefore.current);
     try {
       // Requested explicitly (rather than left to the SDK's own internal createLocalAudioTrack
       // call) so a denied/unavailable mic surfaces here instead of failing silently: configureSession
@@ -135,7 +117,7 @@ export function useAvatarSession({
       warm.getTracks().forEach((t) => t.stop());
 
       const { sessionToken } = await api
-        .get("api/heygen/session-token", { searchParams: { agentId, personaId } })
+        .get("api/heygen/session-token", { searchParams: { sessionId }, headers: { "X-Bantr-User": getUserId() } })
         .json<{ sessionToken: string }>();
 
       const session = new LiveAvatarSession(sessionToken);
@@ -162,8 +144,8 @@ export function useAvatarSession({
       session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, () => setIsSpeaking(false));
       session.on(AgentEventsEnum.USER_TRANSCRIPTION_CHUNK, (event) => onChunk("user", event.text, true));
       session.on(AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK, (event) => onChunk("agent", event.text, false));
-      session.on(AgentEventsEnum.USER_TRANSCRIPTION, (event) => onFinal("user", event.text));
-      session.on(AgentEventsEnum.AVATAR_TRANSCRIPTION, (event) => onFinal("agent", event.text));
+      session.on(AgentEventsEnum.USER_TRANSCRIPTION, (event) => onFinal("user", event.text, event.event_id));
+      session.on(AgentEventsEnum.AVATAR_TRANSCRIPTION, (event) => onFinal("agent", event.text, event.event_id));
       session.voiceChat.on(VoiceChatEvent.MUTED, () => setIsMuted(true));
       session.voiceChat.on(VoiceChatEvent.UNMUTED, () => setIsMuted(false));
 
@@ -178,7 +160,7 @@ export function useAvatarSession({
       setError(await requestErrorMessage(err, "Could not start the call"));
       setStatus("idle");
     }
-  }, [agentId, personaId, onChunk, onFinal]);
+  }, [sessionId, recorder, onChunk, onFinal]);
 
   const pause = useCallback(() => {
     if (statusRef.current !== "live") return;
@@ -204,8 +186,9 @@ export function useAvatarSession({
     stopKeepAlive();
     await sessionRef.current?.stop().catch(() => {});
     setStatus("ended");
-    return transcriptRef.current;
-  }, []);
+    setTranscript(recorder.turns);
+    return recorder.turns;
+  }, [recorder]);
 
   const toggleMute = useCallback(() => {
     const chat = sessionRef.current?.voiceChat;

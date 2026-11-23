@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { ArrowRight, Check, RotateCcw, TriangleAlert } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ArrowRight, Check, Clock, RotateCcw, TriangleAlert } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
 import { routes } from "wasp/client/router";
-import { createDateSession, endDateSession, getDateSession, getNextScenario, getPersonas, listDateSessions, useQuery } from "wasp/client/operations";
+import { createDateSession, getDateSession, getNextScenario, getPersonas, listDateSessions, retryDateReview, useQuery } from "wasp/client/operations";
+import type { DateReview } from "../shared/dateReview";
 import type { EvidencedPoint, Persona, Scenario } from "../shared/types";
 import type { DateSessionDTO, DateSessionSummary, PersonaWithScenario } from "../server/dto";
 import { AppShell } from "@/components/AppShell";
@@ -14,7 +15,7 @@ import { Button } from "@/components/arc/button/button";
 import Toast from "@/components/arc/toast/toast";
 import { SKILLS } from "@/client/mockData";
 import { getUserId } from "@/client/userId";
-import { previousScores as scoresBefore } from "@/client/results";
+import { assessedScores, previousScores as scoresBefore, reviewInProgress, reviewNotice, reviewPollMs } from "@/client/results";
 import { Alert } from "@/components/arc/alert/alert";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Skeleton } from "@/components/arc/skeleton/skeleton";
@@ -24,11 +25,14 @@ export function FeedbackPage() {
   const { sessionId = "" } = useParams();
   const navigate = useNavigate();
   const userId = getUserId();
-  const sessionQuery = useQuery(getDateSession, { userId, id: sessionId });
+  // Reviews run in the background after a date ends, so the page checks until one is ready.
+  const sessionQuery = useQuery(getDateSession, { userId, id: sessionId }, {
+    refetchInterval: (data: DateSessionDTO | undefined) => reviewPollMs(data),
+  });
   const historyQuery = useQuery(listDateSessions, { userId });
   const nextQuery = useQuery(getNextScenario, { userId });
   const personasQuery = useQuery(getPersonas);
-  const [starting, setStarting] = useState<"next" | "retry" | null>(null);
+  const [starting, setStarting] = useState<"next" | "retry" | "coach" | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -44,38 +48,50 @@ export function FeedbackPage() {
     }
   }
 
-  async function finishFeedback() {
+  async function practiceWithRiley() {
+    setStarting("coach");
+    setActionError(null);
+    try {
+      const coach = await createDateSession({ userId, personaId: "coach", coachSourceSessionId: sessionId });
+      navigate(routes.DateRoute.build({ params: { sessionId: coach.id } }));
+    } catch {
+      setActionError("Couldn't start coaching. Try again.");
+      setStarting(null);
+    }
+  }
+
+  async function retryReview() {
     setFinishing(true);
     setActionError(null);
     try {
-      await endDateSession({ userId, id: sessionId });
+      await retryDateReview({ userId, id: sessionId });
+      await sessionQuery.refetch();
     } catch {
-      setActionError("Couldn't finish the feedback. Please try again.");
+      setActionError("Couldn't restart the review. Please try again.");
     } finally {
       setFinishing(false);
     }
   }
 
-  if (sessionQuery.isLoading || historyQuery.isLoading || nextQuery.isLoading || personasQuery.isLoading) {
+  if (sessionQuery.isLoading) {
     return <AppShell wide><Skeleton label="Loading your feedback" lines={4} /></AppShell>;
   }
-  if (sessionQuery.error || !sessionQuery.data?.persona) {
+  if (!sessionQuery.data?.persona) {
     return <AppShell wide><EmptyState title="Couldn't find this date" description="It may belong to another browser, or the connection failed."
       action={<Button onClick={() => navigate(routes.DashboardRoute.build())}>Back to dashboard</Button>} /></AppShell>;
   }
   const session = sessionQuery.data;
   const persona = sessionQuery.data.persona;
-  if (!session.evaluation || session.status !== "evaluated") {
+  if (session.review) {
     return (
-      <AppShell wide>
-        {actionError && <Alert tone="danger" title="Couldn't save your feedback">{actionError}</Alert>}
-        <EmptyState title={session.status === "active" ? "This date is still in progress" : "Feedback isn't finished yet"}
-          description="Your saved conversation is available. Finish the date to see its results."
-          action={session.status === "active"
-            ? <Button onClick={() => navigate(routes.DateRoute.build({ params: { sessionId } }))}>Return to date</Button>
-            : <Button loading={finishing} onClick={() => void finishFeedback()}>Finish feedback</Button>} />
-      </AppShell>
+      <ReviewedSession session={session} review={session.review} starting={starting} error={actionError}
+        onCoach={practiceWithRiley} onStart={startPractice} previous={scoresBefore(historyQuery.data ?? [], sessionId)}
+        nextScenario={nextQuery.data} />
     );
+  }
+  if (!session.evaluation || session.status !== "evaluated" || session.kind === "coaching") {
+    return <UnreviewedSession session={session} finishing={finishing} error={actionError} onRetry={retryReview} />;
+
   }
   return (
     <FeedbackContent
@@ -91,12 +107,120 @@ export function FeedbackPage() {
   );
 }
 
+function UnreviewedSession({ session, finishing, error, onRetry }: {
+  session: DateSessionDTO;
+  finishing: boolean;
+  error: string | null;
+  onRetry: () => Promise<void>;
+}) {
+  const navigate = useNavigate();
+  const active = session.status === "active";
+  const notice = active
+    ? { title: "This date is still in progress", description: "Return to the call to continue practicing." }
+    : reviewNotice(session);
+  let stateIcon: ReactNode;
+  if (session.reviewStatus === "failed") stateIcon = <TriangleAlert aria-hidden="true" />;
+  else if (reviewInProgress(session)) stateIcon = <Clock aria-hidden="true" />;
+  let action = <Button variant="secondary" onClick={() => navigate(routes.WorldRoute.build())}>Back to plaza</Button>;
+  if (active) {
+    action = <Button onClick={() => navigate(routes.DateRoute.build({ params: { sessionId: session.id } }))}>Return to date</Button>;
+  } else if (session.reviewStatus === "failed") {
+    action = <Button loading={finishing} onClick={() => void onRetry()}>Retry review</Button>;
+  }
+  return (
+    <AppShell wide>
+      {error && <Alert tone="danger" title="Couldn't restart the review">{error}</Alert>}
+      {/* Announces the review finishing, failing, or being rescheduled while the page polls. */}
+      <div role="status" aria-live="polite" aria-busy={reviewInProgress(session)}>
+        <EmptyState {...notice} action={action} icon={stateIcon} />
+      </div>
+      {!active && session.transcript.length > 0 && <Panel className="mt-6">
+        <PanelHeader title="Conversation" />
+        <ol className="grid gap-3">{session.transcript.map((turn) =>
+          <li key={turn.sequence ?? `${turn.timestamp}-${turn.speaker}-${turn.text}`} className="text-sm">
+            <strong>{turn.speaker === "user" ? "You" : session.persona?.name}</strong> · {turn.text}
+          </li>)}</ol>
+      </Panel>}
+    </AppShell>
+  );
+}
+
+function ReviewedSession({ session, review, previous, onCoach, starting, error, nextScenario, onStart }: {
+  session: DateSessionDTO;
+  review: DateReview;
+  previous: ReturnType<typeof scoresBefore>;
+  onCoach: () => Promise<void>;
+  starting: "coach" | "next" | "retry" | null;
+  error: string | null;
+  nextScenario?: Scenario;
+  onStart: (scenario: Scenario, kind: "next" | "retry") => Promise<void>;
+}) {
+  const navigate = useNavigate();
+  return (
+    <AppShell wide>
+      <PageHeader title={`Your date with ${session.persona?.name ?? "your date"}`} description={formatDate(session.startedAt.toISOString())}
+        action={<Button size="lg" variant="secondary" onClick={() => navigate(routes.DashboardRoute.build())}>Past dates</Button>} />
+      <WholeDateReview session={session} review={review} onCoach={onCoach} starting={starting === "coach"} disabled={starting !== null} previous={previous} />
+      {error && <Alert tone="danger" title="Couldn't start practice">{error}</Alert>}
+      <div className="mt-6 flex flex-wrap gap-3">
+        {nextScenario && <Button size="lg" variant="secondary" disabled={starting !== null} loading={starting === "next"}
+          onClick={() => void onStart(nextScenario, "next")}>Start next date</Button>}
+        <Button size="lg" variant="ghost" disabled={starting !== null} loading={starting === "retry"}
+          onClick={() => void onStart(session.scenario, "retry")}>Retry this date</Button>
+      </div>
+    </AppShell>
+  );
+}
+
+function WholeDateReview({ session, review, previous, onCoach, starting, disabled }: {
+  session: DateSessionDTO;
+  review: DateReview;
+  previous: ReturnType<typeof scoresBefore>;
+  onCoach: () => Promise<void>;
+  starting: boolean;
+  disabled: boolean;
+}) {
+  const name = session.persona?.name ?? "Your date";
+  return (
+    <div className="grid gap-5">
+      <Panel>
+        <PanelHeader title="Date summary" action={review.overallScore === null ? undefined : <strong aria-label={`Overall score ${review.overallScore} out of 100`}>{review.overallScore}/100</strong>} />
+        <p className="max-w-prose text-subtle">{review.summary}</p>
+      </Panel>
+      <SkillScoreGrid scores={assessedScores(review)} previous={previous} />
+      {review.moments.length > 0 && <Panel>
+        <PanelHeader title="Key moments" />
+        <ol className="grid gap-5">{review.moments.map((moment) => <li key={`${moment.agentTurnIndex}-${moment.userTurnIndex}`}>
+          <p className="text-sm font-medium">{moment.point}</p>
+          <blockquote className="mt-2 grid gap-1 border-l-2 border-border pl-3 text-sm text-subtle">
+            <p><strong>{name}</strong> · {session.transcript[moment.agentTurnIndex]?.text}</p>
+            <p><strong>You</strong> · {session.transcript[moment.userTurnIndex]?.text}</p>
+          </blockquote>
+        </li>)}</ol>
+      </Panel>}
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Panel><PanelHeader title="What went well" /><PointList points={review.strengths} kind="strength" /></Panel>
+        <Panel><PanelHeader title="What to work on" /><PointList points={review.weaknesses} kind="weakness" /></Panel>
+      </div>
+      <Panel>
+        <PanelHeader title={review.practice ? "Rehearse with Riley" : "Talk it through with Riley"} />
+        {review.practice && <div className="mb-4 grid gap-2 text-sm">
+          <p>{review.practice.instruction}</p>
+          <p className="text-subtle">One possible reply: “{review.practice.exampleReply}”</p>
+        </div>}
+        <Button size="lg" disabled={disabled} loading={starting} onClick={() => void onCoach()}>Practice with Riley</Button>
+      </Panel>
+      <MoveReview transcript={session.transcript} moves={session.moves} personaName={name} />
+    </div>
+  );
+}
+
 function FeedbackContent({ session, history, nextScenario, personas, starting, actionError, onStart, onDashboard }: {
   session: DateSessionDTO & { persona: Persona; evaluation: NonNullable<DateSessionDTO["evaluation"]> };
   history: DateSessionSummary[];
   nextScenario?: Scenario;
   personas: PersonaWithScenario[];
-  starting: "next" | "retry" | null;
+  starting: "next" | "retry" | "coach" | null;
   actionError: string | null;
   onStart: (scenario: Scenario, kind: "next" | "retry") => Promise<void>;
   onDashboard: () => void;

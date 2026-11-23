@@ -11,9 +11,26 @@ import type {
   Transcript,
   TranscriptTurn,
 } from "../shared/types";
+import type { DateReview, ReviewScores } from "../shared/dateReview";
 import type { WithUser } from "./user";
 
 export type SessionStatus = "active" | "ended" | "evaluated";
+export type SessionKind = "date" | "coaching";
+export type SessionSource = "live" | "demo" | "legacy";
+export type ReviewStatus = "none" | "pending" | "processing" | "failed" | "ready" | "skipped" | "legacy";
+export type ReviewFailure =
+  | "not_configured" | "rate_limited" | "overloaded" | "provider_error" | "rejected"
+  | "timeout" | "network" | "invalid_output" | "internal" | "interrupted";
+/** Progress of the background review for an ended date. */
+export type ReviewJobDTO = {
+  status: "queued" | "running" | "succeeded" | "failed";
+  attempts: number;
+  maxAttempts: number;
+  /** When a queued job is next eligible to run. null while running or finished. */
+  nextAttemptAt: Date | null;
+  /** Why the latest attempt failed, or "not_configured" while the review service is unavailable. */
+  failureClass: ReviewFailure | null;
+};
 // JSON-safe preference values (operations payloads must be superjson-serializable).
 export type PreferenceValue = string | number | boolean | null | string[];
 export type Preferences = {
@@ -23,7 +40,7 @@ export type Preferences = {
 };
 
 /** Per-skill level from 0 to 1, averaged over the last 3 evaluated dates. */
-export type SkillProfile = Record<SkillName, number>;
+export type SkillProfile = Partial<Record<SkillName, number>>;
 
 export type ExperienceLevel = "beginner" | "intermediate" | "experienced";
 
@@ -37,7 +54,8 @@ export type SkillHistoryEntry = {
   sessionId: string;
   personaId: string;
   at: string; // ISO date
-  scores: Record<SkillName, number>;
+  scores: Partial<Record<SkillName, number>>;
+  rubricVersion?: string;
 };
 
 export type MemorySnapshot = {
@@ -70,6 +88,11 @@ export type DateSessionDTO = {
   persona: Persona | null;
   scenario: Scenario;
   status: SessionStatus;
+  kind: SessionKind;
+  source: SessionSource;
+  reviewStatus: ReviewStatus;
+  review: DateReview | null;
+  reviewJob: ReviewJobDTO | null;
   transcript: Transcript;
   evaluation: Evaluation | null;
   /** Something the user told this persona last time, passed to the agent as {{user_context}}. */
@@ -86,9 +109,11 @@ export type DateSessionDTO = {
   endedAt: Date | null;
 };
 
-export type DateSessionSummary = Omit<DateSessionDTO, "transcript" | "moves" | "gradingEnabled"> & {
+/** A history row. It never carries the transcript or full review, so lists stay small. */
+export type DateSessionSummary = Omit<DateSessionDTO, "transcript" | "moves" | "gradingEnabled" | "review" | "reviewJob"> & {
   turnCount: number;
   replyCount: number;
+  reviewScores: ReviewScores | null;
 };
 
 // Operation args
@@ -98,7 +123,7 @@ export type UpdateProfileArgs = WithUser & {
   experienceLevel?: string;
   preferences?: Preferences;
 };
-export type CreateDateSessionArgs = WithUser & { personaId: string; scenario?: Scenario };
+export type CreateDateSessionArgs = WithUser & { personaId: string; scenario?: Scenario; coachSourceSessionId?: string };
 export type IdArgs = WithUser & { id: string };
 export type AppendTranscriptArgs = WithUser & { id: string; turns: TranscriptTurn[] };
 export type SaveTranscriptArgs = WithUser & { id: string; transcript: Transcript };

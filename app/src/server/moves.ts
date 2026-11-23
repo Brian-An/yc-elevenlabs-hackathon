@@ -1,6 +1,6 @@
 // Move-by-move grading: each user turn of a date gets one Move row, graded by Jev.
 // appendTranscript grades new turns as they are saved (its callers don't wait, so the voice call never does);
-// saveTranscript grades in the background; endDateSession waits for any missing grades.
+// saveTranscript grades in the background. getDateSession shows only the grades that match the current transcript.
 import { createHash } from "node:crypto";
 import { prisma } from "wasp/server";
 import type { Move } from "wasp/entities";
@@ -16,6 +16,7 @@ function toMoveEvaluation(row: Move): MoveEvaluation {
     turnIndex: row.turnIndex,
     classification: row.classification as MoveClass,
     confidence: row.confidence,
+    ...(row.decision ? { decision: readJson<MoveEvaluation["decision"]>(row.decision, undefined) } : {}),
     scores: readJson<Record<SkillName, number>>(row.scores, { listening: 0, engagement: 0, confidence: 0, flow: 0 }),
   };
 }
@@ -64,9 +65,9 @@ function gradeAndSave(sessionId: string, { turnIndex, body, inputHash }: GradeIn
     if (existing) return toMoveEvaluation(existing);
 
     const move = await gradeTurn(body, turnIndex);
-    const { classification, confidence, scores } = move;
+    const { classification, confidence, scores, decision } = move;
     const { count } = await prisma.move.createMany({
-      data: { ...identity, classification, confidence, scores },
+      data: { ...identity, classification, confidence, scores, decision },
       skipDuplicates: true,
     });
     return count ? move : toMoveEvaluation(await prisma.move.findUniqueOrThrow({ where }));

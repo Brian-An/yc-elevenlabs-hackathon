@@ -1,8 +1,10 @@
-// GET /api/elevenlabs/signed-url?agentId=...  -> { signedUrl }
+// Voice startup is bound to an active Bantr session.
 // Proxies ElevenLabs Conversational AI "get signed url" so the API key stays server side.
 // https://elevenlabs.io/docs/api-reference/conversations/get-signed-url
 import type { MiddlewareConfigFn } from "wasp/server";
 import type { GetElevenLabsSignedUrl } from "wasp/server/api";
+
+import { resolveCallSession, type SessionVariables } from "./sessionBrief";
 
 const ELEVENLABS_API = "https://api.elevenlabs.io/v1/convai/conversation/get-signed-url";
 
@@ -11,22 +13,21 @@ export const elevenLabsMiddleware: MiddlewareConfigFn = (config) => config;
 
 export const getElevenLabsSignedUrl: GetElevenLabsSignedUrl<
   never,
-  { signedUrl: string } | { error: string }
+  { signedUrl: string; dynamicVariables: SessionVariables } | { error: string }
 > = async (req, res) => {
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  const agentId =
-    (typeof req.query.agentId === "string" && req.query.agentId) || process.env.ELEVENLABS_AGENT_ID;
+  res.set("Cache-Control", "no-store");
   if (!apiKey) {
-    res.status(500).json({ error: "ELEVENLABS_API_KEY is not set" });
+    res.status(503).json({ error: "The voice connection is not configured." });
     return;
   }
-  if (!agentId) {
-    res.status(400).json({ error: "agentId is required (or set ELEVENLABS_AGENT_ID)" });
-    return;
-  }
-
   try {
-    const url = `${ELEVENLABS_API}?agent_id=${encodeURIComponent(agentId)}`;
+    const call = await resolveCallSession(req.query.sessionId, req.get("X-Bantr-User"));
+    if ("error" in call) {
+      res.status(call.status).json({ error: call.error });
+      return;
+    }
+    const url = `${ELEVENLABS_API}?agent_id=${encodeURIComponent(call.agentId)}`;
     const upstream = await fetch(url, {
       headers: { "xi-api-key": apiKey },
       signal: AbortSignal.timeout(10_000),
@@ -42,7 +43,7 @@ export const getElevenLabsSignedUrl: GetElevenLabsSignedUrl<
       res.status(502).json({ error: "ElevenLabs response had no signed_url" });
       return;
     }
-    res.json({ signedUrl: body.signed_url });
+    res.json({ signedUrl: body.signed_url, dynamicVariables: call.dynamicVariables });
   } catch (err) {
     console.error("[elevenlabs] signed url error:", err);
     res.status(502).json({ error: "Could not reach ElevenLabs" });

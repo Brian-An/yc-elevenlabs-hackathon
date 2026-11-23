@@ -31,17 +31,28 @@ model DateSession {
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId     String
   personaId  String
+  kind       String // "date" | "coaching"
+  source     String // "live" | "demo" | "legacy"
   scenario   Json // Scenario
   status     String    @default("active") // "active" | "ended" | "evaluated"
   transcript Json      @default("[]") // Transcript
-  evaluation Json? // Evaluation
+  evaluation Json? // Evaluation for historical sessions
+  review     Json? // DateReview, grounded in the frozen transcript
+  reviewStatus String @default("none") // ReviewStatus in src/server/dto.ts
+  // Denormalized from the transcript and review so history lists never read either column.
+  turnCount    Int   @default(0)
+  replyCount   Int   @default(0)
+  reviewScores Json? // ReviewScores, set with the review
+  coachSourceSessionId String?
   // A detail the user shared on their last date with this persona, passed to the agent as {{user_context}}.
   userContext String?
   startedAt  DateTime  @default(now())
   endedAt    DateTime?
   moves      Move[]
+  reviewJobs ReviewJob[]
 
   @@index([userId, startedAt])
+  @@index([userId, kind, source, reviewStatus, endedAt])
 }
 
 // Jev's grade for one user turn of a date (MoveEvaluation in src/shared/types.ts).
@@ -51,12 +62,39 @@ model Move {
   sessionId      String
   turnIndex      Int
   inputHash      String      @default("") // Empty for grades saved before input tracking.
+  decision       Json? // Raw Jev label and probabilities for calibration.
   classification String // MoveClass
   confidence     Float
   scores         Json // Record<SkillName, number>, 1–10
   createdAt      DateTime    @default(now())
 
   @@unique([sessionId, turnIndex, inputHash])
+}
+
+// The durable queue entry for one whole-date review. PgBoss only wakes workers, and a periodic sweep
+// recovers lost wake-ups and expired leases. Metrics never include dialogue.
+model ReviewJob {
+  id             String      @id @default(uuid())
+  session        DateSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId      String
+  transcriptHash String
+  rubricVersion  String
+  status         String      @default("queued") // "queued" | "running" | "succeeded" | "failed"
+  attempts       Int         @default(0)
+  maxAttempts    Int
+  runAfter       DateTime    @default(now())
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+  failureClass   String? // ReviewFailureClass of the latest failed attempt
+  latencyMs      Int? // provider latency of the latest attempt that reached the provider
+  inputTokens    Int     @default(0) // summed over attempts
+  outputTokens   Int     @default(0)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  finishedAt     DateTime?
+
+  @@unique([sessionId, transcriptHash, rubricVersion])
+  @@index([status, runAfter])
 }
 
 // What the coach remembers about a user, updated after every evaluated date.

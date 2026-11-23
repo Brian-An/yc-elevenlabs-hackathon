@@ -32,3 +32,11 @@ describe("movesByTurn", () => {
     expect(movesByTurn(live, live, [], false).size).toBe(0);
   });
 });
+
+it("distinguishes identical replies by utterance and suppresses grades from an older revision", () => {
+  const live: Transcript = [0, 1, 2].map((sequence) => ({
+    speaker: "user", text: "Yeah.", sequence, revision: sequence === 1 ? 1 : 0, timestamp: sequence,
+  }));
+  const saved = [{ ...live[1], revision: 0 }, live[2]];
+  expect(labels(movesByTurn(live, saved, [move(0, "mistake"), move(1, "good")], true))).toEqual({ 2: "good" });
+});

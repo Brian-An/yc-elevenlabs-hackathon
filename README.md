@@ -1,5 +1,7 @@
 # yc-elevenlabs-hackathon
 
+See [development handoffs](docs/development-handoffs.md) for parallel assignments and acceptance checks.
+
 ## Running locally
 
 The app lives in `app/` (Wasp 0.26, React 19, Tailwind v4, shadcn + [Arc](https://uiarc.dev), PostgreSQL).
@@ -18,8 +20,8 @@ Where things are:
 
 - `main.wasp.ts`: routes, operations, the ElevenLabs signed-URL API. There is no login: the browser keeps a user ID in localStorage (`src/client/userId.ts`) and every operation takes it as `userId`, e.g. `useQuery(getProfile, { userId: getUserId() })`
 - `schema.prisma`: `User`, `DateSession`, `UserMemory` (PostgreSQL `Json` columns, typed in `src/server/dto.ts`)
-- `src/server/`: operations, personas, Jev reply grading and transcript-based fallback, user memory, and ElevenLabs.
-- `src/pages/`: all pages, currently on mock data from `src/client/mockData.ts` (each page has a `useQuery` swap noted inline)
+- `src/server/`: operations, personas, Jev reply grading, Anthropic date reviews, user memory, and call providers.
+- `src/pages/`: plaza, date, feedback, onboarding, and dashboard pages
 - `src/client/useDateConversation.ts`: where the ElevenLabs conversation plugs in
 - `src/shared/types.ts`: shared contracts (Transcript, Evaluation, Persona, Scenario)
 
@@ -36,19 +38,60 @@ User memory lives in Postgres (`User.preferences` + `UserMemory`). `getProfile` 
 }
 ```
 
-`skillProfile` is the 0 to 1 average of the last 3 evaluated dates, and `trainingFocus` is the weakest skill. `endDateSession` updates both, and `getNextScenario` uses them to pick the next date.
+`skillProfile` is the 0 to 1 average of the last 3 evaluated dates, and `trainingFocus` is the weakest skill. A completed date review updates both, and `getNextScenario` uses them to pick the next date.
 
 
-### Voice calls and follow-ups
+### Configure voice, avatars, and Riley
 
-A date runs a real ElevenLabs call when the server knows an agent for that persona (`ELEVENLABS_AGENT_ID_MAYA`, `_THEO`, `_PRIYA`, or the default `ELEVENLABS_AGENT_ID`) and `ELEVENLABS_API_KEY` is set. Without them, `src/client/useDateConversation.ts` replays a sample date, so the rest of the app still works.
+Bantr resolves the character from the active session and the browser's user ID.
+Configure `ELEVENLABS_API_KEY` and a persona agent ID for Maya, Theo, Priya, or Riley (`ELEVENLABS_AGENT_ID_COACH`).
+A shared `ELEVENLABS_AGENT_ID` can serve every character with one voice.
+An unconfigured persona uses the demo call path when the session is created.
 
-Follow-ups: when a date ends, `src/server/callbackExtract.ts` picks one thing the user explicitly shared (e.g. "I'm taking a pottery class on Saturday") and saves it for that user and persona (`PersonaCallback`). The next date with that persona passes it to the agent as the dynamic variable `{{user_context}}` (or `None`). Add this to each agent's system prompt in ElevenLabs:
+In each hosted ElevenLabs agent, replace its system prompt with [the versioned session template](app/prompts/elevenlabs/session-v1.md) and set its **First message** to `{{opening_line}}`.
+Use an Anthropic model for the agent and preserve its voice settings.
+For a dashboard test, supply `character_direction` (e.g. "You are Maya, a warm designer learning ceramics"), `session_context` (e.g. `{"setting":"a coffee shop"}`), and `opening_line` (e.g. "How was your morning?").
+An agent with the original fixed prompt and greeting keeps using its hosted character script until the template is published.
+[ElevenLabs dynamic variables](https://elevenlabs.io/docs/eleven-agents/customization/personalization/dynamic-variables)
 
-```
-What you remember from your last date with them: {{user_context}}
-If that isn't "None", bring it up once, naturally, when it fits, as a question
-(e.g. "Wait, how did that pottery class go?"). Don't quote it back word for word.
+The server builds the same brief for ElevenLabs voice and HeyGen video.
+Dates receive their stored scenario and the personal callback associated with that character.
+Riley receives the selected reviewed practice date, or the latest eligible review for the same browser user, including the original exchange and a proposed rehearsal.
+With no reviewed date Riley asks what to practice.
+The inline LiveAvatar connector receives these values in `elevenlabs_agent_config.dynamic_variables`.
+[LiveAvatar connector](https://docs.liveavatar.com/docs/lite-mode/connectors/elevenlabs-agent)
+
+### Whole-date reviews
+
+Set `ANTHROPIC_API_KEY` on the server to enable full-transcript reviews.
+The optional `ANTHROPIC_REVIEW_MODEL` selects the model, and `ANTHROPIC_BASE_URL` points requests at a gateway or test double.
+Apply the checked-in Prisma migrations before running the updated app.
+Only evidenced live practice reviews contribute to skill progress.
+Earlier evaluations remain available in date history.
+
+Ending a live date freezes its transcript and creates a `ReviewJob` in the same transaction, then returns without waiting for the provider.
+The job's identity is the session, the transcript hash, and the rubric version.
+A PgBoss job (`runDateReview`) wakes a worker right away, and `sweepDateReviews` runs every minute to recover lost wake-ups and crashed workers.
+A worker holds a two-minute lease on the job, and every write checks that lease.
+A validated review is stored before it is projected into memory, so a crash after inference never repeats the provider call.
+The memory projection replaces the session's earlier contribution, so a recovered review still leaves one memory entry.
+
+Failed attempts retry after 30 seconds, 2, 8, and 32 minutes, with jitter, and honor the provider's `retry-after`.
+A 4xx rejection other than 429 stops at once.
+After 5 attempts the feedback page offers a retry, which grants another 5.
+While the key is missing, jobs wait without using attempts and run once it is configured.
+The feedback page and plaza recap poll until the review is ready and say when the next attempt runs.
+
+Each attempt logs one `date_review_attempt` JSON line with the outcome, failure class, provider latency, and token usage, never dialogue.
+The `ReviewJob` row keeps the attempt count, latest failure class and latency, and summed tokens.
+History lists read `turnCount`, `replyCount`, and `reviewScores` columns instead of the transcript and full review.
+
+The worker tests run against PostgreSQL.
+Point `TEST_DATABASE_URL` at a migrated, disposable database to include them; otherwise they are skipped:
+
+```bash
+cd app
+TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/bantr_test npx vitest run
 ```
 
 ### Jev grading benchmark

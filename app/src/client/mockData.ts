@@ -122,6 +122,13 @@ const recommended: Scenario = {
   openingLine: "I nearly didn't come tonight. Long week. My dad's been in the hospital.",
 };
 
+export const coachingDemo: Transcript = [
+  { speaker: "user", text: "I get quiet when someone tells me something personal.", timestamp: 3500 },
+  { speaker: "agent", text: "Let's try it. Imagine I said, “I made a gift for my sister and it broke.” What would you say?", timestamp: 7000 },
+  { speaker: "user", text: "Oh, that sounds disappointing. What was the occasion?", timestamp: 14000 },
+  { speaker: "agent", text: "You acknowledged the disappointment and gave me room to tell you about my sister.", timestamp: 18000 },
+];
+
 export const sampleTranscript: Transcript = [
   { speaker: "agent", text: "Okay, I have to ask: is that a cortado? Bold choice.", timestamp: 0 },
   { speaker: "user", text: "Ha, yeah. I'm trying to be the kind of person who orders a cortado.", timestamp: 4200 },

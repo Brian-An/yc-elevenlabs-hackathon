@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion, type MotionProps } from "motion/react";
 import { Mic, MicOff, Pause, Phone, PhoneOff, Play } from "lucide-react";
-import { MOVE_LABEL, MoveBadge } from "@/components/MoveReview";
+import { MOVE_LABEL, MoveBadge, hasClearGrade } from "@/components/MoveReview";
 import { Button } from "@/components/arc/button/button";
 import type { ChatMessage } from "@/components/arc/chat-thread/chat-thread";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
@@ -18,16 +18,16 @@ export const STATUS_LABEL: Record<ConversationStatus, string> = {
   connecting: "Connecting...",
   live: "Live",
   paused: "Paused",
-  ended: "Date over",
+  ended: "Call ended",
 };
 
 /** Start, or Mute + Pause + End once the date is on. */
-export function CallButtons({ call, ending, onEnd }: { call: DateConversation; ending: boolean; onEnd: () => void }) {
+export function CallButtons({ call, ending, coaching, onEnd }: { call: DateConversation; ending: boolean; coaching: boolean; onEnd: () => void }) {
   const live = call.status === "live";
   if (call.status === "idle" || call.status === "connecting") {
     return (
       <Button size="lg" loading={call.status === "connecting"} onClick={() => void call.start()} className="min-w-40">
-        <Phone className="size-4" aria-hidden="true" /> Start date
+        <Phone className="size-4" aria-hidden="true" /> {coaching ? "Start coaching" : "Start date"}
       </Button>
     );
   }
@@ -45,7 +45,7 @@ export function CallButtons({ call, ending, onEnd }: { call: DateConversation; e
         {paused ? "Resume" : "Pause"}
       </Button>
       <Button size="lg" variant="danger" onClick={onEnd} loading={ending}>
-        <PhoneOff className="size-4" aria-hidden="true" /> End date
+        <PhoneOff className="size-4" aria-hidden="true" /> {coaching ? "End coaching" : "End date"}
       </Button>
     </>
   );
@@ -75,7 +75,7 @@ export function useTranscriptMessages(call: DateConversation, session: DateSessi
           annotation:
             move === "failed" ? (
               <span className="text-xs text-faint">Couldn't grade this reply</span>
-            ) : move ? (
+            ) : move && hasClearGrade(move) ? (
               <MoveBadge move={move.classification} />
             ) : undefined,
         };
@@ -91,7 +91,7 @@ const MOVE_HINT: Record<MoveClass, string> = {
   neutral: "Fine. A detail about you or a follow-up question would lift it.",
   inaccuracy: "They gave you an opening there. Pick it up next time.",
   mistake: "That one landed awkwardly. Bring it back to them.",
-  blunder: "Ouch. That could end the date. Try to repair it.",
+  blunder: "Give them space and acknowledge what they said.",
 };
 
 /**
@@ -129,7 +129,7 @@ export function GradePop({ call, session }: { call: DateConversation; session: D
   const latest = useMemo(() => {
     let best: { turnIndex: number; move: MoveClass } | null = null;
     for (const [turnIndex, move] of moves) {
-      if (move !== "failed" && (!best || turnIndex > best.turnIndex)) best = { turnIndex, move: move.classification };
+      if (move !== "failed" && hasClearGrade(move) && move.classification !== "neutral" && (!best || turnIndex > best.turnIndex)) best = { turnIndex, move: move.classification };
     }
     return best;
   }, [moves]);

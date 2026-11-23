@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { routes } from "wasp/client/router";
+import { getProfile, updateProfile, useQuery } from "wasp/client/operations";
+import { getUserId } from "@/client/userId";
+import { Alert } from "@/components/arc/alert/alert";
+import { Skeleton } from "@/components/arc/skeleton/skeleton";
+import type { Profile } from "../server/dto";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader, Panel, PanelHeader } from "@/components/Panel";
 import { Button } from "@/components/arc/button/button";
@@ -13,7 +18,6 @@ import type { SkillName } from "../shared/types";
 import type { ExperienceLevel } from "@/client/mockData";
 import { SKILLS } from "@/client/mockData";
 
-/** What onboarding collects. The backend's saveProfile action can take this as its input. */
 export type OnboardingInput = {
   name: string;
   goals: string[];
@@ -40,23 +44,52 @@ const EXPERIENCE = [
 ];
 
 export function OnboardingPage() {
+  const userId = getUserId();
+  const profile = useQuery(getProfile, { userId });
+  if (profile.isLoading) return <AppShell variant="focus"><Skeleton label="Loading your profile" lines={4} /></AppShell>;
+  if (!profile.data) return <AppShell variant="focus"><Alert tone="danger" title="Couldn't load your profile">
+    <Button variant="secondary" onClick={() => void profile.refetch()}>Try again</Button>
+  </Alert></AppShell>;
+  return <OnboardingForm profile={profile.data} />;
+}
+
+function OnboardingForm({ profile }: { profile: Profile }) {
   const navigate = useNavigate();
-  const [form, setForm] = useState<OnboardingInput>({
-    name: "",
-    goals: [],
-    experience: "intermediate",
-    lookingFor: "serious",
-    interestedIn: "anyone",
-    focusSkills: [],
-    focusNote: "",
-  });
+  const preferences = profile.preferences;
+  const selectedSkills = new Set(Array.isArray(preferences.focusSkills) ? preferences.focusSkills : []);
+  const [form, setForm] = useState<OnboardingInput>(() => ({
+    name: profile.displayName ?? "",
+    goals: Array.isArray(preferences.goals) ? preferences.goals : [],
+    experience: profile.experienceLevel === "beginner" || profile.experienceLevel === "experienced" ? profile.experienceLevel : "intermediate",
+    lookingFor: typeof preferences.lookingFor === "string" ? preferences.lookingFor : "serious",
+    interestedIn: typeof preferences.interestedIn === "string" ? preferences.interestedIn : "anyone",
+    focusSkills: SKILLS.filter(({ key }) => selectedSkills.has(key)).map(({ key }) => key),
+    focusNote: typeof preferences.focusNote === "string" ? preferences.focusNote : "",
+  }));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
   const set = <K extends keyof OnboardingInput>(key: K, value: OnboardingInput[K]) => setForm((f) => ({ ...f, [key]: value }));
 
-  function onSubmit(event: FormEvent) {
+  async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    // TODO(backend): await saveProfile(form) from "wasp/client/operations"
-    console.info("onboarding", form);
-    navigate(routes.DashboardRoute.build());
+    if (saving) return;
+    setSaving(true);
+    setError(false);
+    try {
+      const selectedGoals = new Set(form.goals);
+      await updateProfile({
+        userId: profile.id,
+        displayName: form.name,
+        experienceLevel: form.experience,
+        goals: GOALS.filter(({ value }) => selectedGoals.has(value)).map(({ label }) => label).join(", "),
+        preferences: { ...preferences, goals: form.goals, focusSkills: form.focusSkills, focusNote: form.focusNote.trim(),
+          lookingFor: form.lookingFor, interestedIn: form.interestedIn },
+      });
+      navigate(routes.DashboardRoute.build());
+    } catch {
+      setError(true);
+      setSaving(false);
+    }
   }
 
   return (
@@ -87,7 +120,7 @@ export function OnboardingPage() {
           </Panel>
 
           <Panel>
-            <PanelHeader title="Preferences" description="Used to pick personas for your practice dates." />
+            <PanelHeader title="Preferences" />
             <div className="grid gap-4 sm:grid-cols-2">
               <Select
                 label="Looking for"
@@ -132,11 +165,12 @@ export function OnboardingPage() {
             </div>
           </Panel>
 
+          {error && <Alert title="Couldn't save your profile" tone="danger">Your answers are still here. Try saving again.</Alert>}
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="ghost" onClick={() => navigate(routes.DashboardRoute.build())}>
+            <Button type="button" disabled={saving} variant="ghost" onClick={() => navigate(routes.DashboardRoute.build())}>
               Skip for now
             </Button>
-            <Button type="submit">Save and continue</Button>
+            <Button type="submit" loading={saving}>Save and continue</Button>
           </div>
         </form>
       </div>

@@ -7,6 +7,8 @@ export type TranscriptTurn = {
   speaker: Speaker;
   text: string;
   timestamp: number; // ms since the date started
+  sequence?: number; // stable position within this call
+  revision?: number; // increases when a provider corrects this utterance
 };
 
 export type Transcript = TranscriptTurn[];
@@ -52,6 +54,7 @@ export type MoveClass = "great" | "good" | "neutral" | "inaccuracy" | "mistake" 
 export type MoveEvaluation = {
   turnIndex: number; // index of the user turn in the transcript
   classification: MoveClass;
+  decision?: { rawLabel: MoveClass; probabilities: Record<MoveClass, number> };
   confidence: number; // 0–1, Jev's probability for the classification
   scores: Record<SkillName, number>; // 1–10, same scale as Evaluation.scores
 };

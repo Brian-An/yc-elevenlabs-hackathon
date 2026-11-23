@@ -77,7 +77,7 @@ describe("saved Jev grades", () => {
   it("can display legacy grades for finished dates without reusing them for scoring", async () => {
     rows.push({
       id: "legacy", sessionId: "session", turnIndex: 1, inputHash: "",
-      classification: "neutral", confidence: 0.9, scores, createdAt: new Date(),
+      classification: "neutral", confidence: 0.9, decision: null, scores, createdAt: new Date(),
     });
     expect(movesForTranscript(rows, live, scenario, persona, true)[0].classification).toBe("neutral");
     expect(movesForTranscript(rows, live, scenario, persona, false)).toEqual([]);
