@@ -1,0 +1,189 @@
+app/src/server/moves.ts
+  s_4ab6f7952349b3::t_bbb61d93b0b311 3
+  s_b3c08cbc011b2d::t_5172b8446a0d98 19,68,70
+app/src/client/callTranscript.test.ts
+  s_b3c08cbc011b2d::t_604121bd1df868 1-26
+app/src/client/useDateConversation.ts
+  s_b3c08cbc011b2d::t_a485210ed211e8 6,20-23,53-55,63-65,77,81-82,88,98-103,107,130,132-137,149-155,160,207,215,238,243-244
+app/src/server/dateReview.ts
+  s_4ab6f7952349b3::t_d30a2e6ab3c2e3 3-4,6,64-122,126-128,134,143,160,163-166,168,173,177,196-197,199-210,212,217,220-221
+  s_b3c08cbc011b2d::t_60bc93fa21df39 41-48,51-54
+  s_b3c08cbc011b2d::t_1e8e76165dd3b1 1-2,5,7-40,49-50,55-56,59-62,123-125,129-133,135-138,144-159,161-162,167,169-172,174-176,181-195,198,211,213-216,218-219,222
+  s_b3c08cbc011b2d::t_8543bd87d2a13d 57-58,139-142
+  s_4ab6f7952349b3::t_67ef1878089563 63
+  s_4ab6f7952349b3::t_e8480b0d611b75 178-180
+app/src/server/transcript.ts
+  s_b3c08cbc011b2d::t_d3b6eb3a0d2d20 1-16
+app/src/client/useAvatarSession.ts
+  s_b3c08cbc011b2d::t_a485210ed211e8 22-23,37-38,41-42,50-51,57,72-74,76,80-83,109-111,120,147-148,163,189-191
+README.md
+  s_b3c08cbc011b2d::t_a1fa3f3d8ce633 3-4,63-66,68-70
+  s_4ab6f7952349b3::t_80b2eaf7d1a5f9 41,67,71-94
+  s_b3c08cbc011b2d::t_604121bd1df868 23-24,44,46-49,51-55,57-62
+app/migrations/20261123182604_review_jobs/migration.sql
+  s_4ab6f7952349b3::t_8f00e2826a4017 1-45
+  s_4ab6f7952349b3::t_03d4edf670f6dd 46-63
+app/src/server/sessionBrief.test.ts
+  s_b3c08cbc011b2d::t_604121bd1df868 1-70
+app/src/pages/OnboardingPage.tsx
+  s_b3c08cbc011b2d::t_bdfc277c2b7868 4-8,47-56,58,60-62,64-65,67-70,73,75-78,80-83,85-92,123,168,170,173
+  s_b3c08cbc011b2d::t_1a48ca99947a6e 59,63,66,79,84
+app/prompts/elevenlabs/session-v1.md
+  s_b3c08cbc011b2d::t_615389b936e80f 1-12
+app/src/client/results.ts
+  s_b3c08cbc011b2d::t_e2f161c1379a7f 1-2,5-11,20-21,41-42,52-53,63,65-66,69,71-79,83-84,89-91
+  s_4ab6f7952349b3::t_b90ab177bdc799 48-49,56,61,64
+  s_4ab6f7952349b3::t_8ca6933e0a38fe 34-35
+  s_4ab6f7952349b3::t_afcbab07e5e0ec 24-33,36-40,43-47,50-51,54-55,57-60,62
+  s_4ab6f7952349b3::t_8c5de8721fbcfc 80-82
+app/src/server/serialize.ts
+  s_b3c08cbc011b2d::t_dbdbd0f0ef2415 44,47-49,56
+  s_4ab6f7952349b3::t_a18aa7ebe649f7 4,6,19-37,63-80
+app/src/server/heygen.test.ts
+  s_b3c08cbc011b2d::t_604121bd1df868 4-7,17-18,30,34,37,48,52-57
+  s_b3c08cbc011b2d::t_aa4765aee4e1c8 58-59
+app/src/server/reviewJobs.ts
+  s_4ab6f7952349b3::t_53ab2f81c658ab 1-39,42-58,63-160,162-182,184-199,201-215,217-302
+  s_4ab6f7952349b3::t_67ef1878089563 216
+  s_4ab6f7952349b3::t_1ddf098035317d 40-41,183,200
+  s_4ab6f7952349b3::t_f1b3a266bc8241 59-62
+  s_4ab6f7952349b3::t_101163c66dc314 161
+app/src/server/dateReview.test.ts
+  s_b3c08cbc011b2d::t_8543bd87d2a13d 95
+  s_b3c08cbc011b2d::t_96f48e860ea72d 1-2,4-35,37-50,52-72,74-81,83-94,96-113,144-145
+  s_4ab6f7952349b3::t_66018345374120 3,36,114-143
+  s_4ab6f7952349b3::t_8c5de8721fbcfc 51,73,82
+app/src/server/sessionBrief.ts
+  s_b3c08cbc011b2d::t_615389b936e80f 1-93
+app/src/shared/dateReview.ts
+  s_b3c08cbc011b2d::t_1e8e76165dd3b1 1-32
+  s_4ab6f7952349b3::t_d30a2e6ab3c2e3 33-39
+app/.env.server.example
+  s_b3c08cbc011b2d::t_1e8e76165dd3b1 20-22
+  s_4ab6f7952349b3::t_80b2eaf7d1a5f9 23
+  s_4ab6f7952349b3::t_661214f5147938 24
+app/src/server/elevenlabs.ts
+  s_b3c08cbc011b2d::t_615389b936e80f 1,7-8,16,19,21,25-30,46
+app/schema.prisma
+  s_b3c08cbc011b2d::t_dbdbd0f0ef2415 34-35,39-40,46,55
+  s_4ab6f7952349b3::t_b8ef0f8e514559 41-45,52,74-97
+  s_b3c08cbc011b2d::t_5172b8446a0d98 65
+  s_4ab6f7952349b3::t_d56c8dd1b4f563 98-99
+app/src/shared/types.ts
+  s_b3c08cbc011b2d::t_5172b8446a0d98 57
+  s_b3c08cbc011b2d::t_dbdbd0f0ef2415 10-11
+docs/development-handoffs.md
+  s_b3c08cbc011b2d::t_a1fa3f3d8ce633 1-7,20-132
+  s_b3c08cbc011b2d::t_f4e52b8fbc1c3f 8-19
+app/src/server/reviewJobs.db.test.ts
+  s_4ab6f7952349b3::t_f1b3a266bc8241 304-312
+  s_4ab6f7952349b3::t_c0b69c645edf20 328,330,335-340
+  s_4ab6f7952349b3::t_8ca6933e0a38fe 155-158
+  s_4ab6f7952349b3::t_67ef1878089563 283-292
+  s_4ab6f7952349b3::t_1ddffe912b749b 1-101,111-154,159-275,277-282,293-303,313-316,318,321-327,329,331-334,341-342
+  s_4ab6f7952349b3::t_e33fb1b4618009 317,319-320
+  s_4ab6f7952349b3::t_d0154a8cfbf0fc 276
+  s_4ab6f7952349b3::t_4a370d79fb6cc5 102-110
+app/src/pages/FeedbackPage.tsx
+  s_b3c08cbc011b2d::t_71cd2c84d0194c 6,35,51-62,68,85,92,145-147,149-152,157,159,170,172-173,176-180,182-210,212-217,223
+  s_4ab6f7952349b3::t_8f4ff06c0471b3 5,18,28-31,63,67,70,93,127-128,132-134,136
+  s_4ab6f7952349b3::t_31f887be499bff 1-2,121-123,135
+  s_b3c08cbc011b2d::t_1a48ca99947a6e 94-95,110-120,124-126,129-131,137-144,154,158,160,171
+  s_4ab6f7952349b3::t_7c620159fce78e 76,79,87-89,148,153,155-156,161-169,174-175,181,211
+app/src/pages/DashboardPage.tsx
+  s_4ab6f7952349b3::t_73832b9255b441 148-149
+  s_b3c08cbc011b2d::t_e2f161c1379a7f 13,143-145,163,166
+app/main.wasp.ts
+  s_b3c08cbc011b2d::t_773a435f63da56 61
+  s_4ab6f7952349b3::t_0120146336c6ab 1,20,23,55,59-60,62-70
+app/src/client/results.test.ts
+  s_4ab6f7952349b3::t_4a370d79fb6cc5 1-29
+app/src/client/liveMoves.ts
+  s_b3c08cbc011b2d::t_5172b8446a0d98 15
+app/src/components/DateCall.tsx
+  s_b3c08cbc011b2d::t_5172b8446a0d98 4,21,25,30,48,78,94,132
+app/src/pages/DatePage.tsx
+  s_b3c08cbc011b2d::t_71cd2c84d0194c 90
+  s_b3c08cbc011b2d::t_1a48ca99947a6e 108
+  s_4ab6f7952349b3::t_bbb61d93b0b311 109
+  s_b3c08cbc011b2d::t_e2f161c1379a7f 68,88,91-92
+  s_4ab6f7952349b3::t_6a64a099a2e09b 18,97,184,214,246
+app/src/client/callTranscript.ts
+  s_b3c08cbc011b2d::t_a485210ed211e8 1-51
+app/migrations/20261123130000_date_reviews/migration.sql
+  s_b3c08cbc011b2d::t_dbdbd0f0ef2415 1-21
+app/src/components/SkillScores.tsx
+  s_b3c08cbc011b2d::t_e2f161c1379a7f 3-4,20-22,67-69,74-75,77
+app/src/server/sessions.ts
+  s_4ab6f7952349b3::t_8f00e2826a4017 202-204,207-210
+  s_b3c08cbc011b2d::t_773a435f63da56 2,14,24,30-31,38,46,53-60,72-84,89-91,94,130,139,154,158,160-163,165,169-170,175-176,180,183-187,217-224
+  s_4ab6f7952349b3::t_d0154a8cfbf0fc 205-206
+  s_4ab6f7952349b3::t_3355491a824700 11,29,32,35,108-111,113,120,133,150,159,164,171-174,178-179,182,188-191,193-201,211,213-214
+  s_4ab6f7952349b3::t_ca4cb1dfe250d3 166-168
+app/src/server/heygen.ts
+  s_b3c08cbc011b2d::t_615389b936e80f 12,40,42-53,61
+app/src/server/dto.ts
+  s_b3c08cbc011b2d::t_dbdbd0f0ef2415 18-20,43,57-58,91-94,126
+  s_4ab6f7952349b3::t_a18aa7ebe649f7 14,21-33,95,112-113,116
+app/src/server/jev.ts
+  s_b3c08cbc011b2d::t_5172b8446a0d98 135,153
+app/src/server/moves.test.ts
+  s_b3c08cbc011b2d::t_5172b8446a0d98 80
+app/package.json
+  s_b3c08cbc011b2d::t_1e8e76165dd3b1 31-32
+app/src/pages/WorldPage.tsx
+  s_4ab6f7952349b3::t_bbb61d93b0b311 11
+  s_b3c08cbc011b2d::t_71cd2c84d0194c 377
+  s_b3c08cbc011b2d::t_1a48ca99947a6e 437
+  s_4ab6f7952349b3::t_58e546740d940f 608,610-615
+  s_b3c08cbc011b2d::t_e2f161c1379a7f 1-2,7-10,45,138,144,315,336,364,375,378-379,438,440,609,616-618,620-633,635-636
+  s_4ab6f7952349b3::t_5984084acfbd11 21,384,506,545
+app/src/server/memory.ts
+  s_b3c08cbc011b2d::t_d3b6eb3a0d2d20 1-2,5-6,12,16-23,26-30,33-34,38-40,42,47,50-51,53-77,79,81-84,86
+app/src/server/callbacks.ts
+  s_b3c08cbc011b2d::t_d3b6eb3a0d2d20 2,10-15,28-29,31-37,39-40,46
+app/src/server/evaluator.ts
+  s_b3c08cbc011b2d::t_1a48ca99947a6e 1
+  s_b3c08cbc011b2d::t_d3b6eb3a0d2d20 31-33
+app/migrations/20261123130500_move_decision/migration.sql
+  s_b3c08cbc011b2d::t_5172b8446a0d98 1
+app/src/components/MoveReview.tsx
+  s_b3c08cbc011b2d::t_5172b8446a0d98 34-38,42,50,81
+  s_b3c08cbc011b2d::t_1a48ca99947a6e 52,56,62
+app/package-lock.json
+  s_4ab6f7952349b3::t_2fdf1fbcd5c014 35-36,59-61,66,88-90,112,212,237,6603-6605,6616-6618,6653-6655,6709-6721,7552-7560,7809-7821,8024-8035,10192-10197,10282-10290,11425-11439,11539-11645,11777-11815,12705-12731,13007-13015,13901-13914,14292-14300
+app/src/client/liveMoves.test.ts
+  s_b3c08cbc011b2d::t_a263303c854497 35-42
+app/src/client/mockData.ts
+  s_b3c08cbc011b2d::t_1db9b7ffcfb5e6 125-131
+app/src/server/jev.test.ts
+  s_b3c08cbc011b2d::t_807bfd719f5f1c 57
+app/src/server/memory.test.ts
+  s_b3c08cbc011b2d::t_45cb2a5f621659 1-2,4-5,7-23
+app/src/server/transcript.test.ts
+  s_b3c08cbc011b2d::t_c93c916e644636 1-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "547c55ebcaeb0587293721862dd229c9db693917",
+  "prompts": {},
+  "sessions": {
+    "s_4ab6f7952349b3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7410ff4e-2888-4460-a12d-0d5cbaef9420",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    },
+    "s_b3c08cbc011b2d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a2098d-71f4-7ac2-887d-258316789ca1",
+        "model": "gpt-6.2-astra"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
