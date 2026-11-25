@@ -44,7 +44,7 @@ export function DatePage() {
         <EmptyState
           title="Couldn't find this date"
           description="It may have been started in another browser."
-          action={<Button onClick={() => navigate(routes.DashboardRoute.build())}>Back to dashboard</Button>}
+          action={<Button onClick={() => navigate(routes.WorldRoute.build())}>Back to the plaza</Button>}
         />
       </AppShell>
     );
@@ -232,7 +232,8 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
               </h1>
               <p className="mt-0.5 truncate text-sm text-subtle">{persona.personality}</p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <Badge size="sm" pill>{scenario.setting}</Badge>
+                {/* Older characters can have longer settings; the badge stays inside the card and the full text is on hover. */}
+                <Badge size="sm" pill className="max-w-full" title={scenario.setting}>{scenario.setting}</Badge>
                 <Badge size="sm" pill>{DIFFICULTY_LABEL[scenario.difficulty]}</Badge>
                 {hint && (
                   <span className="text-xs text-faint" aria-live="polite">

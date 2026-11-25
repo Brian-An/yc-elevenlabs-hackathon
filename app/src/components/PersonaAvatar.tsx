@@ -5,13 +5,6 @@ import { cn } from "@/lib/utils";
 
 const HUES: Record<string, number> = { maya: 15, theo: 250, priya: 150 };
 
-// Stand-in realistic photos until each persona has a proper portrait asset.
-const PHOTOS: Record<string, string> = {
-  maya: "https://i.pravatar.cc/300?img=47",
-  theo: "https://i.pravatar.cc/300?img=12",
-  priya: "https://i.pravatar.cc/300?img=32",
-};
-
 function hueFor(persona: Persona) {
   return HUES[persona.id] ?? [...persona.id].reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 360;
 }
@@ -65,8 +58,8 @@ export function PersonaAvatar({
   }, [volume, speaking, reduce]);
 
   const hue = hueFor(persona);
-  // A generated character shows its matched video avatar, when it has one.
-  const photo = src ?? PHOTOS[persona.id] ?? persona.custom?.avatarPreviewUrl ?? undefined;
+  // The portrait is the video avatar the persona appears as on a call, so the photo and the call match.
+  const photo = src ?? persona.photoUrl ?? persona.custom?.avatarPreviewUrl ?? undefined;
   return (
     <span className={cn("relative inline-grid shrink-0 place-items-center", className)} style={{ width: size, height: size }}>
       {volume && speaking && !reduce && (

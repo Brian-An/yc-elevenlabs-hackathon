@@ -8,8 +8,11 @@ export const MOVE_KEYS: Record<string, [number, number]> = {
   KeyD: [1, 0], ArrowRight: [1, 0],
 };
 
-/** Whether a key event belongs to a text field, where the keys should type rather than walk. */
+/**
+ * Whether a key event belongs to a text field or an open dialog, where keys should type or move focus (arrow keys
+ * switch tabs) rather than walk.
+ */
 export function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
-  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable || !!el.closest?.('[role="dialog"]'));
 }

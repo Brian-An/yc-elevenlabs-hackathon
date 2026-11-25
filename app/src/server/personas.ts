@@ -45,7 +45,7 @@ const PERSONAS: PersonaDef[] = [
   },
   {
     id: "priya",
-    name: "Priya",
+    name: "Mei",
     age: 29,
     bio: "ER doctor just off a twelve-hour shift, runs marathons, has strong opinions about books.",
     personality:
@@ -134,6 +134,25 @@ export function fromCustomPersona(row: CustomPersona, avatarPreviewUrl: string |
 const stockResolved = (persona: PersonaWithScenario): ResolvedPersona =>
   ({ persona, voiceId: null, avatarId: null, direction: null });
 
+/** The LiveAvatar avatar a stock persona appears as on a call, from HEYGEN_AVATAR_ID_<ID>. */
+const stockAvatarId = (personaId: string) => process.env[`HEYGEN_AVATAR_ID_${personaId.toUpperCase()}`] || undefined;
+
+/** Each stock persona's portrait: the preview of the video avatar it appears as, by persona id. */
+async function stockPhotos(): Promise<Map<string, string>> {
+  const avatars = PERSONAS.flatMap((p) => { const avatarId = stockAvatarId(p.id); return avatarId ? [[p.id, avatarId] as const] : []; });
+  if (!avatars.length) return new Map();
+  const profiles = await prisma.avatarProfile.findMany({
+    where: { avatarId: { in: avatars.map(([, avatarId]) => avatarId) } }, select: { avatarId: true, previewUrl: true },
+  });
+  const preview = new Map(profiles.map((profile) => [profile.avatarId, profile.previewUrl]));
+  return new Map(avatars.flatMap(([personaId, avatarId]) => { const url = preview.get(avatarId); return url ? [[personaId, url] as const] : []; }));
+}
+
+const withPhoto = (persona: PersonaWithScenario, photos: Map<string, string>): PersonaWithScenario => {
+  const photoUrl = photos.get(persona.id);
+  return photoUrl ? { ...persona, photoUrl } : persona;
+};
+
 async function avatarPreviews(rows: CustomPersona[]): Promise<Map<string, string>> {
   const ids = [...new Set(rows.flatMap((row) => (row.avatarId ? [row.avatarId] : [])))];
   if (!ids.length) return new Map();
@@ -150,11 +169,11 @@ export async function personaLookup(userId: string, ids?: string[]): Promise<(id
   const rows = customIds && customIds.length === 0 ? [] : await prisma.customPersona.findMany({
     where: { userId, ...(customIds ? { id: { in: customIds } } : {}) },
   });
-  const previews = await avatarPreviews(rows);
+  const [previews, photos] = await Promise.all([avatarPreviews(rows), stockPhotos()]);
   const custom = new Map(rows.map((row) => [row.id, fromCustomPersona(row, row.avatarId ? previews.get(row.avatarId) ?? null : null)]));
   return (id) => {
     const stock = getPersona(id);
-    return stock ? stockResolved(stock) : custom.get(id);
+    return stock ? stockResolved(withPhoto(stock, photos)) : custom.get(id);
   };
 }
 
@@ -164,10 +183,12 @@ export async function resolvePersona(id: string, userId: string): Promise<Resolv
 
 /** Stock personas, then the user's active generated characters, newest first. */
 export async function listPersonasFor(userId: string | null): Promise<PersonaWithScenario[]> {
-  if (!userId) return listPersonas();
+  const photos = await stockPhotos();
+  const stock = listPersonas().map((persona) => withPhoto(persona, photos));
+  if (!userId) return stock;
   const rows = await prisma.customPersona.findMany({ where: { userId, deletedAt: null }, orderBy: { createdAt: "desc" } });
   const previews = await avatarPreviews(rows);
-  return [...listPersonas(), ...rows.map((row) => fromCustomPersona(row, row.avatarId ? previews.get(row.avatarId) ?? null : null).persona)];
+  return [...stock, ...rows.map((row) => fromCustomPersona(row, row.avatarId ? previews.get(row.avatarId) ?? null : null).persona)];
 }
 
 // Which persona best stresses each skill (used by generateNextScenario).

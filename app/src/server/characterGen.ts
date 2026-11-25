@@ -3,7 +3,7 @@
 // gap the notes leave, and steers away from the characters the user already has.
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
-import type { PersonaLook, PersonaProvenance } from "../shared/types";
+import { BIO_MAX_LENGTH, SETTING_MAX_LENGTH, type PersonaLook, type PersonaProvenance } from "../shared/types";
 import { anthropic, assertFinished, characterModel, FALLBACK_BETA, GenerationError } from "./anthropic";
 
 /** Plaza models a generated character can wear, by presentation. Casual_Male is the player's model. */
@@ -40,10 +40,10 @@ const specSchema = z.object({
   age: z.int().min(21).max(70),
   gender: z.enum(["woman", "man", "nonbinary"]),
   appearance: z.string().max(400).describe("Visible appearance for matching an avatar: hair, apparent skin tone, build, style."),
-  bio: z.string().max(400).describe("One or two sentences: job or study and what they do with their time, in the third person."),
+  bio: z.string().min(1).max(BIO_MAX_LENGTH).describe(`One short sentence under ${BIO_MAX_LENGTH} characters: job and two or three interests, in the third person, e.g. "ER doctor who runs marathons and has strong opinions about books." Richer detail belongs in personality and direction.`),
   personality: z.string().max(500).describe("How they talk and react on a date, in the third person."),
   direction: z.string().max(700).describe("Second-person stage direction: one personal story or choice they bring up when it fits, and how to respond if the user engages, shares a related story, or moves on."),
-  setting: z.string().max(160).describe("Where and when the date happens."),
+  setting: z.string().min(1).max(SETTING_MAX_LENGTH).describe(`Where and when the date happens, as a short label under ${SETTING_MAX_LENGTH} characters, e.g. "Street-food market, Saturday night". No extra clauses about how they met.`),
   openingLine: z.string().max(200).describe("The first thing they say when the date starts."),
   difficulty: z.enum(["easy", "medium", "hard"]),
   voice: z.object({
@@ -79,7 +79,10 @@ Never repeat a character from "existing": use a different name, a different sett
 (job, interests, energy).
 The character respects boundaries and preferences at every difficulty: difficulty changes how much effort the
 conversation takes, never how the character treats a "no".
-Match the voice and the plaza colours to the character's age, gender and background. Mark each trait's provenance honestly.`;
+Match the voice and the plaza colours to the character's age, gender and background. The voice accent follows where
+they grew up and live now: someone raised in Seoul who lives in England sounds Korean or British, never a random accent.
+Describe the voice as conversational, never as a performance style such as a narrator or a warrior.
+Mark each trait's provenance honestly.`;
 
 export async function generateCharacter(request: CharacterRequest): Promise<{ spec: CharacterSpec; look: PersonaLook; provenance: PersonaProvenance; model: string }> {
   const message = await anthropic().beta.messages.parse({
@@ -118,8 +121,17 @@ export function applyChoices(spec: CharacterSpec, request: CharacterRequest): Ch
   if (request.background) provenance.appearance = "notes";
   // The name is always invented, whatever the model reports.
   provenance.name = "generated";
+  // The voice always matches who they are, even when the form's choices overrode the model's gender or age.
+  next.voice = { ...next.voice, gender: voiceGenderFor(next.gender), age: voiceAgeFor(next.age) };
   return { ...next, provenance };
 }
+
+/** The ElevenLabs voice gender label for a character's gender. */
+export const voiceGenderFor = (gender: CharacterSpec["gender"]) =>
+  gender === "woman" ? "female" as const : gender === "man" ? "male" as const : "neutral" as const;
+
+/** The ElevenLabs voice age label for a character's age. */
+export const voiceAgeFor = (age: number) => (age < 35 ? "young" as const : age < 55 ? "middle_aged" as const : "old" as const);
 
 /** Keeps the plaza model consistent with the character's gender, whatever the model picked. */
 export function plazaModelFor(spec: Pick<CharacterSpec, "gender" | "look">): string {

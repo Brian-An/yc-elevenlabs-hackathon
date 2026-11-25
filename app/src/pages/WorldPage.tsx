@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Captions, CaptionsOff, Check, MessageSquare, X } from "lucide-react";
+import { ArrowLeft, Captions, CaptionsOff, Check, GraduationCap, MessageSquare, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { ConversationProvider } from "@elevenlabs/react";
 import { appendTranscript, createDateSession, endDateSession, getDateSession, getPersonas, useQuery } from "wasp/client/operations";
@@ -27,7 +27,10 @@ import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { createWorldBus, type WorldBus, type WorldDate } from "@/world/bus";
 import { isTyping, MOVE_KEYS } from "@/world/controls";
-import { TABLES } from "@/world/layout";
+import { COACH_ID, STUDIO, TABLES } from "@/world/layout";
+import { subscribeCaption } from "@/world/npcChatter";
+import { StudioDialog } from "@/components/StudioDialog";
+import { WorldMap } from "@/components/WorldMap";
 
 const WorldScene = lazy(() => import("@/world/WorldScene"));
 
@@ -49,7 +52,8 @@ type Phase =
 export function WorldPage() {
   useFirstRunRedirect();
   // Stock personas and this browser's generated characters, which wait at the remaining tables.
-  const { data: personas, isLoading, error } = useQuery(getPersonas, { userId: getUserId() });
+  const { data: personas, isLoading, error, refetch: refetchPersonas } = useQuery(getPersonas, { userId: getUserId() });
+  const [studioOpen, setStudioOpen] = useState(false);
   const bus = useMemo(createWorldBus, []);
   const [ready, setReady] = useState(false);
   const onReady = useCallback(() => setReady(true), []);
@@ -83,15 +87,17 @@ export function WorldPage() {
     }
   }, []);
 
-  // E talks to whoever is in reach.
+  // E talks to whoever is in reach, or opens the studio when standing at its door.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "KeyE" || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (phase.kind === "explore" && nearby) void startDate(nearby);
+      if (e.code !== "KeyE" || e.repeat || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+      if (phase.kind !== "explore" || !nearby || studioOpen) return;
+      if (nearby === STUDIO.id) setStudioOpen(true);
+      else void startDate(nearby);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [phase.kind, nearby, startDate]);
+  }, [phase.kind, nearby, startDate, studioOpen]);
 
   if (error) {
     return (
@@ -124,14 +130,29 @@ export function WorldPage() {
         {ready && (phase.kind === "explore" || phase.kind === "starting") && !hintDone && <ControlsHint onDone={onHintDone} />}
 
         {ready && (phase.kind === "explore" || phase.kind === "starting") && (
-          <ExploreHud
-            persona={phase.kind === "explore" ? nearbyPersona : list.find((p) => p.id === phase.personaId) ?? null}
-            starting={phase.kind === "starting"}
-            error={startError}
-            onTalk={(id) => void startDate(id)}
-            onDismissError={() => setStartError(null)}
-          />
+          <>
+            <WorldMap personas={list} bus={bus} nearby={nearby}
+              className="pointer-events-none absolute top-3 right-3 z-20 w-32 sm:top-6 sm:right-6 sm:w-44" />
+            <ExploreHud
+              persona={phase.kind === "explore" ? nearbyPersona : list.find((p) => p.id === phase.personaId) ?? null}
+              studio={phase.kind === "explore" && nearby === STUDIO.id}
+              starting={phase.kind === "starting"}
+              error={startError}
+              onTalk={(id) => void startDate(id)}
+              onOpenStudio={() => setStudioOpen(true)}
+              onDismissError={() => setStartError(null)}
+            />
+          </>
         )}
+
+        <StudioDialog
+          open={studioOpen}
+          onOpenChange={setStudioOpen}
+          personas={list}
+          starting={phase.kind === "starting" ? phase.personaId : null}
+          onDate={(id) => { setStudioOpen(false); void startDate(id); }}
+          onCharactersChanged={() => void refetchPersonas()}
+        />
 
         {phase.kind === "date" && (
           <DateOverlay
@@ -219,26 +240,42 @@ function ControlsHint({ onDone }: { onDone: () => void }) {
 /** Errors starting a date, and the "Talk to" card when someone is in reach. */
 function ExploreHud({
   persona,
+  studio,
   starting,
   error,
   onTalk,
+  onOpenStudio,
   onDismissError,
 }: {
   persona: PersonaWithScenario | null;
+  /** Standing at the studio door. */
+  studio: boolean;
   starting: boolean;
   error: string | null;
   onTalk: (personaId: string) => void;
+  onOpenStudio: () => void;
   onDismissError: () => void;
 }) {
   return (
     <>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-3 sm:p-6">
         <div className="flex w-full max-w-md flex-col gap-3">
+          <PasserByCaption />
           {error && (
             <div className="pointer-events-auto">
               <Alert tone="danger" title="Couldn't start the date" onDismiss={onDismissError}>
                 {error}
               </Alert>
+            </div>
+          )}
+          {studio && (
+            <div className="pointer-events-auto rounded-(--radius-panel) border border-border bg-surface p-4 shadow-(--shadow-resting)" aria-live="polite">
+              <p className="text-base font-medium text-foreground">Studio</p>
+              <p className="mt-0.5 text-sm text-subtle">Manage your characters and look back at past dates.</p>
+              <Button size="lg" className="mt-4 w-full" onClick={onOpenStudio}>
+                Open the studio
+                <Kbd className="ml-1 border-current/35 bg-current/15 text-current [@media(pointer:coarse)]:hidden">E</Kbd>
+              </Button>
             </div>
           )}
           {persona && (
@@ -251,11 +288,15 @@ function ExploreHud({
                   <p className="text-base font-medium text-foreground">
                     {persona.name}, {persona.age}
                   </p>
-                  <p className="mt-0.5 text-sm text-subtle">{persona.bio}</p>
+                  <p className="mt-0.5 line-clamp-2 text-sm text-subtle" title={persona.bio}>{persona.bio}</p>
                 </div>
-                <Badge size="sm" tone={difficultyTone[persona.difficulty]} dot>
-                  {DIFFICULTY_LABEL[persona.difficulty]}
-                </Badge>
+                {persona.id === COACH_ID ? (
+                  <Badge size="sm" tone="info" icon={<GraduationCap className="size-3" aria-hidden="true" />}>Coach</Badge>
+                ) : (
+                  <Badge size="sm" tone={difficultyTone[persona.difficulty]} dot>
+                    {DIFFICULTY_LABEL[persona.difficulty]}
+                  </Badge>
+                )}
               </div>
               <Button size="lg" className="mt-4 w-full" loading={starting} onClick={() => onTalk(persona.id)}>
                 Talk to {persona.name}
@@ -266,6 +307,22 @@ function ExploreHud({
         </div>
       </div>
     </>
+  );
+}
+
+/** What a passer-by is saying, captioned like game subtitles while the clip plays. */
+function PasserByCaption() {
+  const [line, setLine] = useState<string | null>(null);
+  useEffect(() => subscribeCaption(setLine), []);
+  return (
+    <div aria-live="polite" className="flex justify-center empty:hidden">
+      {line && (
+        <p className="rounded-full bg-black/70 px-4 py-1.5 text-center text-sm text-white [text-wrap:balance]">
+          <span className="mr-1.5 text-white/70">Passer-by:</span>
+          {line}
+        </p>
+      )}
+    </div>
   );
 }
 

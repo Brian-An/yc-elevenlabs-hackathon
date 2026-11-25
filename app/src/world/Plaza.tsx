@@ -1,9 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
+import { useFrame } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
-import type { Mesh, Object3D } from "three";
+import type { Group, Mesh, Object3D } from "three";
 import {
   BENCHES,
   BUILDINGS,
+  CAR_SPEED,
   CARS,
   CHAIR_DEPTH_SCALE,
   FALLBACK_PERSONA_MODEL,
@@ -12,6 +14,7 @@ import {
   PACK_SCALE,
   PLAYER,
   PLANTS,
+  ROAD_HALF_LENGTH,
   ROAD_TILES,
   TABLES,
   TREES,
@@ -41,6 +44,28 @@ function Prop({ pack, name, x, z, y = 0, yaw = 0, scale = 1, height = 1, depth =
   return (
     <group position={[x, y, z]} rotation-y={yaw} scale={[size, size * height, size * depth]}>
       <primitive object={object} />
+    </group>
+  );
+}
+
+/** A car driving along its lane, wrapping to the far end of the road once it passes the last tile. */
+function DrivingCar({ car }: { car: (typeof CARS)[number] }) {
+  const group = useRef<Group>(null);
+  // yaw π/2 faces east (+x), -π/2 faces west.
+  const direction = Math.sign(Math.sin(car.yaw ?? 0)) || 1;
+  useFrame((_, rawDt) => {
+    const g = group.current;
+    if (!g) return;
+    // Clamp the step so a backgrounded tab doesn't jump the car on return.
+    const dt = Math.min(rawDt, 0.1);
+    let x = g.position.x + direction * CAR_SPEED * dt;
+    if (x > ROAD_HALF_LENGTH) x -= 2 * ROAD_HALF_LENGTH;
+    else if (x < -ROAD_HALF_LENGTH) x += 2 * ROAD_HALF_LENGTH;
+    g.position.x = x;
+  });
+  return (
+    <group ref={group} position-x={car.x}>
+      <Prop pack="city" name={car.name} x={0} z={car.z} y={car.y} yaw={car.yaw} />
     </group>
   );
 }
@@ -76,7 +101,7 @@ export function Plaza({ personaModels }: { personaModels: readonly string[] }) {
         <Prop key={`r${i}`} pack="city" {...r} />
       ))}
       {CARS.map((c, i) => (
-        <Prop key={`c${i}`} pack="city" {...c} />
+        <DrivingCar key={`c${i}`} car={c} />
       ))}
       {BENCHES.map((b, i) => (
         <Prop key={`be${i}`} pack="city" {...b} />

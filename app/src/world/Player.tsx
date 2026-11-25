@@ -5,7 +5,7 @@ import { Character, type Clip } from "./Character";
 import { resolve, turnToward, yawTo, type Collider } from "./collision";
 import { isTyping, MOVE_KEYS } from "./controls";
 import type { WorldBus, WorldDate } from "./bus";
-import { BOUNDS, CHARACTER_RADIUS, COLLIDERS, PLAYER, TABLES, TALK_RADIUS, seats } from "./layout";
+import { BOUNDS, CHARACTER_RADIUS, COLLIDERS, PLAYER, STUDIO, TABLES, TALK_RADIUS, seats } from "./layout";
 import type { NavGrid } from "./navigation";
 import { leaveSeat, seatPath, stepSeatApproach, stepSeatExit } from "./seating";
 
@@ -220,7 +220,7 @@ export function Player({
       // A tap target behind an obstacle would leave the player pushing against it forever.
       if (bus.moveTarget && len > 0 && Math.hypot(pos.x - before.x, pos.z - before.z) > speed * dt * 0.8) bus.moveTarget = null;
 
-      // The nearest waiting persona within reach, for the "Talk to" prompt.
+      // The nearest waiting persona within reach, for the "Talk to" prompt, or the studio door when on its mat.
       let best: string | null = null;
       let bestD = TALK_RADIUS;
       for (const [id, w] of waiting) {
@@ -230,6 +230,8 @@ export function Player({
           best = id;
         }
       }
+      const studioD = Math.hypot(STUDIO.x - pos.x, STUDIO.z - pos.z);
+      if (studioD < STUDIO.reach && studioD < bestD) best = STUDIO.id;
       if (best !== nearby.current) {
         nearby.current = best;
         onNearby(best);
@@ -241,6 +243,7 @@ export function Player({
 
     g.position.set(pos.x, 0, pos.z);
     g.rotation.y = yaw.current;
+    bus.playerYaw = yaw.current;
     bus.player.x = pos.x;
     bus.player.z = pos.z;
 

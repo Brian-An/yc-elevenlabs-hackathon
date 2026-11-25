@@ -9,6 +9,7 @@ import { generateCharacter, type CharacterRequest, type ExistingCharacter, type 
 import type { PersonaWithScenario } from "./dto";
 import { fromCustomPersona, listPersonas } from "./personas";
 import { asJson, readJson } from "./serialize";
+import { SETTING_MAX_LENGTH } from "../shared/types";
 import { ensureUser, userIdFrom, type WithUser } from "./user";
 import { pickVoice } from "./voices";
 
@@ -54,7 +55,7 @@ export function characterRequest(args: Partial<GenerateCustomPersonaArgs>): Char
     background: optionalText(args.background, "Background", 200),
     voice: optionalText(args.voice, "Voice", 200),
     difficulty: oneOf(args.difficulty, DIFFICULTIES, "Difficulty"),
-    setting: optionalText(args.setting, "Setting", 160),
+    setting: optionalText(args.setting, "Setting", SETTING_MAX_LENGTH),
   };
 }
 
@@ -151,7 +152,7 @@ export const updateCustomPersona: UpdateCustomPersona<UpdateCustomPersonaArgs, P
   const userId = userIdFrom(args);
   const row = await ownedCharacter(userId, args?.id);
   const name = optionalText(args.name, "Name", 40);
-  const setting = optionalText(args.setting, "Setting", 160);
+  const setting = optionalText(args.setting, "Setting", SETTING_MAX_LENGTH);
   const openingLine = optionalText(args.openingLine, "Opening line", 200);
   const updated = await prisma.customPersona.update({
     where: { id: row.id },

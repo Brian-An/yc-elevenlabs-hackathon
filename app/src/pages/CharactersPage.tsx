@@ -1,22 +1,19 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Dices, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { Dices, RefreshCw, Sparkles } from "lucide-react";
 import {
-  deleteCustomPersona,
   getPersonas,
   getProfile,
   updateCustomPersona,
   useQuery,
 } from "wasp/client/operations";
 import type { PersonaWithScenario } from "../server/dto";
-import type { Difficulty } from "../shared/types";
+import { SETTING_MAX_LENGTH, type Difficulty } from "../shared/types";
 import { AppShell } from "@/components/AppShell";
 import { CharacterCard } from "@/components/CharacterCard";
+import { CharacterRow } from "@/components/CharacterRow";
 import { Disclosure } from "@/components/Disclosure";
 import { PageHeader, Panel, PanelHeader } from "@/components/Panel";
-import { PersonaAvatar } from "@/components/PersonaAvatar";
-import { Alert } from "@/components/arc/alert/alert";
 import { Button } from "@/components/arc/button/button";
-import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import { Input } from "@/components/arc/input/input";
 import { InlineError } from "@/components/InlineError";
 import { LabeledSegments } from "@/components/LabeledSegments";
@@ -92,7 +89,7 @@ export function CharactersPage() {
             />
           ) : (
             <CharacterForm form={form} difficulty={difficulty} onFormChange={setForm} generating={characters.generating}
-              elapsed={characters.elapsed} error={characters.error} onSubmit={() => void create()} />
+              error={characters.error} onSubmit={() => void create()} />
           )}
         </div>
         {/* Shown once there is a character, so the first visit is just the form. */}
@@ -115,12 +112,11 @@ export function CharactersPage() {
   );
 }
 
-function CharacterForm({ form, difficulty, onFormChange, generating, elapsed, error, onSubmit }: {
+function CharacterForm({ form, difficulty, onFormChange, generating, error, onSubmit }: {
   form: Form;
   difficulty: Difficulty;
   onFormChange: (form: Form) => void;
   generating: boolean;
-  elapsed: number;
   error: string | null;
   onSubmit: () => void;
 }) {
@@ -162,18 +158,17 @@ function CharacterForm({ form, difficulty, onFormChange, generating, elapsed, er
               <Input label="Age" type="number" inputMode="numeric" min={21} max={70} placeholder="Any" value={form.age} onChange={(e) => set("age", e.target.value)} />
               <Input label="Background" placeholder="Grew up in Seoul" maxLength={200} value={form.background} onChange={(e) => set("background", e.target.value)} />
               <Input label="Voice" placeholder="Low and calm, British" maxLength={200} value={form.voice} onChange={(e) => set("voice", e.target.value)} />
-              <Input label="Where you meet" placeholder="A ramen bar after work" maxLength={160} value={form.setting} onChange={(e) => set("setting", e.target.value)} />
+              <Input label="Where you meet" placeholder="A ramen bar after work" maxLength={SETTING_MAX_LENGTH} value={form.setting} onChange={(e) => set("setting", e.target.value)} />
             </div>
           </fieldset>
         </Disclosure>
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" size="lg" loading={generating}>
+          {/* While it works the label says so. aria-disabled rather than disabled keeps keyboard focus on the button. */}
+          <Button type="submit" size="lg" aria-disabled={generating || undefined} aria-busy={generating || undefined}>
             {notes ? <Sparkles className="size-4" aria-hidden="true" /> : <Dices className="size-4" aria-hidden="true" />}
-            {notes ? "Create" : "Surprise me"}
+            {generating ? "Creating…" : notes ? "Create" : "Surprise me"}
           </Button>
-          <p role="status" aria-live="polite" className="text-sm text-subtle tabular-nums empty:hidden">
-            {generating ? `Creating · ${elapsed}s` : ""}
-          </p>
+          <p role="status" aria-live="polite" className="sr-only">{generating ? "Creating your character" : ""}</p>
           {error && !generating && <InlineError>{error}</InlineError>}
         </div>
       </form>
@@ -207,7 +202,11 @@ function CharacterPreview({ persona, starting, regenerating, error, onStart, onR
     setBusy(true);
     setSaveError(null);
     try {
-      onChange(await updateCustomPersona({ userId: getUserId(), id: persona.id, ...edits }));
+      // Send only what changed: an older character's setting can be longer than today's limit, and leaving it as it
+      // is must not block saving a new name or opening line.
+      const original = { name: persona.name, setting: persona.defaultScenario.setting, openingLine: persona.defaultScenario.openingLine ?? "" };
+      const changed = Object.fromEntries(Object.entries(edits).filter(([key, value]) => value !== original[key as keyof typeof original]));
+      onChange(await updateCustomPersona({ userId: getUserId(), id: persona.id, ...changed }));
       setEditing(false);
     } catch (err) {
       setSaveError(errorMessage(err, "Couldn't save your changes."));
@@ -233,7 +232,7 @@ function CharacterPreview({ persona, starting, regenerating, error, onStart, onR
         {editing ? (
           <div className="grid gap-4">
             <Input label="Name" maxLength={40} value={edits.name} onChange={(e) => setEdits({ ...edits, name: e.target.value })} />
-            <Input label="Where you meet" maxLength={160} value={edits.setting} onChange={(e) => setEdits({ ...edits, setting: e.target.value })} />
+            <Input label="Where you meet" maxLength={SETTING_MAX_LENGTH} value={edits.setting} onChange={(e) => setEdits({ ...edits, setting: e.target.value })} />
             <Textarea label="First thing they say" rows={2} maxLength={200} value={edits.openingLine} onChange={(e) => setEdits({ ...edits, openingLine: e.target.value })} />
             <div className="flex gap-3">
               <Button onClick={() => void save()} loading={busy}>Save</Button>
@@ -244,54 +243,5 @@ function CharacterPreview({ persona, starting, regenerating, error, onStart, onR
       </CharacterCard>
       {(saveError ?? error) && <InlineError className="mt-4 justify-start">{(saveError ?? error)!}</InlineError>}
     </Panel>
-  );
-}
-
-function CharacterRow({ persona, starting, disabled, onStart, onDeleted }: {
-  persona: PersonaWithScenario;
-  starting: boolean;
-  disabled: boolean;
-  onStart: () => void;
-  onDeleted: () => void;
-}) {
-  const [confirming, setConfirming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function remove() {
-    setDeleting(true);
-    setError(null);
-    try {
-      await deleteCustomPersona({ userId: getUserId(), id: persona.id });
-      setConfirming(false);
-      onDeleted();
-    } catch (err) {
-      setError(errorMessage(err, "Couldn't delete the character."));
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  return (
-    <li className="flex items-center gap-3 py-2">
-      <PersonaAvatar persona={persona} size={40} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-foreground">{persona.name}, {persona.age}</p>
-        <p className="truncate text-xs text-faint">{persona.defaultScenario.setting}</p>
-      </div>
-      <Button size="sm" variant="secondary" onClick={onStart} loading={starting} disabled={disabled}>Date</Button>
-      <Button size="sm" variant="ghost" aria-label={`Delete ${persona.name}`} onClick={() => setConfirming(true)} disabled={disabled}>
-        <Trash2 className="size-4" aria-hidden="true" />
-      </Button>
-      <Dialog open={confirming} onOpenChange={(open) => { if (!deleting) setConfirming(open); }}>
-        <DialogContent title={`Delete ${persona.name}?`} description="Past dates stay in your history.">
-          {error && <Alert tone="danger" title="Couldn't delete">{error}</Alert>}
-          <div className="flex justify-end gap-3">
-            <Button variant="ghost" disabled={deleting} onClick={() => setConfirming(false)}>Keep {persona.name}</Button>
-            <Button variant="danger" loading={deleting} onClick={() => void remove()}>Delete</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </li>
   );
 }

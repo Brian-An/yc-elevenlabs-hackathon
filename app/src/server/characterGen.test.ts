@@ -64,6 +64,14 @@ describe("generated characters", () => {
     expect(chosen.provenance).toMatchObject({ gender: "notes", age: "notes", voice: "notes", setting: "notes", appearance: "notes", name: "generated" });
   });
 
+  it("gives the voice the character's gender and age, even when the form overrode the model's", () => {
+    const chosen = applyChoices({ ...spec, gender: "man", age: 62, voice: { ...spec.voice, gender: "male", age: "old" } },
+      { notes: "x".repeat(20), gender: "woman", age: 30 });
+    expect(chosen.voice).toMatchObject({ gender: "female", age: "young" });
+    expect(applyChoices({ ...spec, age: 45 }, { notes: "" }).voice.age).toBe("middle_aged");
+    expect(applyChoices({ ...spec, gender: "nonbinary", age: 60 }, { notes: "" }).voice).toMatchObject({ gender: "neutral", age: "old" });
+  });
+
   it("keeps the plaza model consistent with the character's gender", () => {
     expect(plazaModelFor({ gender: "man", look: { ...spec.look, model: "Casual2_Female" } })).toBe("Casual2_Male");
     expect(plazaModelFor({ gender: "woman", look: spec.look })).toBe("Casual2_Female");

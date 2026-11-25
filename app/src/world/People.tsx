@@ -1,14 +1,17 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import type { Group } from "three";
-import type { Persona } from "../shared/types";
+import { GraduationCap } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { PersonaWithScenario as Persona } from "../server/dto";
 import { Character, type Clip } from "./Character";
 import { turnToward, yawTo, type Collider } from "./collision";
 import type { WorldBus } from "./bus";
-import { BOUNDS, CHARACTER_HEIGHT, CHARACTER_RADIUS, WAYPOINTS, personaLook, seats, type Table } from "./layout";
+import { BOUNDS, CHARACTER_HEIGHT, CHARACTER_RADIUS, COACH_ID, WAYPOINTS, personaLook, seats, type Table } from "./layout";
 import type { NavGrid } from "./navigation";
 import { leaveSeat, seatPath, stepSeatApproach, stepSeatExit, stepToward } from "./seating";
+import { CHATTER_RADIUS, stopSpeaking, trySpeak } from "./npcChatter";
 import { createStroller, STROLL_SPEED, stepStroller, type Stroller } from "./stroll";
 
 const LOOK_RADIUS = 7; // a waiting persona turns toward the player inside this distance
@@ -28,9 +31,16 @@ function useClip(initial: Clip) {
 /**
  * A passer-by: strolls to a random waypoint along a path round the tables, lingers 2-5 s, picks another.
  * Slides round other people and the player, and changes course when they block the way.
+ * When `chatty`, says one of their lines as the player walks past; the page captions it.
  */
-export function Extra({ model, start, index, bus, nav }: { model: string; start: number; index: number; bus: WorldBus; nav: NavGrid }) {
+export function Extra({ model, start, index, bus, nav, chatty }: { model: string; start: number; index: number; bus: WorldBus; nav: NavGrid; chatty: boolean }) {
   const group = useRef<Group>(null);
+  const audio = useRef<HTMLAudioElement | null>(null);
+  // Hush when chatter is switched off (a date starting) and when the passer-by leaves the scene.
+  useEffect(() => {
+    if (!chatty) stopSpeaking(audio.current);
+  }, [chatty]);
+  useEffect(() => () => stopSpeaking(audio.current), []);
   const [clip, play] = useClip("Idle");
   const state = useRef<Stroller | null>(null);
   if (!state.current) {
@@ -52,6 +62,11 @@ export function Extra({ model, start, index, bus, nav }: { model: string; start:
     bus.extras[index] = { x: s.x, z: s.z };
     g.position.set(s.x, 0, s.z);
     g.rotation.y = s.yaw;
+
+    if (chatty && Math.hypot(bus.player.x - s.x, bus.player.z - s.z) < CHATTER_RADIUS) {
+      const started = trySpeak(index);
+      if (started) audio.current = started;
+    }
   });
 
   return <Character model={model} clip={clip} groupRef={group} />;
@@ -153,17 +168,41 @@ export function DatePersona({
       />
       {!onDate && (
         <Html position={[spot.waiting.x, CHARACTER_HEIGHT + 0.45, spot.waiting.z]} center zIndexRange={[10, 0]} pointerEvents="none">
-          <div
-            className={
-              "whitespace-nowrap rounded-full border px-3 py-1 text-center text-sm shadow-(--shadow-resting) transition-colors " +
-              (nearby ? "border-brand bg-brand text-accent-foreground" : "border-border bg-surface/90 text-foreground")
-            }
-          >
-            <span className="font-medium">{persona.name}</span>
-            <span className={nearby ? "opacity-85" : "text-subtle"}>, {persona.age}</span>
-          </div>
+          <PersonaTag persona={persona} nearby={nearby} />
         </Html>
       )}
     </group>
+  );
+}
+
+const DIFFICULTY_DOT = { easy: "bg-success", medium: "bg-info", hard: "bg-warning" } as const;
+
+/**
+ * The tag over a waiting persona. Dates show a dot for how hard the date is; the coach is marked as the coach in
+ * its own colour, so it stands out from the dates at a glance.
+ */
+function PersonaTag({ persona, nearby }: { persona: Persona; nearby: boolean }) {
+  const coach = persona.id === COACH_ID;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-center text-sm shadow-(--shadow-resting) transition-colors",
+        nearby
+          ? "border-brand bg-brand text-accent-foreground"
+          : coach
+            ? "border-info/40 bg-[color-mix(in_oklab,var(--info)_16%,var(--surface))] text-foreground"
+            : "border-border bg-surface/90 text-foreground",
+      )}
+    >
+      {coach ? (
+        <GraduationCap className={cn("size-4", !nearby && "text-info")} aria-hidden="true" />
+      ) : (
+        <span className={cn("size-2 rounded-full", DIFFICULTY_DOT[persona.difficulty])} aria-hidden="true" />
+      )}
+      <span>
+        <span className="font-medium">{persona.name}</span>
+        <span className={nearby ? "opacity-85" : "text-subtle"}>{coach ? " (coach)" : `, ${persona.age}`}</span>
+      </span>
+    </div>
   );
 }

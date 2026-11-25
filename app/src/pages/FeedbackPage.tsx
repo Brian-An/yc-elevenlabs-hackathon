@@ -78,7 +78,7 @@ export function FeedbackPage() {
   }
   if (!sessionQuery.data?.persona) {
     return <AppShell wide><EmptyState title="Couldn't find this date" description="It may belong to another browser, or the connection failed."
-      action={<Button onClick={() => navigate(routes.DashboardRoute.build())}>Back to dashboard</Button>} /></AppShell>;
+      action={<Button onClick={() => navigate(routes.WorldRoute.build())}>Back to the plaza</Button>} /></AppShell>;
   }
   const session = sessionQuery.data;
   const persona = sessionQuery.data.persona;
@@ -102,7 +102,7 @@ export function FeedbackPage() {
       starting={starting}
       actionError={actionError}
       onStart={startPractice}
-      onDashboard={() => navigate(routes.DashboardRoute.build())}
+      onBack={() => navigate(routes.WorldRoute.build())}
     />
   );
 }
@@ -159,7 +159,7 @@ function ReviewedSession({ session, review, previous, onCoach, starting, error, 
   return (
     <AppShell wide>
       <PageHeader title={`Your date with ${session.persona?.name ?? "your date"}`} description={formatDate(session.startedAt.toISOString())}
-        action={<Button size="lg" variant="secondary" onClick={() => navigate(routes.DashboardRoute.build())}>Past dates</Button>} />
+        action={<Button size="lg" variant="secondary" onClick={() => navigate(routes.WorldRoute.build())}>Back to the plaza</Button>} />
       <WholeDateReview session={session} review={review} onCoach={onCoach} starting={starting === "coach"} disabled={starting !== null} previous={previous} />
       {error && <Alert tone="danger" title="Couldn't start practice">{error}</Alert>}
       <div className="mt-6 flex flex-wrap gap-3">
@@ -215,7 +215,7 @@ function WholeDateReview({ session, review, previous, onCoach, starting, disable
   );
 }
 
-function FeedbackContent({ session, history, nextScenario, personas, starting, actionError, onStart, onDashboard }: {
+function FeedbackContent({ session, history, nextScenario, personas, starting, actionError, onStart, onBack }: {
   session: DateSessionDTO & { persona: Persona; evaluation: NonNullable<DateSessionDTO["evaluation"]> };
   history: DateSessionSummary[];
   nextScenario?: Scenario;
@@ -223,7 +223,7 @@ function FeedbackContent({ session, history, nextScenario, personas, starting, a
   starting: "next" | "retry" | "coach" | null;
   actionError: string | null;
   onStart: (scenario: Scenario, kind: "next" | "retry") => Promise<void>;
-  onDashboard: () => void;
+  onBack: () => void;
 }) {
   const [savedToast, setSavedToast] = useState(true);
   const { persona, evaluation, transcript, moves } = session;
@@ -244,8 +244,8 @@ function FeedbackContent({ session, history, nextScenario, personas, starting, a
           </span>
         }
         action={
-          <Button variant="secondary" onClick={onDashboard}>
-            Back to dashboard
+          <Button variant="secondary" onClick={onBack}>
+            Back to the plaza
           </Button>
         }
       />
