@@ -1,0 +1,142 @@
+app/src/client/practice.ts
+  s_eea00e8c20de15::t_fcaf9c860509cb 1
+  s_eea00e8c20de15::t_60a154d5516e99 60-62
+  s_eea00e8c20de15::t_900f644f7f3b79 66,85
+  s_eea00e8c20de15::t_cf8c89b2dc081b 4-6
+  s_eea00e8c20de15::t_99a8586c9828de 46-59,63-65
+app/src/pages/CharactersPage.tsx
+  s_eea00e8c20de15::t_60a154d5516e99 205-209
+  s_eea00e8c20de15::t_650f44dcf942a9 13
+  s_eea00e8c20de15::t_c94a49a862de12 10,161,235
+  s_eea00e8c20de15::t_2b111983de8c6d 92,115,166-167,169,171
+  s_eea00e8c20de15::t_a8160ac54a3db5 2
+app/src/components/AppShell.tsx
+  s_eea00e8c20de15::t_2ca91dadc40735 6,20
+app/src/pages/FeedbackPage.tsx
+  s_eea00e8c20de15::t_2ca91dadc40735 81,105,162,218,226,247-248
+app/public/audio/npc/voices.json
+  s_eea00e8c20de15::t_9f7e89e65741ad 1-34
+app/src/server/customPersonas.ts
+  s_eea00e8c20de15::t_0750c3ae1fe05e 12
+  s_eea00e8c20de15::t_c94a49a862de12 58,155
+app/src/components/PersonaAvatar.tsx
+  s_eea00e8c20de15::t_3ae5ce290c57dd 61-62
+app/src/world/controls.ts
+  s_eea00e8c20de15::t_b749a8dcf4f2f2 11-14,17
+app/src/shared/types.ts
+  s_eea00e8c20de15::t_c94a49a862de12 64-65,68
+  s_eea00e8c20de15::t_11784115809e52 66-67
+  s_eea00e8c20de15::t_641249b9ecec6f 39-40
+app/src/pages/WorldPage.tsx
+  s_eea00e8c20de15::t_32570164ec5f15 135
+  s_eea00e8c20de15::t_11784115809e52 291
+  s_eea00e8c20de15::t_7ccee0f59abe17 32-33,55-56,90,93-96,100,133-134,136-145,148-156,243,247,251-252,256,271-278
+  s_eea00e8c20de15::t_f33752f55e81dd 2,30,293-299
+  s_eea00e8c20de15::t_09d3791f7c5c97 31,263,313-325
+  s_eea00e8c20de15::t_946ecd53aaac3b 279-280,326-328
+app/src/components/arc/tabs/tabs.tsx
+  s_eea00e8c20de15::t_696e2f4526e848 127-128
+  s_eea00e8c20de15::t_60a154d5516e99 123,129,134
+app/src/server/characterGen.test.ts
+  s_eea00e8c20de15::t_2b7ce70c012835 67-74
+app/src/world/npcLines.ts
+  s_eea00e8c20de15::t_5197dc25c28fad 1-92
+app/scripts/generate-npc-lines.mjs
+  s_eea00e8c20de15::t_71c3e9a9e23526 1,4,6-7,9-11,13-18,20,26-30,53-54,58,61-62,69-70,72-84
+  s_eea00e8c20de15::t_9f7e89e65741ad 2-3,59-60,63-65
+  s_eea00e8c20de15::t_9aec15f04348b6 5,8,12,19,21-25,31-52,55-57,66-68,71,85-86
+app/src/world/Player.tsx
+  s_eea00e8c20de15::t_c4a8a8482afc60 8,223,233-234,246
+app/src/pages/OnboardingPage.tsx
+  s_eea00e8c20de15::t_67b0e15508797d 235-242
+  s_eea00e8c20de15::t_34d1b3100c2278 299-302,304,306
+  s_eea00e8c20de15::t_c7c066eda1bc91 220-221
+  s_eea00e8c20de15::t_a7fb5b59def447 24
+  s_eea00e8c20de15::t_2ca91dadc40735 362,410
+  s_eea00e8c20de15::t_54aea1298d6ffd 233-234
+  s_eea00e8c20de15::t_bfea14caa1ece4 72-73
+app/src/server/characterGen.ts
+  s_eea00e8c20de15::t_c94a49a862de12 46
+  s_eea00e8c20de15::t_d1bfc82de734a6 82-85,124-125,129-134
+  s_eea00e8c20de15::t_11784115809e52 6,43
+  s_eea00e8c20de15::t_41e60d0510c458 135
+app/src/client/mockData.ts
+  s_eea00e8c20de15::t_d8bb59daa4551d 92
+  s_eea00e8c20de15::t_76dc69d7568095 5,7
+app/src/world/People.tsx
+  s_eea00e8c20de15::t_06d7d0ccab1674 34,67
+  s_eea00e8c20de15::t_1df4297efaa4a3 41
+  s_eea00e8c20de15::t_32570164ec5f15 202-203,205
+  s_eea00e8c20de15::t_37df1d07ee0a37 204
+  s_eea00e8c20de15::t_cf41d47015981d 1,14,36,38-40,42-43,65-66,68-69
+  s_eea00e8c20de15::t_fc2f4095a447d9 5-6,11,171,177-199,201,206
+  s_eea00e8c20de15::t_540d605ceaa670 7,200
+  s_eea00e8c20de15::t_8905c25afae164 207-208
+app/src/components/StudioDialog.tsx
+  s_eea00e8c20de15::t_8c38f7ea66792e 14,19,32-33,37,45,56,58
+  s_eea00e8c20de15::t_0fac10c730278d 1-13,15-18,20-31,34-36,38-44,46-55,57,59-128
+app/src/world/bus.ts
+  s_eea00e8c20de15::t_c4a8a8482afc60 9-10,24
+app/src/pages/DatePage.tsx
+  s_eea00e8c20de15::t_2ca91dadc40735 47
+  s_eea00e8c20de15::t_0750c3ae1fe05e 235-236
+app/src/world/npcChatter.test.ts
+  s_eea00e8c20de15::t_879bd308031788 57-62,65,70-71,73,75,79-80,82,84-86,88
+  s_eea00e8c20de15::t_8560ad13715b5d 1-56,63-64,66-69,72,74,76-78,81,83,87,89-90
+app/src/components/CharacterRow.tsx
+  s_eea00e8c20de15::t_719a9c57a021a8 47-51,57
+  s_eea00e8c20de15::t_7eaa6d8b08867d 52-56
+  s_eea00e8c20de15::t_650f44dcf942a9 1-11,13-17,20-30,32-46,58-69
+  s_eea00e8c20de15::t_8c38f7ea66792e 12,18-19,31
+app/src/components/WorldIntro.tsx
+  s_eea00e8c20de15::t_890b2f446efd12 1-80,82-97
+  s_eea00e8c20de15::t_1df4297efaa4a3 81
+app/src/components/WorldMap.tsx
+  s_eea00e8c20de15::t_5c8b33a3e33cc1 59-66
+  s_eea00e8c20de15::t_0daab378ffe786 1-58,67-101
+app/src/world/Studio.tsx
+  s_eea00e8c20de15::t_72906dc8dc055d 1-51
+app/src/world/Plaza.tsx
+  s_eea00e8c20de15::t_585df7aaaef840 1-2,4,17,51-60,62-72,104
+  s_eea00e8c20de15::t_155b3dc965b687 8,61
+app/src/world/WorldScene.tsx
+  s_eea00e8c20de15::t_1df4297efaa4a3 27,37-38,112
+  s_eea00e8c20de15::t_540d605ceaa670 3,11-12,30,97
+app/src/server/personas.ts
+  s_eea00e8c20de15::t_d8bb59daa4551d 48
+  s_eea00e8c20de15::t_641249b9ecec6f 137-155,172,176,186-188,191
+app/src/world/npcChatter.ts
+  s_eea00e8c20de15::t_11b23689a86358 1-8,11,14-15,32-36,39,41-59,61-62,68-76
+  s_eea00e8c20de15::t_60a154d5516e99 12-13,65
+  s_eea00e8c20de15::t_879bd308031788 27-29
+  s_eea00e8c20de15::t_06d7d0ccab1674 9,16-26,30,37-38,40,60,64,66
+  s_eea00e8c20de15::t_7eaa6d8b08867d 10,31,63,67
+app/src/world/layout.ts
+  s_eea00e8c20de15::t_c4a8a8482afc60 127-135
+  s_eea00e8c20de15::t_d8bb59daa4551d 62
+  s_eea00e8c20de15::t_0ebfd80ad3f9ca 60-61
+  s_eea00e8c20de15::t_ca623a42de3a54 63
+  s_eea00e8c20de15::t_cf17df97e255d8 164-169,172-173
+  s_eea00e8c20de15::t_c7a7ac5e3c5071 162-163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b0595d1e282dd74946e32ea6abb4a0b8717d1212",
+  "prompts": {},
+  "humans": {
+    "h_1a0e607fe5f58f": {
+      "author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_eea00e8c20de15": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f7a40b51-6cb2-46ae-8b35-6c30e802749b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
