@@ -1,0 +1,27 @@
+app/src/server/dateReview.test.ts
+  s_1493fef578d8a9::t_88fa8253f8e4c8 50,55-65
+app/src/server/dateReview.ts
+  s_1493fef578d8a9::t_a64e9140350252 4,173,182-185,188-193,197-210,212-216
+  s_1493fef578d8a9::t_88fa8253f8e4c8 178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3aadb550125f2bc00168fd25008b8cbc08761d7d",
+  "prompts": {},
+  "humans": {
+    "h_1a0e607fe5f58f": {
+      "author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_1493fef578d8a9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ab29ccee-abe2-4aab-b600-2cc45352eb87",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
