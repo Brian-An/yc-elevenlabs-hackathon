@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Persona, Scenario, Transcript } from "../shared/types";
-import { DateReviewError, dateReviewEnabled, generateDateReview, reviewScores } from "./dateReview";
+import { demoEvaluation } from "../client/mockData";
+import { DateReviewError, dateReviewEnabled, fixedDateReview, generateDateReview, reviewScores } from "./dateReview";
 
-const persona: Persona = { id: "maya", name: "Maya", age: 27, bio: "", personality: "" };
+// A generated character, since stock Maya always gets the fixed review.
+const persona: Persona = { id: "custom-maya", name: "Maya", age: 27, bio: "", personality: "" };
 const scenario: Scenario = { id: "coffee", personaId: "maya", setting: "A café", difficulty: "easy" };
 const transcript: Transcript = [
   { speaker: "agent", text: "My pot cracked in the kiln.", timestamp: 0 },
@@ -46,6 +48,23 @@ afterEach(() => {
 });
 
 describe("whole-date review", () => {
+  it("gives stock Maya the demo feedback at 25/100 without contacting the provider", async () => {
+    const request = provider(draft());
+    const { review, usage } = await generateDateReview(transcript, scenario, { ...persona, id: "maya" });
+    expect(request).not.toHaveBeenCalled();
+    expect(usage).toBeNull();
+    expect(review.overallScore).toBe(25);
+    expect(review.summary).toBe(demoEvaluation.summary);
+    expect(review.weaknesses.map(({ point, quote }) => ({ point, quote }))).toEqual([
+      { point: demoEvaluation.weaknesses[0].point, quote: transcript[3].text },
+      { point: demoEvaluation.weaknesses[1].point, quote: transcript[1].text },
+    ]);
+    expect(review.practice).toMatchObject({ agentTurnIndex: 2, userTurnIndex: 3 });
+    expect(reviewScores(review).overallScore).toBe(25);
+    expect(fixedDateReview("maya", transcript)).toEqual(review);
+    expect(fixedDateReview("theo", transcript)).toBeNull();
+  });
+
   it("calls Anthropic with the full numbered conversation and schema, grounds quotes, and scores only evidenced skills", async () => {
     const result = draft();
     const request = provider({ ...result, strengths: [{ ...result.strengths[0], quote: "Invented words" }] });

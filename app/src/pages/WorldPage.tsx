@@ -1,5 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, Captions, CaptionsOff, Check, GraduationCap, MessageSquare, X } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, Captions, CaptionsOff, Check, GraduationCap, MessageSquare, TriangleAlert, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { ConversationProvider } from "@elevenlabs/react";
 import { appendTranscript, createDateSession, endDateSession, getCoachingRecap, getDateSession, getPersonas, useQuery } from "wasp/client/operations";
@@ -707,6 +707,8 @@ function RecapList({ title, items }: { title: string; items: string[] }) {
 
 function DateSummary({ session: ended, onClose }: { session: DateSessionDTO; onClose: () => void }) {
   const navigate = useNavigate();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsId = useId();
   // The review finishes in the background after the date ends. The summary fills in when it is ready.
   const { data } = useQuery(getDateSession, { userId: getUserId(), id: ended.id }, {
     initialData: ended,
@@ -714,25 +716,91 @@ function DateSummary({ session: ended, onClose }: { session: DateSessionDTO; onC
   });
   const session = data ?? ended;
   const { review, persona } = session;
-  const point = review?.strengths[0] ?? review?.weaknesses[0];
   const notice = reviewNotice(session);
+  const score = review?.overallScore ?? null;
+  const strength = review?.strengths[0];
+  const weakness = review?.weaknesses[0];
+  const hasDetails = Boolean(strength || weakness || review?.practice);
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent title={review ? `How it went with ${persona?.name ?? "your date"}` : notice.title}
-        description={review?.summary ?? notice.description}>
-        {review?.overallScore != null && <p className="text-sm text-subtle">Overall score <strong className="ml-2 text-xl text-foreground">{review.overallScore}/100</strong></p>}
-        {point && <div className="grid gap-2">
-          <p className="text-sm text-foreground">{point.point}</p>
-          <blockquote className="border-l-2 border-brand pl-3 text-sm text-subtle">“{point.quote}”</blockquote>
-        </div>}
-        {review?.practice && <p className="text-sm text-foreground"><strong>Next time </strong>{review.practice.instruction}</p>}
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => navigate(routes.FeedbackRoute.build({ params: { sessionId: session.id } }))}>
-            {review ? "Open date review" : "View conversation"}
-          </Button>
-          <Button variant="secondary" onClick={onClose}>Keep exploring</Button>
+        description={review ? undefined : notice.description}>
+        <div className="grid gap-6">
+          {review && (
+            <div className="grid gap-3">
+              {score != null && <ScoreMeter score={score} />}
+              <p className={cn("text-sm text-subtle", score != null && "text-center")}>{review.summary}</p>
+            </div>
+          )}
+          <div className="grid gap-2">
+            {hasDetails && (
+              <>
+                <Button variant="secondary" aria-expanded={detailsOpen} aria-controls={detailsId} onClick={() => setDetailsOpen(!detailsOpen)}>
+                  {detailsOpen ? "Hide details" : "See details"}
+                </Button>
+                <div id={detailsId} hidden={!detailsOpen}>
+                  <ul className="grid gap-3 border-y border-border py-4 text-sm text-foreground">
+                    {strength && (
+                      <li className="flex gap-2.5">
+                        <Check className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
+                        <p>{strength.point}</p>
+                      </li>
+                    )}
+                    {weakness && (
+                      <li className="flex gap-2.5">
+                        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden="true" />
+                        <p>{weakness.point}</p>
+                      </li>
+                    )}
+                    {review?.practice && (
+                      <li className="flex gap-2.5">
+                        <GraduationCap className="mt-0.5 size-4 shrink-0 text-subtle" aria-hidden="true" />
+                        <p><strong>Next time </strong>{review.practice.instruction}</p>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </>
+            )}
+            <Button onClick={() => navigate(routes.FeedbackRoute.build({ params: { sessionId: session.id } }))}>
+              {review ? "Open date review" : "View conversation"}
+            </Button>
+            <Button variant="ghost" onClick={onClose}>Keep exploring</Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The overall score as a 270 degree ring. */
+function ScoreMeter({ score }: { score: number }) {
+  const arc = (score / 100) * 270;
+  return (
+    <div className="flex justify-center">
+      <div
+        role="meter"
+        aria-label="Overall date score"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={score}
+        aria-valuetext={`${score} out of 100`}
+        className="relative grid size-44 place-items-center sm:size-48"
+      >
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: `conic-gradient(from 225deg, var(--accent) 0deg ${arc}deg, var(--border) ${arc}deg 270deg, transparent 270deg)`,
+            maskImage: "radial-gradient(farthest-side, transparent calc(100% - 10px), #000 calc(100% - 9px))",
+          }}
+        />
+        <div aria-hidden="true" className="-mt-2 grid justify-items-center">
+          <span className="text-sm text-subtle">Overall score</span>
+          <span className="font-heading text-6xl leading-none font-medium tabular-nums text-foreground">{score}</span>
+          <span className="mt-1 text-sm text-subtle">out of 100</span>
+        </div>
+      </div>
+    </div>
   );
 }

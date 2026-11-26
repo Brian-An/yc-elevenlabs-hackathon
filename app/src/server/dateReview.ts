@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { DateReview, ReviewScores } from "../shared/dateReview";
-import type { Persona, Scenario, SkillName, Transcript } from "../shared/types";
+import type { EvidencedPoint, Persona, Scenario, SkillName, Transcript } from "../shared/types";
+import { demoEvaluation } from "../client/mockData";
 
 export const RUBRIC_VERSION = "whole-date-v2";
 const DEFAULT_MODEL = "claude-sonnet-4-6";
@@ -170,9 +171,52 @@ const messageSchema = z.object({
   usage: z.object({ input_tokens: z.number(), output_tokens: z.number() }).optional(),
 });
 
+// Maya's dates always get the demo date's feedback with a fixed low score, instead of a graded review.
+const FIXED_REVIEW_PERSONA = "maya";
+const FIXED_SKILL_SCORES: Record<SkillName, number> = { listening: 3, engagement: 2, confidence: 3, flow: 2 };
+const FIXED_STRENGTH_SKILLS: SkillName[] = ["engagement", "confidence"];
+const FIXED_WEAKNESS_SKILLS: SkillName[] = ["listening", "engagement"];
+
+/** Maya's fixed review, or null for any other character. It needs no provider, so ending the date stores it at once. */
+export function fixedDateReview(personaId: string, transcript: Transcript): DateReview | null {
+  if (personaId !== FIXED_REVIEW_PERSONA) return null;
+  return fixedReview(transcript, { transcriptHash: transcriptHash(transcript), rubricVersion: RUBRIC_VERSION });
+}
+
+function fixedReview(transcript: Transcript, provenance: Pick<DateReview, "transcriptHash" | "rubricVersion">): DateReview {
+  const userTurns = transcript.flatMap((turn, index) => (turn.speaker === "user" && turn.text.trim() ? [index] : []));
+  const last = userTurns.at(-1);
+  const prompt = last === undefined ? -1 : transcript.findLastIndex((turn, index) => index < last && turn.speaker === "agent" && turn.text.trim());
+  // Each point quotes one of the user's own replies, newest first, since the demo's quotes are from another conversation.
+  const points = (source: EvidencedPoint[], skills: SkillName[]) => source.flatMap(({ point }, i) => {
+    const turnIndex = userTurns.at(-1 - (i % Math.max(userTurns.length, 1)));
+    return turnIndex === undefined ? [] : [{ skill: skills[i] ?? "engagement", point, quote: transcript[turnIndex].text, turnIndex }];
+  });
+  const cited = userTurns.slice(-4);
+  return {
+    ...provenance,
+    model: null,
+    summary: demoEvaluation.summary,
+    skills: Object.fromEntries(Object.entries(FIXED_SKILL_SCORES).map(([skill, score]) => [skill, { score, turnIndices: cited }])) as DateReview["skills"],
+    overallScore: 25,
+    moments: [],
+    strengths: points(demoEvaluation.strengths, FIXED_STRENGTH_SKILLS),
+    weaknesses: points(demoEvaluation.weaknesses, FIXED_WEAKNESS_SKILLS),
+    practice: last !== undefined && prompt >= 0 ? {
+      skill: "listening",
+      instruction: "Follow the thread they hand you before switching topics, and trade a detail about yourself for each question you ask.",
+      exampleReply: "Wait, you just got back from Lisbon? I've never been. What surprised you most?",
+      agentTurnIndex: prompt,
+      userTurnIndex: last,
+    } : null,
+  };
+}
+
 export async function generateDateReview(transcript: Transcript, scenario: Scenario, persona: Persona): Promise<DateReviewResult> {
   const turns = numberedTurns(transcript);
   const provenance = { transcriptHash: transcriptHash(transcript), rubricVersion: RUBRIC_VERSION };
+  const fixed = fixedDateReview(persona.id, transcript);
+  if (fixed) return { review: fixed, usage: null };
   if (!reviewNeedsInference(transcript)) {
     const unscored = () => ({ score: null, turnIndices: [] });
     const review: DateReview = {

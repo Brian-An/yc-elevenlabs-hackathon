@@ -92,8 +92,8 @@ export function useAvatarSession({
   const stop = async () => {
     const client = clientRef.current;
     clientRef.current = null;
-    await client?.stopStreaming().catch(() => {});
     stopMic();
+    await client?.stopStreaming().catch(() => {});
   };
 
   // Stop the Anam session if the component unmounts mid-call.
@@ -162,7 +162,8 @@ export function useAvatarSession({
 
   const end = useCallback(async () => {
     if (statusRef.current === "live") elapsedBefore.current = elapsedNow();
-    await stop();
+    // Closing the stream takes seconds, so it finishes in the background and the date saves right away.
+    void stop();
     setStatus("ended");
     setTranscript(recorder.turns);
     return recorder.turns;
