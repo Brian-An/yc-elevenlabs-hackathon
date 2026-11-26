@@ -1,0 +1,115 @@
+app/main.wasp.ts
+  s_eea00e8c20de15::t_a9310f9d354e54 43
+  s_eea00e8c20de15::t_c49b96b0e19aa6 75
+  s_eea00e8c20de15::t_f9ea7e8f42958f 29,66
+app/migrations/20261126003926_coaching_recap/migration.sql
+  s_eea00e8c20de15::t_aa456f10a5c8eb 1-2
+app/src/world/bus.ts
+  s_eea00e8c20de15::t_a0403ee2896169 22
+app/src/server/avatarCatalog.ts
+  s_eea00e8c20de15::t_db83fafc7257cc 51-65,67,77
+  s_eea00e8c20de15::t_d672a3dcc1e877 92-93,118-142
+  s_eea00e8c20de15::t_d631fa257ef020 114
+app/src/pages/FeedbackPage.tsx
+  s_eea00e8c20de15::t_d3f9a3f5ed87b8 128,166,168,211,288,295
+app/src/pages/DatePage.tsx
+  s_eea00e8c20de15::t_956016b2d51357 157
+app/schema.prisma
+  s_eea00e8c20de15::t_f9ea7e8f42958f 47
+app/src/shared/types.ts
+  s_eea00e8c20de15::t_e3dfd96488338b 85-89
+app/src/server/customPersonas.ts
+  s_eea00e8c20de15::t_5aa5cacd7ce34b 14,132-134
+app/src/server/jev.ts
+  s_eea00e8c20de15::t_e3dfd96488338b 14,73
+app/src/components/StudioDialog.tsx
+  s_eea00e8c20de15::t_edaf08689b0ac6 1-2,12,21-22,33,36-39,42,51-52,63,73
+app/src/server/coachingRecap.ts
+  s_eea00e8c20de15::t_0b4147a7ba9acc 1-72
+app/src/server/serialize.ts
+  s_eea00e8c20de15::t_bb80f58c838069 32
+app/src/server/secondOpinion.ts
+  s_eea00e8c20de15::t_fc680683ee6055 25,28
+  s_eea00e8c20de15::t_b29b23de390a89 1-20,22-23,26-27,29-32,34-39,41-44
+  s_eea00e8c20de15::t_7534ed7c6c86e4 21,24
+  s_eea00e8c20de15::t_94a311571672b0 33,40
+app/public/favicon.svg
+  s_eea00e8c20de15::t_46fa8256314406 1
+app/src/server/stockPersonas.ts
+  s_eea00e8c20de15::t_544abdea295220 4-17,24-26,43,45,60,62-64,81-83
+  s_eea00e8c20de15::t_4eb256884d2445 44
+app/src/server/dateReview.ts
+  s_eea00e8c20de15::t_77c486448bb115 6,11-13,18-19,43-46,65-66,157-159,162-163
+app/src/server/reviewJobs.db.test.ts
+  s_eea00e8c20de15::t_88662d9d9d5ca9 42
+  s_eea00e8c20de15::t_27541f2438a24b 95
+app/src/server/dateReview.test.ts
+  s_eea00e8c20de15::t_77c486448bb115 17,62-64,69,77,123
+app/src/components/CharacterCreator.tsx
+  s_eea00e8c20de15::t_9b2e8c56e47bd4 1-148,150,152-203,206-218,220-228
+  s_eea00e8c20de15::t_d3f9a3f5ed87b8 149,151,204-205,219
+app/src/components/AvatarStage.tsx
+  s_eea00e8c20de15::t_b0780d1b392e8d 46-49,95-97,109-110
+app/src/world/layout.ts
+  s_eea00e8c20de15::t_544abdea295220 46,51,61-63
+app/scripts/elevenlabs-agents.mjs
+  s_eea00e8c20de15::t_48ffcbf11c0f79 9,32-34,36-41,43-49
+app/src/components/MoveReview.tsx
+  s_eea00e8c20de15::t_e3dfd96488338b 35,37
+app/src/components/arc/button/button.module.css
+  s_eea00e8c20de15::t_529149ca04f5e5 39
+app/src/components/CharacterRow.tsx
+  s_eea00e8c20de15::t_d3f9a3f5ed87b8 46,63
+app/src/server/sessionVariables.test.ts
+  s_eea00e8c20de15::t_04b5b630f9e116 1-32
+app/src/components/DateCall.tsx
+  s_eea00e8c20de15::t_d3f9a3f5ed87b8 18,29,47
+  s_eea00e8c20de15::t_8f2c08b5609fa1 132-133
+app/prompts/elevenlabs/session-v2.md
+  s_eea00e8c20de15::t_620d8f236c2476 49
+app/src/pages/WorldPage.tsx
+  s_eea00e8c20de15::t_a0403ee2896169 133
+  s_eea00e8c20de15::t_c7b3e1615660ff 5,21,162-164,169,670-706
+  s_eea00e8c20de15::t_6c38661cd891bf 134-141
+  s_eea00e8c20de15::t_dd771a8cb8a7d8 180,525
+  s_eea00e8c20de15::t_d3f9a3f5ed87b8 299
+  s_eea00e8c20de15::t_acd9d3fb33c0a1 455-460,463,466
+  s_eea00e8c20de15::t_956016b2d51357 517
+  s_eea00e8c20de15::t_5172cd8865902f 707
+app/src/components/AppShell.tsx
+  s_eea00e8c20de15::t_c17b23770fdc5e 6,20
+app/src/client/mockData.ts
+  s_eea00e8c20de15::t_544abdea295220 92
+app/src/client/results.ts
+  s_eea00e8c20de15::t_c7b3e1615660ff 41
+app/src/server/sessionVariables.ts
+  s_eea00e8c20de15::t_afe33ef7f924c5 6,34-52,87-88
+app/src/pages/OnboardingPage.tsx
+  s_eea00e8c20de15::t_d3f9a3f5ed87b8 245,263-264,299-300,302,309,409
+app/src/components/arc/button/button.tsx
+  s_eea00e8c20de15::t_529149ca04f5e5 16-19,21-22,87,93-97,115,127,129,132
+app/src/server/moves.ts
+  s_eea00e8c20de15::t_e3dfd96488338b 9,33,58,68,80-99
+  s_eea00e8c20de15::t_d92bf46e3bbb92 100-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "779f172f34f21e435cf0ff46ed69bac39ae89534",
+  "prompts": {},
+  "humans": {
+    "h_1a0e607fe5f58f": {
+      "author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_eea00e8c20de15": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f7a40b51-6cb2-46ae-8b35-6c30e802749b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
