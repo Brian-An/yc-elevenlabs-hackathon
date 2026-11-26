@@ -1,0 +1,23 @@
+app/src/client/mockData.ts
+  s_4771526fcb9f94::t_0802df97040162 139,173,211
+app/src/server/dateReview.test.ts
+  s_4771526fcb9f94::t_5a3b44473a7369 3,5
+app/src/server/sessions.ts
+  s_4771526fcb9f94::t_81ae72da032526 32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bcd6e99f75f286e40565967e42ef9a311df6c185",
+  "prompts": {},
+  "sessions": {
+    "s_4771526fcb9f94": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "374856cf-d51c-4fec-a98e-d0afe6209f71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
