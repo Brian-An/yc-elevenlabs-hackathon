@@ -36,5 +36,6 @@
 .loader { position: absolute; left: 50%; top: 50%; display: grid; width: var(--space-4); height: var(--space-4); margin: calc(var(--space-4) / -2); }
 .spinner { border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; } /* motion: continuous spinner loop */
 .loadingLabel { opacity: 0; }
+.inlineSpinner { display: grid; flex: none; width: var(--space-4); height: var(--space-4); }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .button { transition: none; } .labelSlot { transition: opacity var(--duration-instant) linear; } .spinner { animation-duration: .01ms; animation-iteration-count: 1; } }

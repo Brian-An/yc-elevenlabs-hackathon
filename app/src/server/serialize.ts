@@ -29,7 +29,7 @@ type SummaryRow = Omit<DateSession, "transcript" | "review">;
 /** Every DateSession column except the two large ones, for history lists. */
 export const summaryColumns = {
   id: true, userId: true, personaId: true, kind: true, source: true, scenario: true, status: true, evaluation: true,
-  reviewStatus: true, turnCount: true, replyCount: true, reviewScores: true, coachSourceSessionId: true,
+  reviewStatus: true, turnCount: true, replyCount: true, reviewScores: true, coachingRecap: true, coachSourceSessionId: true,
   userContext: true, startedAt: true, endedAt: true,
 } as const satisfies Record<keyof SummaryRow, true>;
 

@@ -242,7 +242,7 @@ function FirstRun({ profile }: { profile: Profile }) {
           </span>
           {/* Meeting the generated date is the last stretch, so the bar only completes once they're on screen. */}
           <Progress className="flex-1" value={draft ? QUESTIONS.length + 1 : step + 1} max={QUESTIONS.length + 1} />
-          <Button variant="ghost" size="sm" className="-mr-[calc(var(--space-3)+1px)] [@media(pointer:coarse)]:min-h-11" loading={saving === "skip"} disabled={busy} onClick={() => void skip()}>Skip</Button>
+          <Button variant="ghost" size="sm" className="-mr-[calc(var(--space-3)+1px)] [@media(pointer:coarse)]:min-h-11" loading={saving === "skip"} loadingLabel="Skipping…" disabled={busy} onClick={() => void skip()}>Skip</Button>
         </div>
 
         <h1 ref={heading} id={headingId} tabIndex={-1} className="font-heading text-3xl text-balance text-foreground outline-none sm:text-4xl">{title}</h1>
@@ -260,8 +260,8 @@ function FirstRun({ profile }: { profile: Profile }) {
 
         {step === lastStep && draft && (
           <CharacterCard persona={draft} actions={<>
-            <Button size="lg" loading={dates.starting === draft.id} disabled={busy} onClick={() => void dates.start(draft.id)}>Start date</Button>
-            <Button size="lg" variant="secondary" loading={characters.generating} disabled={busy} onClick={() => void create(draft.id)}>
+            <Button size="lg" loading={dates.starting === draft.id} loadingLabel="Starting…" disabled={busy} onClick={() => void dates.start(draft.id)}>Start date</Button>
+            <Button size="lg" variant="secondary" loading={characters.generating} loadingLabel="Creating…" disabled={busy} onClick={() => void create(draft.id)}>
               <RefreshCw className="size-4" aria-hidden="true" />
               Try another
             </Button>
@@ -296,19 +296,17 @@ function FirstRun({ profile }: { profile: Profile }) {
             )}
             {picked === SURPRISE || picked === DESCRIBE ? (
               <div className="grid gap-2">
-                {/* While it works the label says so. aria-disabled rather than disabled keeps keyboard focus on the button. */}
-                <Button size="lg" aria-disabled={creating || undefined} aria-busy={creating || undefined}
-                  disabled={!creating && (busy || (picked === DESCRIBE && description.trim().length < 3))}
-                  onClick={() => { if (!creating) void create(); }}>
+                <Button size="lg" loading={creating} loadingLabel="Creating…"
+                  disabled={busy || (picked === DESCRIBE && description.trim().length < 3)} onClick={() => void create()}>
                   <Sparkles className="size-4" aria-hidden="true" />
-                  {creating ? "Creating…" : picked === SURPRISE ? "Surprise me" : "Create"}
+                  {picked === SURPRISE ? "Surprise me" : "Create"}
                 </Button>
                 <p role="status" aria-live="polite" className="sr-only">{creating ? "Creating your date" : ""}</p>
                 {shownError && !characters.generating && <InlineError>{shownError}</InlineError>}
               </div>
             ) : (
               <div className="grid gap-2">
-                <Button size="lg" loading={saving === "save" || dates.starting !== null} disabled={busy}
+                <Button size="lg" loading={saving === "save" || dates.starting !== null} loadingLabel="Starting…" disabled={busy}
                   onClick={() => void withProfileSaved(() => dates.start(picked))}>Start date</Button>
                 {shownError && <InlineError>{shownError}</InlineError>}
               </div>
@@ -408,7 +406,7 @@ function OnboardingForm({ profile }: { profile: Profile }) {
           {error && <Alert title="Couldn't save your profile" tone="danger">Your answers are still here. Try saving again.</Alert>}
           <div className="flex justify-end gap-3">
             <Button type="button" disabled={saving} variant="ghost" onClick={() => navigate(routes.WorldRoute.build())}>Cancel</Button>
-            <Button type="submit" loading={saving}>Save</Button>
+            <Button type="submit" loading={saving} loadingLabel="Saving…">Save</Button>
           </div>
         </form>
       </div>

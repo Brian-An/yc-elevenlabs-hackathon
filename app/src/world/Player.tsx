@@ -243,7 +243,6 @@ export function Player({
 
     g.position.set(pos.x, 0, pos.z);
     g.rotation.y = yaw.current;
-    bus.playerYaw = yaw.current;
     bus.player.x = pos.x;
     bus.player.z = pos.z;
 

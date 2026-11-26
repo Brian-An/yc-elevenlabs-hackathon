@@ -125,7 +125,7 @@ function UnreviewedSession({ session, finishing, error, onRetry }: {
   if (active) {
     action = <Button onClick={() => navigate(routes.DateRoute.build({ params: { sessionId: session.id } }))}>Return to date</Button>;
   } else if (session.reviewStatus === "failed") {
-    action = <Button loading={finishing} onClick={() => void onRetry()}>Retry review</Button>;
+    action = <Button loading={finishing} loadingLabel="Retrying…" onClick={() => void onRetry()}>Retry review</Button>;
   }
   return (
     <AppShell wide>
@@ -163,9 +163,9 @@ function ReviewedSession({ session, review, previous, onCoach, starting, error, 
       <WholeDateReview session={session} review={review} onCoach={onCoach} starting={starting === "coach"} disabled={starting !== null} previous={previous} />
       {error && <Alert tone="danger" title="Couldn't start practice">{error}</Alert>}
       <div className="mt-6 flex flex-wrap gap-3">
-        {nextScenario && <Button size="lg" variant="secondary" disabled={starting !== null} loading={starting === "next"}
+        {nextScenario && <Button size="lg" variant="secondary" disabled={starting !== null} loading={starting === "next"} loadingLabel="Starting…"
           onClick={() => void onStart(nextScenario, "next")}>Start next date</Button>}
-        <Button size="lg" variant="ghost" disabled={starting !== null} loading={starting === "retry"}
+        <Button size="lg" variant="ghost" disabled={starting !== null} loading={starting === "retry"} loadingLabel="Starting…"
           onClick={() => void onStart(session.scenario, "retry")}>Retry this date</Button>
       </div>
     </AppShell>
@@ -208,7 +208,7 @@ function WholeDateReview({ session, review, previous, onCoach, starting, disable
           <p>{review.practice.instruction}</p>
           <p className="text-subtle">One possible reply: “{review.practice.exampleReply}”</p>
         </div>}
-        <Button size="lg" disabled={disabled} loading={starting} onClick={() => void onCoach()}>Practice with Riley</Button>
+        <Button size="lg" disabled={disabled} loading={starting} loadingLabel="Starting…" onClick={() => void onCoach()}>Practice with Riley</Button>
       </Panel>
       <MoveReview transcript={session.transcript} moves={session.moves} personaName={name} />
     </div>
@@ -285,13 +285,14 @@ function FeedbackContent({ session, history, nextScenario, personas, starting, a
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button size="lg" loading={starting === "next"} disabled={starting !== null} onClick={() => void onStart(nextScenario, "next")}>
+            <Button size="lg" loading={starting === "next"} loadingLabel="Starting…" disabled={starting !== null} onClick={() => void onStart(nextScenario, "next")}>
               Start this date <ArrowRight className="size-4" aria-hidden="true" />
             </Button>
             <Button
               size="lg"
               variant="ghost"
               loading={starting === "retry"}
+              loadingLabel="Starting…"
               disabled={starting !== null}
               onClick={() => void onStart(session.scenario, "retry")}
             >

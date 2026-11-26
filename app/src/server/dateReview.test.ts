@@ -14,6 +14,7 @@ const transcript: Transcript = [
 function draft() {
   return {
     summary: "You followed Maya's pottery story from the accident to the person the gift was for.",
+    overall: 68,
     moments: [{ point: "You invited Maya to describe her sister.", agentTurnIndex: 2, userTurnIndex: 3 }],
     strengths: [{ skill: "listening", point: "You followed the detail about the gift.", turnIndex: 3 }],
     weaknesses: [],
@@ -58,12 +59,14 @@ describe("whole-date review", () => {
     expect(JSON.parse(body.messages[0].content).turns).toEqual(transcript.map(({ speaker, text }, index) => ({ speaker, text, index })));
     expect(body.output_config.format.schema.additionalProperties).toBe(false);
     expect(JSON.stringify(body.output_config.format.schema)).not.toMatch(/"(minimum|maximum|minLength|maxLength|maxItems)":/);
-    expect(review).toMatchObject({ ...result, overallScore: 75, model: "test-model-version", rubricVersion: "whole-date-v1" });
+    const { overall: _overall, ...shown } = result;
+    expect(review).toMatchObject({ ...shown, overallScore: 75, model: "test-model-version", rubricVersion: "whole-date-v2" });
+    expect(review).not.toHaveProperty("overall");
     expect(review.strengths[0].quote).toBe(transcript[3].text);
     expect(review.transcriptHash).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it("preserves a useful observation on a single reply while withholding the whole-date score", async () => {
+  it("falls back to the reviewer's overall score when a single reply can't establish the skill average", async () => {
     const result = draft();
     result.skills.listening.turnIndices = [1];
     result.skills.engagement.turnIndices = [1];
@@ -71,7 +74,7 @@ describe("whole-date review", () => {
     result.moments = [];
     provider({ ...result, practice: null });
     const { review } = await generateDateReview(transcript.slice(0, 2), scenario, persona);
-    expect(review.overallScore).toBeNull();
+    expect(review.overallScore).toBe(68);
     expect(review.strengths[0].quote).toBe(transcript[1].text);
   });
 
@@ -117,7 +120,7 @@ describe("whole-date review", () => {
     provider(draft());
     const { review, usage } = await generateDateReview(transcript, scenario, persona);
     expect(usage).toEqual({ inputTokens: 1200, outputTokens: 340 });
-    expect(reviewScores(review)).toEqual({ scores: { listening: 8, engagement: 7 }, overallScore: 75, rubricVersion: "whole-date-v1" });
+    expect(reviewScores(review)).toEqual({ scores: { listening: 8, engagement: 7 }, overallScore: 75, rubricVersion: "whole-date-v2" });
   });
 
   it.each([

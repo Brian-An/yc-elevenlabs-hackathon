@@ -6,6 +6,7 @@ import { prisma } from "wasp/server";
 import type { Move } from "wasp/entities";
 import type { MoveClass, MoveEvaluation, Persona, Scenario, SkillName, Transcript } from "../shared/types";
 import { buildGradeRequest, gradeTurn, jevEnabled } from "./jev";
+import { secondOpinion, secondOpinionEnabled, UNSURE_BELOW } from "./secondOpinion";
 import { readJson } from "./serialize";
 
 // Shares one Jev call per turn between the background grader and endDateSession.
@@ -29,7 +30,7 @@ function gradeInputs(
   return transcript.flatMap((turn, turnIndex) => {
     if (turn.speaker !== "user") return [];
     const body = buildGradeRequest(transcript, turnIndex, scenario, persona);
-    return [{ turnIndex, body, inputHash: createHash("sha256").update(body).digest("hex") }];
+    return [{ turnIndex, body, inputHash: createHash("sha256").update(body).digest("hex"), context: { transcript, scenario, persona } }];
   });
 }
 
@@ -54,7 +55,7 @@ export function movesForTranscript(
   });
 }
 
-function gradeAndSave(sessionId: string, { turnIndex, body, inputHash }: GradeInput): Promise<MoveEvaluation> {
+function gradeAndSave(sessionId: string, { turnIndex, body, inputHash, context }: GradeInput): Promise<MoveEvaluation> {
   const identity = { sessionId, turnIndex, inputHash };
   const key = `${sessionId}:${turnIndex}:${inputHash}`;
   const pending = inflight.get(key);
@@ -64,7 +65,7 @@ function gradeAndSave(sessionId: string, { turnIndex, body, inputHash }: GradeIn
     const existing = await prisma.move.findUnique({ where });
     if (existing) return toMoveEvaluation(existing);
 
-    const move = await gradeTurn(body, turnIndex);
+    const move = await reviewIfUnsure(await gradeTurn(body, turnIndex), context);
     const { classification, confidence, scores, decision } = move;
     const { count } = await prisma.move.createMany({
       data: { ...identity, classification, confidence, scores, decision },
@@ -74,6 +75,28 @@ function gradeAndSave(sessionId: string, { turnIndex, body, inputHash }: GradeIn
   })().finally(() => inflight.delete(key));
   inflight.set(key, job);
   return job;
+}
+
+/**
+ * When Jev is unsure of its own top label, Claude grades the reply instead, so the user gets a clear grade (unsure
+ * grades are hidden in the call). Jev's raw answer stays in `decision`; if Claude can't answer, Jev's grade stands.
+ */
+async function reviewIfUnsure(move: MoveEvaluation, { transcript, scenario, persona }: GradeInput["context"]): Promise<MoveEvaluation> {
+  const decision = move.decision;
+  if (!decision || decision.probabilities[decision.rawLabel] >= UNSURE_BELOW || !secondOpinionEnabled()) return move;
+  try {
+    const classification = await secondOpinion(transcript, move.turnIndex, scenario, persona);
+    return {
+      ...move,
+      classification,
+      // Jev's probability for the label Claude chose, so the number still reflects Jev's own view.
+      confidence: Math.round((decision.probabilities[classification] ?? 0) * 100) / 100,
+      decision: { ...decision, reviewedBy: "claude" },
+    };
+  } catch (error) {
+    console.error(`[moves] second opinion failed for turn ${move.turnIndex}:`, error instanceof Error ? error.message : error);
+    return move;
+  }
 }
 
 /**

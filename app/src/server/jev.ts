@@ -11,7 +11,7 @@ const EXTREME_MIN_PROBABILITY = 0.5;
 
 export const jevEnabled = () => Boolean(process.env.TYPESAFE_API_KEY);
 
-const MOVE_CRITERIA: Record<MoveClass, string> = {
+export const MOVE_CRITERIA: Record<MoveClass, string> = {
   great:
     "Builds rapport by developing a specific detail or feeling the date shared with a thoughtful follow-up, related story, or fitting humor.",
   good: "Responds naturally and adds a relevant detail, warm acknowledgment, or question that gives the date something to respond to.",
@@ -70,6 +70,7 @@ type ScoreAnswer = { type: "score"; score: number };
 type SystemOneResponse = { model: string; answers: Record<string, ChoiceAnswer | ScoreAnswer> };
 
 const ORDER: MoveClass[] = ["great", "good", "neutral", "inaccuracy", "mistake", "blunder"];
+export const MOVE_ORDER: readonly MoveClass[] = ORDER;
 const SKILLS = Object.keys(SKILL_QUESTIONS) as SkillName[];
 
 /** Use a neutral badge for an uncertain harsh verdict. */

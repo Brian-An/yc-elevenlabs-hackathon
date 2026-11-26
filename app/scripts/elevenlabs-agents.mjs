@@ -6,6 +6,7 @@
 //
 // https://elevenlabs.io/docs/api-reference/agents/create
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { PERSONAS } from "../src/server/stockPersonas.ts";
 
 const API = "https://api.elevenlabs.io/v1/convai/agents";
 const ROOT = new URL("..", import.meta.url).pathname;
@@ -28,14 +29,24 @@ const AUDIO_TAGS = [
 
 /**
  * One agent per stock persona, plus a shared agent for generated characters, which also serves as the default.
- * Turn eagerness and the soft-timeout filler follow each character's pace; stability below the default 0.5
- * gives a more varied delivery.
+ * Each stock agent's name and voice come from src/server/stockPersonas.ts, so they always match the persona's
+ * gender and video avatar. Turn eagerness and the soft-timeout filler follow each character's pace; stability below
+ * the default 0.5 gives a more varied delivery.
  */
+const PACE = {
+  maya: { eagerness: "patient", stability: 0.4, speed: 1.0, filler: "Hmm, okay..." },
+  theo: { eagerness: "normal", stability: 0.45, speed: 0.95, filler: "Huh." },
+  priya: { eagerness: "eager", stability: 0.4, speed: 1.05, filler: "Mm." },
+  coach: { eagerness: "patient", stability: 0.5, speed: 1.0, filler: "Mm, let me think." },
+};
 const AGENTS = [
-  { env: "ELEVENLABS_AGENT_ID_MAYA", name: "Bantr - Maya", voice: "cgSgspJ2msm6clMCkdW9", eagerness: "patient", stability: 0.4, speed: 1.0, filler: "Hmm, okay..." },
-  { env: "ELEVENLABS_AGENT_ID_THEO", name: "Bantr - Theo", voice: "bIHbv24MWmeRgasZH58o", eagerness: "normal", stability: 0.45, speed: 0.95, filler: "Huh." },
-  { env: "ELEVENLABS_AGENT_ID_PRIYA", name: "Bantr - Priya", voice: "EXAVITQu4vr4xnSDxMaL", eagerness: "eager", stability: 0.4, speed: 1.05, filler: "Mm." },
-  { env: "ELEVENLABS_AGENT_ID_COACH", name: "Bantr - Riley (coach)", voice: "SAz9YHcvj6GT2YYXdXww", eagerness: "patient", stability: 0.5, speed: 1.0, filler: "Mm, let me think." },
+  ...PERSONAS.map((p) => ({
+    env: `ELEVENLABS_AGENT_ID_${p.id.toUpperCase()}`,
+    name: `Bantr - ${p.name}${p.id === "coach" ? " (coach)" : ""}`,
+    voice: p.voice.id,
+    ...PACE[p.id],
+  })),
+  // Generated characters always bring their own voice as an override; this one only plays if that fails.
   { env: "ELEVENLABS_AGENT_ID_CUSTOM", name: "Bantr - Generated characters", voice: "SAz9YHcvj6GT2YYXdXww", eagerness: "normal", stability: 0.4, speed: 1.0, filler: "Hmm." },
 ];
 const DEFAULT_AGENT_ENV = "ELEVENLABS_AGENT_ID_CUSTOM";

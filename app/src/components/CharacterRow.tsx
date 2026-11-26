@@ -43,7 +43,7 @@ export function CharacterRow({ persona, starting, disabled, onStart, onDeleted }
         <p className="truncate font-medium text-foreground">{persona.name}, {persona.age}</p>
         <p className="truncate text-xs text-faint">{persona.defaultScenario.setting}</p>
       </div>
-      <Button size="sm" variant="secondary" onClick={onStart} loading={starting} disabled={disabled}>Date</Button>
+      <Button size="sm" variant="secondary" onClick={onStart} loading={starting} loadingLabel="Starting…" disabled={disabled}>Date</Button>
       {onDeleted ? (
         <Button size="sm" variant="ghost" aria-label={`Delete ${persona.name}`} onClick={() => setConfirming(true)} disabled={disabled}>
           <Trash2 className="size-4" aria-hidden="true" />
@@ -60,7 +60,7 @@ export function CharacterRow({ persona, starting, disabled, onStart, onDeleted }
           {error && <Alert tone="danger" title="Couldn't delete">{error}</Alert>}
           <div className="flex justify-end gap-3">
             <Button variant="ghost" disabled={deleting} onClick={() => setConfirming(false)}>Keep {persona.name}</Button>
-            <Button variant="danger" loading={deleting} onClick={() => void remove()}>Delete</Button>
+            <Button variant="danger" loading={deleting} loadingLabel="Deleting…" onClick={() => void remove()}>Delete</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -82,7 +82,11 @@ export type MoveClass = "great" | "good" | "neutral" | "inaccuracy" | "mistake" 
 export type MoveEvaluation = {
   turnIndex: number; // index of the user turn in the transcript
   classification: MoveClass;
-  decision?: { rawLabel: MoveClass; probabilities: Record<MoveClass, number> };
+  /**
+   * Jev's raw label and probabilities, for calibration. `reviewedBy: "claude"` means Jev was unsure and the
+   * classification is Claude's second opinion (src/server/secondOpinion.ts).
+   */
+  decision?: { rawLabel: MoveClass; probabilities: Record<MoveClass, number>; reviewedBy?: "claude" };
   confidence: number; // 0–1, Jev's probability for the classification
   scores: Record<SkillName, number>; // 1–10, same scale as Evaluation.scores
 };

@@ -15,7 +15,7 @@ import type { MoveClass } from "../shared/types";
 
 export const STATUS_LABEL: Record<ConversationStatus, string> = {
   idle: "Ready when you are!",
-  connecting: "Connecting...",
+  connecting: "Connecting…",
   live: "Live",
   paused: "Paused",
   ended: "Call ended",
@@ -26,7 +26,7 @@ export function CallButtons({ call, ending, coaching, onEnd }: { call: DateConve
   const live = call.status === "live";
   if (call.status === "idle" || call.status === "connecting") {
     return (
-      <Button size="lg" loading={call.status === "connecting"} onClick={() => void call.start()} className="min-w-40">
+      <Button size="lg" loading={call.status === "connecting"} loadingLabel="Connecting…" onClick={() => void call.start()} className="min-w-40">
         <Phone className="size-4" aria-hidden="true" /> {coaching ? "Start coaching" : "Start date"}
       </Button>
     );
@@ -44,7 +44,7 @@ export function CallButtons({ call, ending, coaching, onEnd }: { call: DateConve
         {paused ? <Play className="size-4" aria-hidden="true" /> : <Pause className="size-4" aria-hidden="true" />}
         {paused ? "Resume" : "Pause"}
       </Button>
-      <Button size="lg" variant="danger" onClick={onEnd} loading={ending}>
+      <Button size="lg" variant="danger" onClick={onEnd} loading={ending} loadingLabel="Ending…">
         <PhoneOff className="size-4" aria-hidden="true" /> {coaching ? "End coaching" : "End date"}
       </Button>
     </>
@@ -129,7 +129,8 @@ export function GradePop({ call, session }: { call: DateConversation; session: D
   const latest = useMemo(() => {
     let best: { turnIndex: number; move: MoveClass } | null = null;
     for (const [turnIndex, move] of moves) {
-      if (move !== "failed" && hasClearGrade(move) && move.classification !== "neutral" && (!best || turnIndex > best.turnIndex)) best = { turnIndex, move: move.classification };
+      // Every clear grade pops, neutral ones included, so each reply gets some feedback.
+      if (move !== "failed" && hasClearGrade(move) && (!best || turnIndex > best.turnIndex)) best = { turnIndex, move: move.classification };
     }
     return best;
   }, [moves]);

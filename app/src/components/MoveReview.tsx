@@ -32,8 +32,9 @@ export function MoveBadge({ move, count }: { move: MoveClass; count?: number }) 
 }
 
 /** Low-confidence decisions stay available for calibration and do not become advice. */
+/** Jev was sure of its label, or Claude settled an unsure one with a second opinion. */
 export function hasClearGrade(move: MoveEvaluation): boolean {
-  return !move.decision || move.decision.probabilities[move.decision.rawLabel] >= 0.5;
+  return !move.decision || move.decision.reviewedBy === "claude" || move.decision.probabilities[move.decision.rawLabel] >= 0.5;
 }
 
 /** The date's transcript with Jev's grade beside each of the user's replies. */

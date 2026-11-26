@@ -11,6 +11,7 @@ import { fromCustomPersona, listPersonas } from "./personas";
 import { asJson, readJson } from "./serialize";
 import { SETTING_MAX_LENGTH } from "../shared/types";
 import { ensureUser, userIdFrom, type WithUser } from "./user";
+import { PERSONAS } from "./stockPersonas";
 import { pickVoice } from "./voices";
 
 export const MAX_ACTIVE_CHARACTERS = 12;
@@ -128,7 +129,9 @@ export const generateCustomPersona: GenerateCustomPersona<GenerateCustomPersonaA
     throw new HttpError(502, "The character could not be generated. Try again.");
   }
   const { spec, look, provenance, model } = generated;
-  const voice = await pickVoice(spec.voice, new Set(others.flatMap((row) => (row.voiceId ? [row.voiceId] : []))));
+  // Stay clear of the stock personas' voices and the user's other characters', so nobody sounds like someone else.
+  const taken = new Set([...PERSONAS.map((p) => p.voice.id), ...others.flatMap((row) => (row.voiceId ? [row.voiceId] : []))]);
+  const voice = await pickVoice(spec.voice, taken);
   const avatarId = await matchAvatar(spec).catch((error: unknown) => {
     console.error("[characters] avatar match failed", error instanceof Error ? error.name : "unknown");
     return null;

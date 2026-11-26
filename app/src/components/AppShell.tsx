@@ -3,7 +3,7 @@ import "@/client/index.css";
 import "@/client/theme";
 
 import type { ReactNode } from "react";
-import { Map, Users } from "lucide-react";
+import { Map } from "lucide-react";
 import { NavLink } from "wasp/client/router";
 import { ThemeSwitch } from "@/components/arc/theme-switch/theme-switch";
 import { Logo } from "@/components/Logo";
@@ -17,7 +17,7 @@ type ShellVariant = "app" | "focus";
  * Every page wraps itself in this for now. It could become Wasp's `client.rootComponent`
  * (then the CSS/theme imports move with it and pages drop the wrapper).
  *
- * - "app": nav (World, Characters)
+ * - "app": nav (World)
  * - "focus": logo + theme only, for the live date
  *
  * `bleed` drops the main column's width and padding so a page (the 3D world) fills everything below the header.
@@ -49,10 +49,6 @@ export function AppShell({
               <NavLink to="/" end className={navClass}>
                 <Map className="size-4" aria-hidden="true" />
                 <span>World</span>
-              </NavLink>
-              <NavLink to="/characters" end className={navClass}>
-                <Users className="size-4" aria-hidden="true" />
-                <span>Characters</span>
               </NavLink>
             </nav>
           )}

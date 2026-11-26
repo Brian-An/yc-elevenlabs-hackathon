@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { ArrowLeft, Captions, CaptionsOff, Check, GraduationCap, MessageSquare, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { ConversationProvider } from "@elevenlabs/react";
-import { appendTranscript, createDateSession, endDateSession, getDateSession, getPersonas, useQuery } from "wasp/client/operations";
+import { appendTranscript, createDateSession, endDateSession, getCoachingRecap, getDateSession, getPersonas, useQuery } from "wasp/client/operations";
 import type { DateSessionDTO, PersonaWithScenario } from "../server/dto";
 import type { TranscriptTurn } from "../shared/types";
 import { useNavigate } from "react-router";
@@ -18,6 +18,7 @@ import { Badge } from "@/components/arc/badge/badge";
 import { Button } from "@/components/arc/button/button";
 import { ChatThread } from "@/components/arc/chat-thread/chat-thread";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
+import { Skeleton } from "@/components/arc/skeleton/skeleton";
 import { Tooltip } from "@/components/arc/tooltip/tooltip";
 import { coachingDemo, DIFFICULTY_LABEL, sampleTranscript } from "@/client/mockData";
 import { useDateConversation } from "@/client/useDateConversation";
@@ -30,7 +31,6 @@ import { isTyping, MOVE_KEYS } from "@/world/controls";
 import { COACH_ID, STUDIO, TABLES } from "@/world/layout";
 import { subscribeCaption } from "@/world/npcChatter";
 import { StudioDialog } from "@/components/StudioDialog";
-import { WorldMap } from "@/components/WorldMap";
 
 const WorldScene = lazy(() => import("@/world/WorldScene"));
 
@@ -130,19 +130,15 @@ export function WorldPage() {
         {ready && (phase.kind === "explore" || phase.kind === "starting") && !hintDone && <ControlsHint onDone={onHintDone} />}
 
         {ready && (phase.kind === "explore" || phase.kind === "starting") && (
-          <>
-            <WorldMap personas={list} bus={bus} nearby={nearby}
-              className="pointer-events-none absolute top-3 right-3 z-20 w-32 sm:top-6 sm:right-6 sm:w-44" />
-            <ExploreHud
-              persona={phase.kind === "explore" ? nearbyPersona : list.find((p) => p.id === phase.personaId) ?? null}
-              studio={phase.kind === "explore" && nearby === STUDIO.id}
-              starting={phase.kind === "starting"}
-              error={startError}
-              onTalk={(id) => void startDate(id)}
-              onOpenStudio={() => setStudioOpen(true)}
-              onDismissError={() => setStartError(null)}
-            />
-          </>
+          <ExploreHud
+            persona={phase.kind === "explore" ? nearbyPersona : list.find((p) => p.id === phase.personaId) ?? null}
+            studio={phase.kind === "explore" && nearby === STUDIO.id}
+            starting={phase.kind === "starting"}
+            error={startError}
+            onTalk={(id) => void startDate(id)}
+            onOpenStudio={() => setStudioOpen(true)}
+            onDismissError={() => setStartError(null)}
+          />
         )}
 
         <StudioDialog
@@ -163,12 +159,14 @@ export function WorldPage() {
           />
         )}
 
-        {phase.kind === "summary" && (
+        {phase.kind === "summary" && (phase.session.kind === "coaching" ? (
+          <CoachingSummary session={phase.session} onClose={() => setPhase({ kind: "explore" })} />
+        ) : (
           <DateSummary
             session={phase.session}
             onClose={() => setPhase({ kind: "explore" })}
           />
-        )}
+        ))}
       </div>
     </AppShell>
   );
@@ -179,7 +177,7 @@ function LoadingCard() {
     <div className="absolute inset-0 grid place-items-center p-6">
       <div className="flex items-center gap-3 rounded-full border border-border bg-surface px-5 py-3 shadow-(--shadow-resting)" role="status">
         <span className="size-4 animate-spin rounded-full border-2 border-border border-t-brand motion-reduce:animate-none" aria-hidden="true" />
-        <span className="text-sm text-foreground">Setting up the plaza...</span>
+        <span className="text-sm text-foreground">Setting up the plaza…</span>
       </div>
     </div>
   );
@@ -298,7 +296,7 @@ function ExploreHud({
                   </Badge>
                 )}
               </div>
-              <Button size="lg" className="mt-4 w-full" loading={starting} onClick={() => onTalk(persona.id)}>
+              <Button size="lg" className="mt-4 w-full" loading={starting} loadingLabel="Starting…" onClick={() => onTalk(persona.id)}>
                 Talk to {persona.name}
                 <Kbd className="ml-1 border-current/35 bg-current/15 text-current [@media(pointer:coarse)]:hidden">E</Kbd>
               </Button>
@@ -454,17 +452,18 @@ function DateStage({
     };
   }, [bus, call.getOutputVolume]);
 
-  // Pressing Talk is the go-ahead, so the call starts while the two of you sit down.
-  const started = useRef(false);
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    void call.start();
-  }, [call]);
-
   // Sit, push in, then fade the stage in. With reduced motion the stage appears at once.
   const reduce = useReducedMotion();
   const [onStage, setOnStage] = useState(false);
+
+  // The call starts once you're both seated and the stage is up, so the date never starts talking while still
+  // walking to the table. The stage shows their portrait while connecting and their video once it plays.
+  const started = useRef(false);
+  useEffect(() => {
+    if (!onStage || started.current) return;
+    started.current = true;
+    void call.start();
+  }, [call, onStage]);
   useEffect(() => {
     if (reduce) {
       setOnStage(true);
@@ -515,7 +514,7 @@ function DateStage({
 
   const live = call.status === "live";
   const lastTurn = call.transcript.at(-1);
-  const hint = call.isSpeaking ? `${persona.name} is talking` : live && call.isMuted ? "You're muted" : null;
+  const hint = live && call.isMuted ? "You're muted" : null;
 
   return (
     <>
@@ -523,7 +522,7 @@ function DateStage({
       {!onStage && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center p-6">
           <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-border bg-surface/90 py-2 pl-4 pr-2 shadow-(--shadow-resting) backdrop-blur-md">
-            <span className="text-sm text-foreground">Sitting down with {persona.name}...</span>
+            <span className="text-sm text-foreground">Sitting down with {persona.name}…</span>
             {call.status === "idle" && (
               <Button size="sm" variant="ghost" onClick={onLeave}>
                 Leave
@@ -665,6 +664,44 @@ function DateStage({
         )}
       </motion.div>
     </>
+  );
+}
+
+/** After a coaching chat: what went well, what to work on, and one thing to try next, written from the conversation. */
+function CoachingSummary({ session, onClose }: { session: DateSessionDTO; onClose: () => void }) {
+  const navigate = useNavigate();
+  const { data: recap, isLoading } = useQuery(getCoachingRecap, { userId: getUserId(), id: session.id });
+  const notice = reviewNotice(session);
+  const coach = session.persona?.name ?? "your coach";
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent title={notice.title} description={recap ? `Your takeaways from talking with ${coach}.` : notice.description}>
+        {isLoading ? (
+          <Skeleton label="Writing your recap" lines={4} />
+        ) : recap && (
+          <div className="grid gap-4 text-sm">
+            <RecapList title="What went well" items={recap.wentWell} />
+            <RecapList title="What to work on" items={recap.workOn} />
+            <p className="text-foreground"><strong>Next time </strong>{recap.nextStep}</p>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => navigate(routes.FeedbackRoute.build({ params: { sessionId: session.id } }))}>View conversation</Button>
+          <Button variant="secondary" onClick={onClose}>Keep exploring</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function RecapList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="grid gap-1.5">
+      <h3 className="font-medium text-foreground">{title}</h3>
+      <ul className="grid list-disc gap-1 pl-5 text-subtle marker:text-faint">
+        {items.map((item) => <li key={item}>{item}</li>)}
+      </ul>
+    </div>
   );
 }
 

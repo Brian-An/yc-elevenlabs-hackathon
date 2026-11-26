@@ -1,4 +1,5 @@
-import { MessageSquare, Plus, Users } from "lucide-react";
+import { useState } from "react";
+import { MessageSquare, Plus } from "lucide-react";
 import { useNavigate } from "react-router";
 import { routes } from "wasp/client/router";
 import { listDateSessions, useQuery } from "wasp/client/operations";
@@ -8,6 +9,7 @@ import { Dialog, DialogContent } from "@/components/arc/dialog/dialog";
 import { EmptyState } from "@/components/arc/empty-state/empty-state";
 import { Skeleton } from "@/components/arc/skeleton/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/arc/tabs/tabs";
+import { CharacterCreator } from "@/components/CharacterCreator";
 import { CharacterRow } from "@/components/CharacterRow";
 import { PersonaAvatar } from "@/components/PersonaAvatar";
 import { completedSessions } from "@/client/results";
@@ -16,8 +18,8 @@ import { getUserId } from "@/client/userId";
 import { formatDate, formatDuration } from "@/lib/format";
 
 /**
- * The studio, opened from the building on the east side of the plaza: everyone you can date and your past dates.
- * Starting a date from here closes the studio and walks you to that character's table.
+ * The studio, opened from the building on the east side of the plaza: everyone you can date, making new characters,
+ * and your past dates. Starting a date from here closes the studio and walks you to that character's table.
  */
 export function StudioDialog({ open, onOpenChange, personas, starting, onDate, onCharactersChanged }: {
   open: boolean;
@@ -28,12 +30,16 @@ export function StudioDialog({ open, onOpenChange, personas, starting, onDate, o
   onDate: (personaId: string) => void;
   onCharactersChanged: () => void;
 }) {
-  const navigate = useNavigate();
+  const [creating, setCreating] = useState(false);
   // Everyone waiting at a table except the coach, who isn't a date: the default characters first, then yours.
   const characters = personas.filter((persona) => persona.id !== COACH_ID);
+  const changeOpen = (next: boolean) => {
+    if (!next) setCreating(false);
+    onOpenChange(next);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent title="Studio" className="sm:max-w-xl">
         <Tabs defaultValue="characters">
           <TabsList aria-label="Studio sections">
@@ -42,13 +48,8 @@ export function StudioDialog({ open, onOpenChange, personas, starting, onDate, o
           </TabsList>
 
           <TabsContent value="characters" className="pt-4">
-            {characters.length === 0 ? (
-              <EmptyState
-                icon={<Users width={24} height={24} strokeWidth={1.5} />}
-                title="No characters yet"
-                description="Describe someone and they'll wait for you at a table in the plaza."
-                action={<Button onClick={() => navigate(routes.CharactersRoute.build())}>Create a character</Button>}
-              />
+            {creating ? (
+              <CharacterCreator starting={starting} onStartDate={onDate} onCreated={onCharactersChanged} onBack={() => setCreating(false)} />
             ) : (
               <div className="grid gap-3">
                 {/* A minmax(0) track lets long settings truncate instead of pushing the actions out of the dialog. */}
@@ -59,7 +60,7 @@ export function StudioDialog({ open, onOpenChange, personas, starting, onDate, o
                   ))}
                 </ul>
                 <div>
-                  <Button variant="secondary" onClick={() => navigate(routes.CharactersRoute.build())}>
+                  <Button variant="secondary" onClick={() => setCreating(true)}>
                     <Plus className="size-4" aria-hidden="true" />
                     New character
                   </Button>
@@ -69,7 +70,7 @@ export function StudioDialog({ open, onOpenChange, personas, starting, onDate, o
           </TabsContent>
 
           <TabsContent value="dates" className="pt-4">
-            <PastDates enabled={open} onClose={() => onOpenChange(false)} />
+            <PastDates enabled={open} onClose={() => changeOpen(false)} />
           </TabsContent>
         </Tabs>
       </DialogContent>

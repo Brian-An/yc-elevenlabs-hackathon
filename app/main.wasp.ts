@@ -3,7 +3,6 @@ import { OnboardingPage } from "./src/pages/OnboardingPage" with { type: "ref" }
 import { DatePage } from "./src/pages/DatePage" with { type: "ref" };
 import { FeedbackPage } from "./src/pages/FeedbackPage" with { type: "ref" };
 import { WorldPage } from "./src/pages/WorldPage" with { type: "ref" };
-import { CharactersPage } from "./src/pages/CharactersPage" with { type: "ref" };
 import {
   getProfile,
   updateProfile,
@@ -27,6 +26,7 @@ import {
   deleteCustomPersona,
 } from "./src/server/customPersonas" with { type: "ref" };
 import { refreshAvatarCatalog } from "./src/server/avatarCatalog" with { type: "ref" };
+import { getCoachingRecap } from "./src/server/coachingRecap" with { type: "ref" };
 import {
   getElevenLabsSignedUrl,
   elevenLabsMiddleware,
@@ -40,7 +40,7 @@ export default app({
   name: "bantr",
   wasp: { version: "^0.26.0" },
   title: "bantr",
-  head: ["<link rel='icon' href='/favicon.ico' />"],
+  head: ["<link rel='icon' href='/favicon.ico' sizes='any' />", "<link rel='icon' href='/favicon.svg' type='image/svg+xml' />"],
   spec: [
     // No login: each browser keeps a user ID in localStorage (src/client/userId.ts)
     // and passes it as `userId` in every operation's args.
@@ -48,7 +48,6 @@ export default app({
     route("OnboardingRoute", "/onboarding", page(OnboardingPage)),
     route("DateRoute", "/date/:sessionId", page(DatePage)),
     route("FeedbackRoute", "/feedback/:sessionId", page(FeedbackPage)),
-    route("CharactersRoute", "/characters", page(CharactersPage)),
 
     // Profile + memory
     query(getProfile, { entities: ["User", "UserMemory"] }),
@@ -64,6 +63,7 @@ export default app({
     action(saveTranscript, { entities: ["DateSession", "Move"] }),
     action(endDateSession, { entities: ["DateSession", "Move", "ReviewJob", "PersonaCallback"] }),
     action(retryDateReview, { entities: ["DateSession", "ReviewJob"] }),
+    query(getCoachingRecap, { entities: ["DateSession"] }),
     query(getNextScenario, { entities: ["User", "UserMemory"] }),
 
     // Practice characters users generate from a description
@@ -72,7 +72,7 @@ export default app({
     action(deleteCustomPersona, { entities: ["CustomPersona", "PersonaCallback"] }),
     // Describes Anam avatars from their previews so generated characters get a matching video avatar. Anam's
     // preview links last at least an hour, so a half-hourly sync keeps the stored links valid.
-    job(refreshAvatarCatalog, { executor: "PgBoss", entities: ["AvatarProfile"], schedule: { cron: "*/30 * * * *" } }),
+    job(refreshAvatarCatalog, { executor: "PgBoss", entities: ["AvatarProfile", "CustomPersona"], schedule: { cron: "*/30 * * * *" } }),
 
     // Whole-date reviews. A ReviewJob row is the durable queue entry; runDateReview is its fast wake-up,
     // and the sweep recovers lost wake-ups, expired leases, and reviews waiting on configuration.

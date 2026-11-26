@@ -44,6 +44,7 @@ model DateSession {
   turnCount    Int   @default(0)
   replyCount   Int   @default(0)
   reviewScores Json? // ReviewScores, set with the review
+  coachingRecap Json? // CoachingRecap in src/server/coachingRecap.ts, for a coaching session
   coachSourceSessionId String?
   // A detail the user shared on their last date with this persona, passed to the agent as {{user_context}}.
   userContext String?

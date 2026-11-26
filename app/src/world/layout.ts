@@ -43,12 +43,12 @@ export const SKIN_TONE: Record<string, string> = {
 const DEFAULT_SKIN_TONE = "#d9a47f";
 export const skinTone = (model: string) => SKIN_TONE[model] ?? DEFAULT_SKIN_TONE;
 
-/** The look of each date persona, by persona id. Personas without an entry use the fallback. */
+/** The look of each date persona, by persona id: matches their gender in stockPersonas.ts. Personas without an entry use the fallback. */
 export const PERSONA_MODEL: Record<string, string> = {
   maya: "Casual_Female",
   theo: "Casual3_Male",
   priya: "Doctor_Female_Young", // just off her ER shift
-  coach: "Suit_Male",
+  coach: "Suit_Female",
 };
 export const FALLBACK_PERSONA_MODEL = "Casual2_Female";
 
@@ -58,9 +58,9 @@ export const FALLBACK_PERSONA_MODEL = "Casual2_Female";
  */
 export const PERSONA_LOOK: Record<string, { skin: string; hair: string }> = {
   maya: { skin: "#f3d0b6", hair: "#e6c46e" }, // white, blonde, like her video avatar
-  theo: { skin: "#efc8a9", hair: "#3a2a1f" }, // white, dark brown hair, like his video avatar
-  priya: { skin: "#e8c39e", hair: "#151313" }, // Mei: East Asian, long black hair (id kept as "priya" for past dates)
-  coach: { skin: "#f0c9aa", hair: "#7a5233" }, // Riley: white, light-brown hair, like his video avatar
+  theo: { skin: "#6b4329", hair: "#161210" }, // Black, short dark hair, like his video avatar
+  priya: { skin: "#f0cdb4", hair: "#2e2018" }, // Elena: light skin, dark brown hair (id kept as "priya" for past dates)
+  coach: { skin: "#5e3b26", hair: "#161210" }, // Riley: Black, dark hair, like her video avatar
 };
 
 /** A persona's plaza model: a generated character carries its own, stock personas use PERSONA_MODEL. */

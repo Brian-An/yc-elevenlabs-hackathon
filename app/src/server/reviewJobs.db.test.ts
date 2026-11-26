@@ -39,6 +39,7 @@ const transcript: Transcript = [
 
 const draft = {
   summary: "You followed Maya's pottery story from the accident to the person the gift was for.",
+  overall: 68,
   moments: [{ point: "You invited Maya to describe her sister.", agentTurnIndex: 2, userTurnIndex: 3 }],
   strengths: [{ skill: "listening", point: "You followed the detail about the gift.", turnIndex: 3 }],
   weaknesses: [],
@@ -91,7 +92,7 @@ async function state(sessionId: string, userId: string) {
 async function expectOneCompletedReview(sessionId: string, userId: string) {
   const { session, job, jobCount, memory } = await state(sessionId, userId);
   expect(session).toMatchObject({ status: "evaluated", reviewStatus: "ready" });
-  expect(session.reviewScores).toEqual({ scores: { listening: 8, engagement: 7 }, overallScore: 75, rubricVersion: "whole-date-v1" });
+  expect(session.reviewScores).toEqual({ scores: { listening: 8, engagement: 7 }, overallScore: 75, rubricVersion: "whole-date-v2" });
   expect(jobCount).toBe(1);
   expect(job).toMatchObject({ status: "succeeded", leaseToken: null, failureClass: null });
   expect(memory.skillHistory.filter((entry) => entry.sessionId === sessionId)).toHaveLength(1);

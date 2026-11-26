@@ -13,7 +13,13 @@ export type ButtonSize = "sm" | "md" | "lg";
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onDrag" | "onDragEnd" | "onDragStart" | "onAnimationStart"> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  /**
+   * The action is running. The button keeps focus, ignores presses and shows a spinner. It is never shown disabled
+   * while loading, even if `disabled` is also set, so it doesn't grey out or drop focus mid-action.
+   */
   loading?: boolean;
+  /** What the button says while loading, e.g. "Saving…", shown beside the spinner. Leave it out on icon-only buttons. */
+  loadingLabel?: ReactNode;
 }
 
 /** Icon buttons press a little deeper, wide buttons a little less, so every size reads as the same push. */
@@ -78,13 +84,17 @@ function LabelPhase({ children, icon, reduced, ref }: { children: ReactNode; ico
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { className, variant = "primary", size = "md", loading = false, disabled, children, onClick, ...props },
+  { className, variant = "primary", size = "md", loading = false, loadingLabel, disabled, children, onClick, ...props },
   ref,
 ) {
   const reduceMotion = useReducedMotion() ?? false;
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const contentRef = useRef<HTMLSpanElement>(null);
-  const key = labelKey(children);
+  // With a loading label the spinner sits beside the text, which crossfades like any new label; without one the
+  // spinner covers the hidden label, for icon-only buttons.
+  const labelled = loading && loadingLabel != null;
+  const content = labelled ? <><span className={styles.inlineSpinner} aria-hidden="true"><span className={styles.spinner} /></span>{loadingLabel}</> : children;
+  const key = labelKey(content);
   const width = useMorphWidth(contentRef, key, reduceMotion);
   const setRefs = useCallback((node: HTMLButtonElement | null) => {
     buttonRef.current = node;
@@ -102,7 +112,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={setRefs}
       tabIndex={props.tabIndex ?? 0}
       className={classes}
-      disabled={disabled}
+      disabled={disabled && !loading}
       aria-busy={loading || undefined}
       custom={buttonRef}
       variants={pressVariants}
@@ -114,12 +124,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       onClick={loading ? event => event.preventDefault() : onClick}
     >
       <AnimatePresence initial={false}>
-        {loading ? <motion.span key="loader" className={styles.loader} aria-hidden="true" initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: .7 }} animate={{ opacity: 1, scale: 1 }} exit={reduceMotion ? fadeOut : { ...iconOut, scale: .8 }} transition={reduceMotion ? { duration: motionTokens.duration.instant } : iconEnter}><span className={styles.spinner} /></motion.span> : null}
+        {loading && !labelled ? <motion.span key="loader" className={styles.loader} aria-hidden="true" initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: .7 }} animate={{ opacity: 1, scale: 1 }} exit={reduceMotion ? fadeOut : { ...iconOut, scale: .8 }} transition={reduceMotion ? { duration: motionTokens.duration.instant } : iconEnter}><span className={styles.spinner} /></motion.span> : null}
       </AnimatePresence>
-      <motion.span className={[styles.labelSlot, loading ? styles.loadingLabel : ""].filter(Boolean).join(" ")} style={{ width }}>
+      <motion.span className={[styles.labelSlot, loading && !labelled ? styles.loadingLabel : ""].filter(Boolean).join(" ")} style={{ width }}>
         <span ref={contentRef} className={styles.labelContent}>
           <AnimatePresence mode="popLayout" initial={false}>
-            <LabelPhase key={key} icon={!/\S/.test(key.replace(/<[^>]*>/g, ""))} reduced={reduceMotion}>{children}</LabelPhase>
+            <LabelPhase key={key} icon={!/\S/.test(key.replace(/<[^>]*>/g, ""))} reduced={reduceMotion}>{content}</LabelPhase>
           </AnimatePresence>
         </span>
       </motion.span>

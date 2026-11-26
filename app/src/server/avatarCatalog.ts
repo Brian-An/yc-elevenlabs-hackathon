@@ -48,7 +48,23 @@ const tagSchema = z.object({
   description: z.string().describe("One sentence on visible appearance: hair, apparent skin tone, build, clothing, setting."),
 });
 
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;
+
+/**
+ * Downloads an avatar preview so Claude gets the image itself. Anam's robots.txt stops Claude fetching preview URLs,
+ * which failed every description with "This URL is disallowed by the website's robots.txt file".
+ */
+async function previewImage(previewUrl: string) {
+  const response = await fetch(previewUrl, { signal: AbortSignal.timeout(15_000) });
+  if (!response.ok) throw new Error(`Avatar preview returned ${response.status}`);
+  const mediaType = response.headers.get("content-type")?.split(";")[0]?.trim();
+  const type = IMAGE_TYPES.find((t) => t === mediaType);
+  if (!type) throw new Error(`Avatar preview is ${mediaType ?? "an unknown type"}`);
+  return { type: "base64" as const, media_type: type, data: Buffer.from(await response.arrayBuffer()).toString("base64") };
+}
+
 async function describePreview(previewUrl: string) {
+  const image = await previewImage(previewUrl);
   const message = await anthropic().beta.messages.parse({
     model: characterModel(),
     max_tokens: 2000,
@@ -58,7 +74,7 @@ async function describePreview(previewUrl: string) {
     messages: [{
       role: "user",
       content: [
-        { type: "image", source: { type: "url", url: previewUrl } },
+        { type: "image", source: image },
         { type: "text", text: "This is a stock avatar for a video character. Describe only what is visible, for matching it to a fictional character's description. Do not guess identity, name, or nationality." },
       ],
     }],
@@ -73,8 +89,8 @@ async function inBatches<T>(items: T[], size: number, run: (item: T) => Promise<
 }
 
 /** Syncs the avatar list and describes up to TAG_BATCH untagged avatars. Safe to run concurrently. */
-export async function syncAvatarCatalog(): Promise<{ listed: number; tagged: number }> {
-  if (!avatarMatchingEnabled()) return { listed: 0, tagged: 0 };
+export async function syncAvatarCatalog(): Promise<{ listed: number; tagged: number; rematched: number }> {
+  if (!avatarMatchingEnabled()) return { listed: 0, tagged: 0, rematched: 0 };
   const listed = (await listAvatars()).filter((avatar) => avatar.imageUrl);
   for (const avatar of listed) {
     const name = avatar.variantName ? `${avatar.displayName} (${avatar.variantName})` : avatar.displayName;
@@ -95,11 +111,35 @@ export async function syncAvatarCatalog(): Promise<{ listed: number; tagged: num
       await prisma.avatarProfile.update({ where: { avatarId: avatar.avatarId }, data: { ...tag, taggedAt: new Date(), failedAt: null } });
       tagged++;
     } catch (error) {
-      console.error("[avatars] tagging failed", avatar.avatarId, error instanceof Error ? error.name : "unknown");
+      console.error("[avatars] tagging failed", avatar.avatarId, error instanceof Error ? `${error.name}: ${error.message.slice(0, 200)}` : "unknown");
       await prisma.avatarProfile.update({ where: { avatarId: avatar.avatarId }, data: { failedAt: new Date() } });
     }
   });
-  return { listed: listed.length, tagged };
+  const rematched = await rematchCharacters();
+  return { listed: listed.length, tagged, rematched };
+}
+
+/**
+ * Gives an avatar to generated characters that have none, e.g. after the avatar provider changed and the old IDs
+ * were cleared, so nobody falls back to the default avatar, whose looks and gender may not be theirs.
+ */
+async function rematchCharacters(): Promise<number> {
+  if (!(await prisma.avatarProfile.count({ where: { taggedAt: { not: null } } }))) return 0;
+  const characters = await prisma.customPersona.findMany({
+    where: { avatarId: null, deletedAt: null }, select: { id: true, gender: true, age: true, appearance: true }, take: 25,
+  });
+  let rematched = 0;
+  for (const character of characters) {
+    try {
+      const avatarId = await matchAvatar({ gender: character.gender as "woman" | "man" | "nonbinary", age: character.age, appearance: character.appearance });
+      if (!avatarId) continue;
+      await prisma.customPersona.update({ where: { id: character.id }, data: { avatarId } });
+      rematched++;
+    } catch (error) {
+      console.error("[avatars] rematch failed", character.id, error instanceof Error ? `${error.name}: ${error.message.slice(0, 200)}` : "unknown");
+    }
+  }
+  return rematched;
 }
 
 export const refreshAvatarCatalog: RefreshAvatarCatalog<never, void> = async () => {

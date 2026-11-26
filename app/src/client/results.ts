@@ -38,7 +38,7 @@ export function reviewPollMs(session: NoticeSession | undefined): number | false
 const timeOfDay = (date: Date) => date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
 export function reviewNotice(session: NoticeSession) {
-  if (session.kind === "coaching") return { title: "Coaching session complete", description: "Your conversation with Riley is saved." };
+  if (session.kind === "coaching") return { title: "Coaching session complete", description: "Your conversation is saved." };
   if (session.source === "demo") return { title: "Demo complete", description: "This conversation used sample dialogue. Practice scores come from live dates." };
   const job = session.reviewJob;
   if (session.reviewStatus === "failed") {

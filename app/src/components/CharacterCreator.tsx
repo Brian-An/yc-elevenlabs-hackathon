@@ -1,24 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Dices, RefreshCw, Sparkles } from "lucide-react";
-import {
-  getPersonas,
-  getProfile,
-  updateCustomPersona,
-  useQuery,
-} from "wasp/client/operations";
+import { ArrowLeft, Dices, RefreshCw, Sparkles } from "lucide-react";
+import { getProfile, updateCustomPersona, useQuery } from "wasp/client/operations";
 import type { PersonaWithScenario } from "../server/dto";
 import { SETTING_MAX_LENGTH, type Difficulty } from "../shared/types";
-import { AppShell } from "@/components/AppShell";
 import { CharacterCard } from "@/components/CharacterCard";
-import { CharacterRow } from "@/components/CharacterRow";
 import { Disclosure } from "@/components/Disclosure";
-import { PageHeader, Panel, PanelHeader } from "@/components/Panel";
 import { Button } from "@/components/arc/button/button";
 import { Input } from "@/components/arc/input/input";
 import { InlineError } from "@/components/InlineError";
 import { LabeledSegments } from "@/components/LabeledSegments";
 import { Textarea } from "@/components/arc/textarea/textarea";
-import { DIFFICULTY_OPTIONS, difficultyFor, errorMessage, useGenerateCharacter, useStartDate } from "@/client/practice";
+import { DIFFICULTY_OPTIONS, difficultyFor, errorMessage, useGenerateCharacter } from "@/client/practice";
 import { getUserId } from "@/client/userId";
 
 type Form = {
@@ -41,16 +33,22 @@ const GENDERS = [
   { value: "nonbinary", label: "Nonbinary" },
 ];
 
-export function CharactersPage() {
-  const userId = getUserId();
-  const personasQuery = useQuery(getPersonas, { userId });
-  const profile = useQuery(getProfile, { userId });
+/**
+ * Describe someone (or leave it blank) and get a character to date, shown in the studio. After creating one you can
+ * start a date, try another, or tweak the name, setting and first line.
+ */
+export function CharacterCreator({ starting, onStartDate, onCreated, onBack }: {
+  /** The persona a date is being started with, if any. */
+  starting: string | null;
+  onStartDate: (personaId: string) => void;
+  /** A character was created, replaced or edited: the list of characters needs refreshing. */
+  onCreated: () => void;
+  onBack: () => void;
+}) {
+  const profile = useQuery(getProfile, { userId: getUserId() });
   const [draft, setDraft] = useState<PersonaWithScenario | null>(null);
   const [form, setForm] = useState<Form>(EMPTY_FORM);
-  const dates = useStartDate();
   const characters = useGenerateCharacter();
-
-  const mine = (personasQuery.data ?? []).filter((persona) => persona.custom && !persona.custom.deleted);
   const difficulty = form.difficulty || difficultyFor(profile.data?.experienceLevel);
 
   /** Creates a character from the form; with `replaceId`, the new one takes the draft's place. */
@@ -67,48 +65,34 @@ export function CharactersPage() {
     });
     if (persona) {
       setDraft(persona);
-      void personasQuery.refetch();
+      onCreated();
     }
   }
 
   return (
-    <AppShell wide>
-      <PageHeader title="Characters" />
-      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="grid min-w-0 gap-6">
-          {draft ? (
-            <CharacterPreview
-              persona={draft}
-              starting={dates.starting === draft.id}
-              regenerating={characters.generating}
-              error={characters.error ?? dates.error}
-              onStart={() => void dates.start(draft.id)}
-              onRegenerate={() => void create(draft.id)}
-              onChange={setDraft}
-              onDone={() => { setDraft(null); setForm(EMPTY_FORM); characters.clearError(); }}
-            />
-          ) : (
-            <CharacterForm form={form} difficulty={difficulty} onFormChange={setForm} generating={characters.generating}
-              error={characters.error} onSubmit={() => void create()} />
-          )}
-        </div>
-        {/* Shown once there is a character, so the first visit is just the form. */}
-        {mine.length > 0 && <aside aria-label="Your characters" className="min-w-0">
-          <Panel>
-            <PanelHeader title="Your characters" />
-            {/* A minmax(0) track lets long settings truncate instead of pushing the actions out of the panel. */}
-            <ul className="grid grid-cols-[minmax(0,1fr)] gap-1">
-              {mine.map((persona) => (
-                <CharacterRow key={persona.id} persona={persona} starting={dates.starting === persona.id} disabled={dates.starting !== null}
-                  onStart={() => void dates.start(persona.id)}
-                  onDeleted={() => { if (draft?.id === persona.id) setDraft(null); void personasQuery.refetch(); }} />
-              ))}
-            </ul>
-            {dates.error && !draft && <InlineError className="mt-3 justify-start">{dates.error}</InlineError>}
-          </Panel>
-        </aside>}
+    <div className="grid gap-5">
+      <div>
+        <Button variant="ghost" size="sm" className="-ml-[calc(var(--space-3)+1px)]" onClick={onBack} disabled={characters.generating}>
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          All characters
+        </Button>
       </div>
-    </AppShell>
+      {draft ? (
+        <CharacterPreview
+          persona={draft}
+          starting={starting === draft.id}
+          regenerating={characters.generating}
+          error={characters.error}
+          onStart={() => onStartDate(draft.id)}
+          onRegenerate={() => void create(draft.id)}
+          onChange={(persona) => { setDraft(persona); onCreated(); }}
+          onDone={() => { setDraft(null); setForm(EMPTY_FORM); characters.clearError(); }}
+        />
+      ) : (
+        <CharacterForm form={form} difficulty={difficulty} onFormChange={setForm} generating={characters.generating}
+          error={characters.error} onSubmit={() => void create()} />
+      )}
+    </div>
   );
 }
 
@@ -138,8 +122,7 @@ function CharacterForm({ form, difficulty, onFormChange, generating, error, onSu
   }
 
   return (
-    <Panel>
-      <form onSubmit={submit} className="grid gap-6" aria-busy={generating}>
+    <form onSubmit={submit} className="grid gap-6" aria-busy={generating}>
         <Textarea
           label="Who do you want to meet?"
           placeholder="A shy barista who loves jazz. Or leave it blank for a surprise."
@@ -163,16 +146,14 @@ function CharacterForm({ form, difficulty, onFormChange, generating, error, onSu
           </fieldset>
         </Disclosure>
         <div className="flex flex-wrap items-center gap-3">
-          {/* While it works the label says so. aria-disabled rather than disabled keeps keyboard focus on the button. */}
-          <Button type="submit" size="lg" aria-disabled={generating || undefined} aria-busy={generating || undefined}>
+          <Button type="submit" size="lg" loading={generating} loadingLabel="Creating…">
             {notes ? <Sparkles className="size-4" aria-hidden="true" /> : <Dices className="size-4" aria-hidden="true" />}
-            {generating ? "Creating…" : notes ? "Create" : "Surprise me"}
+            {notes ? "Create" : "Surprise me"}
           </Button>
           <p role="status" aria-live="polite" className="sr-only">{generating ? "Creating your character" : ""}</p>
           {error && !generating && <InlineError>{error}</InlineError>}
         </div>
-      </form>
-    </Panel>
+    </form>
   );
 }
 
@@ -216,17 +197,17 @@ function CharacterPreview({ persona, starting, regenerating, error, onStart, onR
   }
 
   return (
-    <Panel aria-busy={locked}>
+    <div aria-busy={locked}>
       <CharacterCard
         persona={persona}
         actions={editing ? undefined : <>
-          <Button size="lg" onClick={onStart} loading={starting} disabled={locked}>Start date</Button>
-          <Button size="lg" variant="secondary" onClick={onRegenerate} loading={regenerating} disabled={locked}>
+          <Button size="lg" onClick={onStart} loading={starting} loadingLabel="Starting…" disabled={locked}>Start date</Button>
+          <Button size="lg" variant="secondary" onClick={onRegenerate} loading={regenerating} loadingLabel="Creating…" disabled={locked}>
             <RefreshCw className="size-4" aria-hidden="true" />
             Try another
           </Button>
           <Button size="lg" variant="ghost" onClick={() => setEditing(true)} disabled={locked}>Edit</Button>
-          <Button size="lg" variant="ghost" onClick={onDone} disabled={locked}>New character</Button>
+          <Button size="lg" variant="ghost" onClick={onDone} disabled={locked}>Make another</Button>
         </>}
       >
         {editing ? (
@@ -235,13 +216,13 @@ function CharacterPreview({ persona, starting, regenerating, error, onStart, onR
             <Input label="Where you meet" maxLength={SETTING_MAX_LENGTH} value={edits.setting} onChange={(e) => setEdits({ ...edits, setting: e.target.value })} />
             <Textarea label="First thing they say" rows={2} maxLength={200} value={edits.openingLine} onChange={(e) => setEdits({ ...edits, openingLine: e.target.value })} />
             <div className="flex gap-3">
-              <Button onClick={() => void save()} loading={busy}>Save</Button>
+              <Button onClick={() => void save()} loading={busy} loadingLabel="Saving…">Save</Button>
               <Button variant="ghost" disabled={busy} onClick={() => setEditing(false)}>Cancel</Button>
             </div>
           </div>
         ) : undefined}
       </CharacterCard>
       {(saveError ?? error) && <InlineError className="mt-4 justify-start">{(saveError ?? error)!}</InlineError>}
-    </Panel>
+    </div>
   );
 }

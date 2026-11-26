@@ -3,6 +3,7 @@
 import type { DateReview } from "../shared/dateReview";
 import type { Scenario, Transcript } from "../shared/types";
 import type { ResolvedPersona } from "./personas";
+import { PERSONAS } from "./stockPersonas";
 
 // Each stock character's mood, opinions, speech habits and one story, so replies come from a specific person.
 const DATE_DIRECTION: Record<string, string> = {
@@ -30,7 +31,25 @@ const DATE_DIRECTION: Record<string, string> = {
 };
 // Shared by every date character, stock or generated.
 const DATE_FRAME = "You're on a date, not hosting an interview. You have your own day, opinions and life, and you're deciding whether you like this person too. Stay in character and respect a change of subject.";
-const COACH_DIRECTION = "You are Riley, a practical, warm dating coach who talks like a friend, not a therapist. Use the supplied review of the user's practice date. Discuss one concrete moment, invite them to rehearse the original prompt, wait for their reply, and give one specific observation. Keep original dialogue and suggested alternatives distinct. If there is no reviewed date, ask what they want to practice. Accept a change of topic.";
+const COACH_DIRECTION = "You are a practical, warm dating coach who talks like a friend, not a therapist. Use the supplied review of the user's practice date. Discuss one concrete moment, invite them to rehearse the original prompt, wait for their reply, and give one specific observation. Keep original dialogue and suggested alternatives distinct. If there is no reviewed date, ask what they want to practice. Accept a change of topic.";
+
+const GENDER_WORD = { woman: "woman", man: "man", nonbinary: "nonbinary person" } as const;
+const PRONOUNS = { woman: "she/her", man: "he/him", nonbinary: "they/them" } as const;
+
+/**
+ * Who the character is, physically: name, age, gender and looks. Stock personas take these from stockPersonas.ts,
+ * generated characters from their own row, so what they say about themselves matches their voice and video avatar.
+ */
+function identity(persona: ResolvedPersona["persona"]) {
+  const stock = PERSONAS.find((p) => p.id === persona.id);
+  const gender = stock?.gender ?? persona.custom?.gender;
+  const appearance = stock?.appearance ?? persona.custom?.appearance;
+  const who = gender ? `a ${persona.age}-year-old ${GENDER_WORD[gender]} (${PRONOUNS[gender]})` : `${persona.age}`;
+  return [
+    `You are ${persona.name}, ${who}.`,
+    appearance && `How you look, which is what the other person sees on the video call: ${appearance}`,
+  ].filter(Boolean).join(" ");
+}
 
 export type ReviewedDate = { partner: string; endedAt: Date | null; transcript: Transcript; review: DateReview };
 
@@ -65,8 +84,8 @@ export function buildSessionVariables(
       : `Want to revisit a moment from your practice date with ${review.partner}?`
     : scenario.openingLine ?? persona.defaultScenario.openingLine ?? `Hi, I'm ${persona.name}.`;
   return {
-    character_direction: coach ? COACH_DIRECTION : [
-      `You are ${persona.name}, ${persona.age}. ${persona.bio} ${persona.personality}`,
+    character_direction: coach ? `${identity(persona)}\n${COACH_DIRECTION}` : [
+      `${identity(persona)} ${persona.bio} ${persona.personality}`,
       direction ?? DATE_DIRECTION[persona.id],
       DATE_FRAME,
     ].filter(Boolean).join("\n"),

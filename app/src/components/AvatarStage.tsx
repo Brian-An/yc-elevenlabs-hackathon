@@ -43,7 +43,10 @@ export function AvatarStage({
   const video = useRef<HTMLVideoElement>(null);
   const backdrop = useRef<HTMLVideoElement>(null);
   const [aspect, setAspect] = useState(DEFAULT_ASPECT);
-  const ready = attach ? Boolean(videoReady) : Boolean(stream);
+  // The persona's audio plays through the attached video element, so the face is shown the moment that element starts
+  // playing, which is when their first words can be heard; the provider's own "video ready" event can arrive later.
+  const [playing, setPlaying] = useState(false);
+  const ready = attach ? Boolean(videoReady) || playing : Boolean(stream);
 
   useEffect(() => {
     const el = video.current;
@@ -89,7 +92,9 @@ export function AvatarStage({
         tabIndex={-1}
         className={cn("absolute inset-0 size-full scale-110 object-cover blur-2xl brightness-75", !ready && "hidden")}
       />
-      <div className={cn("absolute inset-0 grid place-items-center [container-type:size]", frameClassName, !ready && "hidden")}>
+      {/* Kept rendered (just transparent) while loading: a display:none video doesn't paint frames, which can hold back
+          the provider's ready event while the persona is already audible. */}
+      <div className={cn("absolute inset-0 grid place-items-center [container-type:size]", frameClassName, !ready && "opacity-0")}>
         <div
           className="overflow-hidden rounded-(--radius-panel)"
           style={{ width: `min(100cqw, 100cqh * ${aspect})`, aspectRatio: aspect }}
@@ -101,6 +106,8 @@ export function AvatarStage({
             muted={!attach}
             onLoadedMetadata={onMetadata}
             onResize={onMetadata}
+            onPlaying={() => setPlaying(true)}
+            onEmptied={() => setPlaying(false)}
             aria-label={`${persona.name}'s video`}
             className="size-full object-cover"
           />

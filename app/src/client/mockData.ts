@@ -89,7 +89,7 @@ export const personas: Persona[] = [
   },
   {
     id: "priya",
-    name: "Mei",
+    name: "Elena",
     age: 26,
     bio: "Startup founder running on cold brew. Changes topic fast and expects you to keep up.",
     personality: "High energy, distracted, a little blunt",

@@ -154,7 +154,7 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
       return !on;
     });
   const lastTurn = call.transcript[turns - 1];
-  const hint = call.isSpeaking ? `${persona.name} is talking` : live ? (call.isMuted ? "You're muted" : "Listening") : null;
+  const hint = live && call.isMuted ? "You're muted" : null;
 
   return (
     <AppShell variant="focus" wide>
