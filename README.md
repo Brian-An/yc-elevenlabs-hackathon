@@ -3,6 +3,9 @@
 Bantr is an AI dating simulator for practicing real conversations.
 You go on live voice (and optional video) dates with AI characters, get a review of the whole conversation, and the app remembers your strengths and weaknesses to pick a next date that targets what you need to work on.
 
+# Demo Video ↓
+[![Demo video](https://img.youtube.com/vi/DkRL1ssciEk/maxresdefault.jpg)](https://youtu.be/DkRL1ssciEk)
+
 ## Features
 
 - **Live voice dates** with ElevenLabs agents, plus optional Anam video avatars.
