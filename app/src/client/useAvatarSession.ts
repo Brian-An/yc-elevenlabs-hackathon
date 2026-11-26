@@ -1,21 +1,15 @@
 /**
- * The voice+video conversation for a date, via HeyGen LiveAvatar's ElevenLabs Agent Connector.
- * HeyGen's backend talks to the ElevenLabs agent directly (STT, LLM, TTS) and lip-syncs its
- * audio onto a stock avatar; this session only fetches a short-lived token from our server
- * (src/server/heygen.ts), joins the LiveKit room the SDK sets up, publishes the mic, and
- * renders the resulting video. See https://docs.liveavatar.com/docs/lite-mode/connectors/elevenlabs-agent
+ * The voice+video conversation for a date, via Anam's server-side ElevenLabs integration.
+ * Anam's engine talks to the ElevenLabs agent directly (STT, LLM, TTS) and lip-syncs its audio
+ * onto the avatar; this session only fetches a short-lived token from our server
+ * (src/server/anam.ts), streams the mic, and renders the resulting video, whose audio plays
+ * through the same element. See https://anam.ai/docs/integrations/elevenlabs/start-session
  *
  * Same `DateConversation` shape as useDateConversation, plus `attach`/`videoReady` for
- * AvatarStage, since the SDK hands back video by attaching to an element, not a MediaStream.
+ * AvatarStage, since the SDK streams into a video element by its id rather than handing back a MediaStream.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  LiveAvatarSession,
-  SessionEvent,
-  SessionState,
-  AgentEventsEnum,
-  VoiceChatEvent,
-} from "@heygen/liveavatar-web-sdk";
+import { AnamEvent, ConnectionClosedCode, createClient, MessageRole, type AnamClient, type MessageStreamEvent } from "@anam-ai/js-sdk";
 import { api } from "wasp/client/api";
 import type { Transcript, TranscriptTurn } from "../shared/types";
 import type { ConversationStatus, DateConversation } from "./useDateConversation";
@@ -23,15 +17,13 @@ import { getUserId } from "./userId";
 import { CallTranscript } from "./callTranscript";
 import { requestErrorMessage } from "./requestError";
 
-// SDK 0.0.20's `autoKeepAlive` session option is declared but never actually wired up (no
-// internal timer calls session.keepAlive()), so without one of our own, HeyGen's server-side
-// idle timeout drops the session silently after well under a minute.
-const KEEP_ALIVE_MS = 20_000;
-
 // ElevenLabs' expressive mode can emit bracketed stage directions (e.g. "[warm]", "[laughs]")
-// in the transcript text. The @elevenlabs/react path strips these via stripAudioTags; HeyGen's
-// connector forwards the raw text, so we strip them here instead.
-const stripTags = (text: string) => text.replace(/\[[^[\]]{1,30}\]/g, "").replace(/\s{2,}/g, " ").trim();
+// in the transcript text. The @elevenlabs/react path strips these via stripAudioTags; Anam
+// forwards the raw text, so we strip them here instead.
+const TAGS = /\[[^[\]]{1,30}\]/g;
+const stripTags = (text: string) => text.replace(TAGS, "").replace(/\s{2,}/g, " ").trim();
+
+let videoIds = 0;
 
 export function useAvatarSession({
   sessionId,
@@ -52,32 +44,36 @@ export function useAvatarSession({
   const [elapsedMs, setElapsedMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const sessionRef = useRef<LiveAvatarSession | null>(null);
+  const clientRef = useRef<AnamClient | null>(null);
+  const micRef = useRef<MediaStream | null>(null);
   const elementRef = useRef<HTMLVideoElement | null>(null);
+  // Anam streams message text in pieces that share an id until endOfSpeech.
+  const messages = useRef(new Map<string, string>());
   const elapsedBefore = useRef(initialTranscript.at(-1)?.timestamp ?? 0);
   const liveSince = useRef(0);
   const statusRef = useRef(status);
   statusRef.current = status;
   const onTurnRef = useRef(onTurn);
   onTurnRef.current = onTurn;
-  const keepAliveTimer = useRef<number | null>(null);
 
   const elapsedNow = () =>
     elapsedBefore.current + (statusRef.current === "live" ? Date.now() - liveSince.current : 0);
 
-  // Chunk: appends to (agent, word-by-word) or replaces (user, cumulative phrase) the in-progress
-  // turn for immediate feedback, without persisting it yet (kept local until the final event).
-  const onChunk = useCallback((speaker: TranscriptTurn["speaker"], text: string, cumulative: boolean) => {
+  const onMessage = useCallback((event: MessageStreamEvent) => {
+    const speaker = event.role === MessageRole.PERSONA ? "agent" : "user";
+    if (speaker === "agent") setIsSpeaking(!event.endOfSpeech);
     if (statusRef.current === "paused") return;
-    const chunk = text.replace(/\[[^[\]]{1,30}\]/g, "");
-    if (chunk) setTranscript(recorder.chunk(speaker, chunk, elapsedNow(), cumulative));
-  }, [recorder]);
-
-  const onFinal = useCallback((speaker: TranscriptTurn["speaker"], text: string, eventId: string) => {
-    if (statusRef.current === "paused") return;
+    const text = (messages.current.get(event.id) ?? "") + event.content;
+    messages.current.set(event.id, text);
+    if (!event.endOfSpeech) {
+      const chunk = text.replace(TAGS, "");
+      if (chunk) setTranscript(recorder.chunk(speaker, chunk, elapsedNow(), true));
+      return;
+    }
+    messages.current.delete(event.id);
     const clean = stripTags(text);
     if (!clean) return;
-    const turn = recorder.finish({ speaker, text: clean, timestamp: elapsedNow() }, [eventId]);
+    const turn = recorder.finish({ speaker, text: clean, timestamp: elapsedNow() }, [event.id]);
     setTranscript(recorder.display());
     if (turn) onTurnRef.current?.(turn);
   }, [recorder]);
@@ -88,83 +84,70 @@ export function useAvatarSession({
     return () => window.clearInterval(id);
   }, [status]);
 
-  const stopKeepAlive = () => {
-    if (keepAliveTimer.current) window.clearInterval(keepAliveTimer.current);
-    keepAliveTimer.current = null;
+  const stopMic = () => {
+    micRef.current?.getTracks().forEach((track) => track.stop());
+    micRef.current = null;
   };
 
-  // Stop the HeyGen session if the component unmounts mid-call.
-  useEffect(
-    () => () => {
-      stopKeepAlive();
-      void sessionRef.current?.stop().catch(() => {});
-    },
-    [],
-  );
+  const stop = async () => {
+    const client = clientRef.current;
+    clientRef.current = null;
+    await client?.stopStreaming().catch(() => {});
+    stopMic();
+  };
+
+  // Stop the Anam session if the component unmounts mid-call.
+  useEffect(() => () => void stop(), []);
 
   const start = useCallback(async () => {
     setStatus("connecting");
     setError(null);
     setVideoReady(false);
     recorder.reconnect();
+    messages.current.clear();
     setTranscript(recorder.turns);
     setElapsedMs(elapsedBefore.current);
     try {
-      // Requested explicitly (rather than left to the SDK's own internal createLocalAudioTrack
-      // call) so a denied/unavailable mic surfaces here instead of failing silently: configureSession
-      // only console.warns on a voice chat start failure, it never reaches our error state.
-      const warm = await navigator.mediaDevices.getUserMedia({ audio: true });
-      warm.getTracks().forEach((t) => t.stop());
+      const element = elementRef.current;
+      if (!element) throw new Error("The video isn't ready yet. Try again.");
+      // Captured here, rather than left to the SDK, so a denied or missing mic surfaces as our error
+      // and the tracks can be stopped when the date ends.
+      micRef.current = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
 
       const { sessionToken } = await api
-        .get("api/heygen/session-token", { searchParams: { sessionId }, headers: { "X-Bantr-User": getUserId() } })
+        .get("api/anam/session-token", { searchParams: { sessionId }, headers: { "X-Bantr-User": getUserId() } })
         .json<{ sessionToken: string }>();
 
-      const session = new LiveAvatarSession(sessionToken);
-      sessionRef.current = session;
-
-      session.on(SessionEvent.SESSION_STREAM_READY, () => {
-        if (elementRef.current) session.attach(elementRef.current);
-        setVideoReady(true);
+      const client = createClient(sessionToken);
+      clientRef.current = client;
+      // Listeners go on before streaming starts, so no early event is missed.
+      client.addListener(AnamEvent.CONNECTION_ESTABLISHED, () => {
+        liveSince.current = Date.now();
+        setStatus("live");
       });
-      session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
-        if (state === SessionState.CONNECTED) {
-          liveSince.current = Date.now();
-          setStatus("live");
-          stopKeepAlive();
-          keepAliveTimer.current = window.setInterval(() => {
-            sessionRef.current?.keepAlive().catch(() => {});
-          }, KEEP_ALIVE_MS);
-        } else if (state === SessionState.DISCONNECTED) {
-          stopKeepAlive();
-          setStatus((s) => (s === "paused" ? s : "ended"));
-        }
+      client.addListener(AnamEvent.VIDEO_PLAY_STARTED, () => setVideoReady(true));
+      client.addListener(AnamEvent.MESSAGE_STREAM_EVENT_RECEIVED, onMessage);
+      client.addListener(AnamEvent.CONNECTION_CLOSED, (reason) => {
+        stopMic();
+        setIsSpeaking(false);
+        if (reason !== ConnectionClosedCode.NORMAL) setError("The video call dropped. Start it again to continue.");
+        setStatus((s) => (s === "paused" || s === "idle" ? s : "ended"));
       });
-      session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, () => setIsSpeaking(true));
-      session.on(AgentEventsEnum.AVATAR_SPEAK_ENDED, () => setIsSpeaking(false));
-      session.on(AgentEventsEnum.USER_TRANSCRIPTION_CHUNK, (event) => onChunk("user", event.text, true));
-      session.on(AgentEventsEnum.AVATAR_TRANSCRIPTION_CHUNK, (event) => onChunk("agent", event.text, false));
-      session.on(AgentEventsEnum.USER_TRANSCRIPTION, (event) => onFinal("user", event.text, event.event_id));
-      session.on(AgentEventsEnum.AVATAR_TRANSCRIPTION, (event) => onFinal("agent", event.text, event.event_id));
-      session.voiceChat.on(VoiceChatEvent.MUTED, () => setIsMuted(true));
-      session.voiceChat.on(VoiceChatEvent.UNMUTED, () => setIsMuted(false));
-
-      await session.start();
-      // Started explicitly here (not via the constructor's `voiceChat` config) so a failure
-      // throws into this try/catch instead of configureSession's internal console.warn-and-continue.
-      await session.voiceChat.start();
+      await client.streamToVideoElement(element.id, micRef.current);
     } catch (err) {
-      await sessionRef.current?.stop().catch(() => {});
-      sessionRef.current = null;
-      stopKeepAlive();
-      setError(await requestErrorMessage(err, "Could not start the call"));
+      await stop();
+      setError(
+        err instanceof DOMException && err.name === "NotAllowedError"
+          ? "Microphone access is needed for the date. Allow it in your browser and try again."
+          : await requestErrorMessage(err, "Could not start the call"),
+      );
       setStatus("idle");
     }
-  }, [sessionId, recorder, onChunk, onFinal]);
+  }, [sessionId, recorder, onMessage]);
 
   const pause = useCallback(() => {
     if (statusRef.current !== "live") return;
-    sessionRef.current?.voiceChat.mute().catch((err) => setError(err instanceof Error ? err.message : "Could not mute the microphone"));
+    clientRef.current?.muteInputAudio();
     elapsedBefore.current = elapsedNow();
     setElapsedMs(elapsedBefore.current);
     setStatus("paused");
@@ -172,39 +155,32 @@ export function useAvatarSession({
 
   const resume = useCallback(() => {
     if (statusRef.current !== "paused") return;
-    if (!isMuted) {
-      sessionRef.current?.voiceChat
-        .unmute()
-        .catch((err) => setError(err instanceof Error ? err.message : "Could not resume the microphone"));
-    }
+    if (!isMuted) clientRef.current?.unmuteInputAudio();
     liveSince.current = Date.now();
     setStatus("live");
   }, [isMuted]);
 
   const end = useCallback(async () => {
     if (statusRef.current === "live") elapsedBefore.current = elapsedNow();
-    stopKeepAlive();
-    await sessionRef.current?.stop().catch(() => {});
+    await stop();
     setStatus("ended");
     setTranscript(recorder.turns);
     return recorder.turns;
   }, [recorder]);
 
   const toggleMute = useCallback(() => {
-    const chat = sessionRef.current?.voiceChat;
-    if (!chat) return;
-    (isMuted ? chat.unmute() : chat.mute()).catch((err) =>
-      setError(err instanceof Error ? err.message : "Could not change the microphone"),
-    );
+    const client = clientRef.current;
+    if (!client) return;
+    if (isMuted) client.unmuteInputAudio();
+    else client.muteInputAudio();
+    setIsMuted(!isMuted);
   }, [isMuted]);
 
-  const attach = useCallback(
-    (el: HTMLVideoElement) => {
-      elementRef.current = el;
-      if (videoReady) sessionRef.current?.attach(el);
-    },
-    [videoReady],
-  );
+  const attach = useCallback((el: HTMLVideoElement) => {
+    // The SDK finds its video element by id.
+    if (!el.id) el.id = `anam-video-${++videoIds}`;
+    elementRef.current = el;
+  }, []);
 
   return {
     status,
@@ -213,7 +189,7 @@ export function useAvatarSession({
     isMuted,
     videoStream: null,
     transcript,
-    // HeyGen's audio plays through the video element, so there is no meter to read. The halo this
+    // Anam's audio plays through the video element, so there is no meter to read. The halo this
     // feeds only shows on the stand-in photo, which the avatar video replaces once it is ready.
     getOutputVolume: () => 0,
     elapsedMs,

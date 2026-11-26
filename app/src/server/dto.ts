@@ -99,7 +99,7 @@ export type DateSessionDTO = {
   userContext: string | null;
   /** ElevenLabs agent for this persona (persona-specific or the default). null: the call is mocked. */
   agentId: string | null;
-  /** Whether HeyGen LiveAvatar is configured on this server (HEYGEN_* env vars set). */
+  /** Whether Anam video avatars are configured on this server (ANAM_* env vars set). */
   avatarEnabled: boolean;
   /** Jev's grade per user turn, in turn order. Fills in during the date as turns are appended. */
   moves: MoveEvaluation[];

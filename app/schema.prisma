@@ -117,7 +117,7 @@ model CustomPersona {
   look         Json // PersonaLook: plaza model, skin and hair colour
   voiceId      String? // ElevenLabs voice, sent as a per-session override
   voiceName    String?
-  avatarId     String? // LiveAvatar avatar
+  avatarId     String? // Anam avatar
   provenance   Json // PersonaProvenance: which traits came from the user's notes and which the model chose
   notes        String? // what the user wrote, kept for regeneration; null once deleted
   model        String? // generating model
@@ -127,7 +127,7 @@ model CustomPersona {
   @@index([userId, deletedAt, createdAt])
 }
 
-// LiveAvatar avatars described once from their preview images, so generated characters can be matched by appearance.
+// Anam avatars described once from their preview images, so generated characters can be matched by appearance.
 model AvatarProfile {
   avatarId    String   @id
   name        String

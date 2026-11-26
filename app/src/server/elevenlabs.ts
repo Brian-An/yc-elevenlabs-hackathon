@@ -11,13 +11,28 @@ const ELEVENLABS_API = "https://api.elevenlabs.io/v1/convai/conversation/get-sig
 // APIs don't get Wasp's default middleware; keep the defaults (incl. CORS) for /api/elevenlabs/*.
 export const elevenLabsMiddleware: MiddlewareConfigFn = (config) => config;
 
+/** A signed URL for one conversation with the agent, which expires 15 minutes after it is minted. */
+export async function fetchSignedUrl(agentId: string): Promise<string> {
+  const upstream = await fetch(`${ELEVENLABS_API}?agent_id=${encodeURIComponent(agentId)}`, {
+    headers: { "xi-api-key": process.env.ELEVENLABS_API_KEY ?? "" },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!upstream.ok) {
+    const detail = (await upstream.text()).slice(0, 300);
+    console.error(`[elevenlabs] signed url failed ${upstream.status}: ${detail}`);
+    throw new Error(`ElevenLabs returned ${upstream.status}`);
+  }
+  const body = (await upstream.json()) as { signed_url?: string };
+  if (!body.signed_url) throw new Error("ElevenLabs response had no signed_url");
+  return body.signed_url;
+}
+
 export const getElevenLabsSignedUrl: GetElevenLabsSignedUrl<
   never,
   { signedUrl: string; dynamicVariables: SessionVariables; voiceId: string | null } | { error: string }
 > = async (req, res) => {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
   res.set("Cache-Control", "no-store");
-  if (!apiKey) {
+  if (!process.env.ELEVENLABS_API_KEY) {
     res.status(503).json({ error: "The voice connection is not configured." });
     return;
   }
@@ -27,25 +42,10 @@ export const getElevenLabsSignedUrl: GetElevenLabsSignedUrl<
       res.status(call.status).json({ error: call.error });
       return;
     }
-    const url = `${ELEVENLABS_API}?agent_id=${encodeURIComponent(call.agentId)}`;
-    const upstream = await fetch(url, {
-      headers: { "xi-api-key": apiKey },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!upstream.ok) {
-      const detail = (await upstream.text()).slice(0, 300);
-      console.error(`[elevenlabs] signed url failed ${upstream.status}: ${detail}`);
-      res.status(502).json({ error: `ElevenLabs returned ${upstream.status}` });
-      return;
-    }
-    const body = (await upstream.json()) as { signed_url?: string };
-    if (!body.signed_url) {
-      res.status(502).json({ error: "ElevenLabs response had no signed_url" });
-      return;
-    }
-    res.json({ signedUrl: body.signed_url, dynamicVariables: call.dynamicVariables, voiceId: call.voiceId });
+    res.json({ signedUrl: await fetchSignedUrl(call.agentId), dynamicVariables: call.dynamicVariables, voiceId: call.voiceId });
   } catch (err) {
-    console.error("[elevenlabs] signed url error:", err);
-    res.status(502).json({ error: "Could not reach ElevenLabs" });
+    console.error("[elevenlabs] signed url error:", err instanceof Error ? err.message : err);
+    const upstream = err instanceof Error && err.message.startsWith("ElevenLabs");
+    res.status(502).json({ error: upstream ? err.message : "Could not reach ElevenLabs" });
   }
 };

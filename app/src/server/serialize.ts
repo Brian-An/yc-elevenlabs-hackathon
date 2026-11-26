@@ -4,7 +4,7 @@ import type { DateSession } from "wasp/entities";
 import type { DateReview, ReviewScores } from "../shared/dateReview";
 import type { Evaluation, MoveEvaluation, Persona, Scenario, Transcript } from "../shared/types";
 import type { DateSessionDTO, DateSessionSummary, ReviewJobDTO, SessionStatus } from "./dto";
-import { heyGenEnabled } from "./heygen";
+import { anamEnabled } from "./anam";
 import { jevEnabled } from "./jev";
 
 /** Reads a Json column as T, falling back when it is null. */
@@ -54,7 +54,7 @@ function sessionFields(row: SummaryRow, persona: Persona | undefined) {
     evaluation: readJson<Evaluation | null>(row.evaluation, null),
     userContext: row.userContext,
     agentId,
-    avatarEnabled: heyGenEnabled(),
+    avatarEnabled: anamEnabled(),
     startedAt: row.startedAt,
     endedAt: row.endedAt,
   };

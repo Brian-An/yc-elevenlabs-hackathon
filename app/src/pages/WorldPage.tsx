@@ -428,7 +428,7 @@ function DateStage({
   const onTurn = (turn: TranscriptTurn) => {
     appendTranscript({ userId: getUserId(), id: sessionId, turns: [turn] }).catch((err) => console.warn("[world] couldn't save a turn:", err));
   };
-  // HeyGen LiveAvatar when this server has it configured (real video, lip-synced to the ElevenLabs
+  // An Anam video avatar when this server has it configured (real video, lip-synced to the ElevenLabs
   // agent); otherwise ElevenLabs voice-only, or the mock when the session has no agent at all.
   // Both hooks are always called (rules of hooks); only the active one's start()/end() ever run.
   const useAvatar = session.avatarEnabled && Boolean(session.agentId);
@@ -551,12 +551,15 @@ function DateStage({
             speaking={call.isSpeaking}
             volume={call.getOutputVolume}
             className="size-full rounded-none border-0 shadow-none"
+            // Clear of the name panel above and the call controls below.
+            frameClassName="px-4 pt-32 pb-24 sm:px-6"
             overlay={
               <>
                 <GradePop call={call} session={session} />
                 {/* Same column as the top bar (AppShell's header: max-w-6xl, px-4 sm:px-6). */}
                 <div className="absolute inset-x-0 top-0 mx-auto flex max-w-6xl items-start justify-between gap-3 px-4 py-4 sm:px-6">
-                  <div className="min-w-0">
+                  {/* Frosted like the call controls, so the name reads over any frame of the video. */}
+                  <div className="min-w-0 rounded-(--radius-panel) border border-border bg-background/85 px-3 py-2 backdrop-blur-md">
                     <p className="font-heading text-lg text-foreground">
                       {persona.name}, {persona.age}
                     </p>
@@ -590,7 +593,7 @@ function DateStage({
 
                 <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 p-4 sm:p-6">
                   {subtitles && lastTurn && (
-                    <p className="max-w-2xl rounded-lg bg-black/70 px-3 py-1.5 text-center text-sm text-white sm:text-base" aria-hidden="true">
+                    <p className="mb-3 max-w-2xl rounded-lg bg-black/70 px-3 py-1.5 text-center text-sm text-white sm:text-base" aria-hidden="true">
                       <span className="font-medium">{lastTurn.speaker === "agent" ? persona.name : "You"}:</span> {lastTurn.text}
                     </p>
                   )}
@@ -601,7 +604,7 @@ function DateStage({
                       </Alert>
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-[calc(var(--radius-control)+9px)] border border-border bg-background/85 p-2 shadow-(--shadow-resting) backdrop-blur-md">
+                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-[calc(var(--radius-control)+9px)] border border-border bg-background/85 p-2 backdrop-blur-md">
                     <CallButtons call={call} coaching={session.kind === "coaching"} ending={ending} onEnd={() => void endDate()} />
                     {call.status === "idle" && (
                       <Button size="lg" variant="ghost" onClick={onLeave}>

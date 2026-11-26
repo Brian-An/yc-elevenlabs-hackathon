@@ -80,7 +80,7 @@ describe.skipIf(!databaseUrl)("generated characters (PostgreSQL)", () => {
     vi.stubEnv("ELEVENLABS_API_KEY", "test-key");
     vi.stubEnv("ELEVENLABS_AGENT_ID", "agent_shared");
     vi.stubEnv("ELEVENLABS_AGENT_ID_CUSTOM", "agent_custom");
-    vi.stubEnv("HEYGEN_IS_SANDBOX", "true");
+    vi.stubEnv("ANAM_API_KEY", "");
     vi.stubGlobal("fetch", vi.fn(async () => voicesResponse()));
     parse.mockReset();
     parse.mockImplementation(async () => ({ stop_reason: "end_turn", model: "test-model", parsed_output: spec("Lena") }));

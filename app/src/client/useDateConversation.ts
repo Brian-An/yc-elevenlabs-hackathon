@@ -31,7 +31,7 @@ export type DateConversation = {
   isSpeaking: boolean;
   isMuted: boolean;
   /**
-   * The persona's avatar video, once the avatar provider (LiveAvatar, Runway or D-ID) is connected.
+   * The persona's avatar video, once the avatar provider (such as Anam) is connected.
    * null shows the persona's initial instead. From a LiveKit/WebRTC track: new MediaStream([track.mediaStreamTrack]).
    */
   videoStream: MediaStream | null;

@@ -81,7 +81,7 @@ function DateRoom({ session }: { session: DateSessionDTO & { persona: NonNullabl
       console.warn("[date] couldn't save a turn:", err),
     );
   };
-  // HeyGen LiveAvatar when this server has it configured (real video, lip-synced to the ElevenLabs
+  // An Anam video avatar when this server has it configured (real video, lip-synced to the ElevenLabs
   // agent); otherwise ElevenLabs voice-only, or the mock when the session has no agent at all.
   // Both hooks are always called (rules of hooks); only the active one's start()/end() ever run.
   const useAvatar = session.avatarEnabled && Boolean(session.agentId);
