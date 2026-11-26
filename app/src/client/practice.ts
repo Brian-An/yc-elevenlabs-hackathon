@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { routes } from "wasp/client/router";
-import { createDateSession, generateCustomPersona } from "wasp/client/operations";
+import { api, handleApiError } from "wasp/client/api";
+import { createDateSession, queryClientInitialized } from "wasp/client/operations";
+import { deserialize, serialize } from "wasp/core/serialization";
 import type { GenerateCustomPersonaArgs } from "../server/customPersonas";
 import type { PersonaWithScenario } from "../server/dto";
 import type { Difficulty } from "../shared/types";
@@ -41,18 +43,30 @@ export function useStartDate() {
   return { start, starting, error };
 }
 
-/** Generates a character, counting the seconds it takes so the wait reads as progress. */
+/** Writing a character takes a Claude call plus voice and avatar lookups, often 20s or more. */
+const GENERATE_TIMEOUT_MS = 120_000;
+
+/**
+ * Calls the generateCustomPersona action with a longer timeout. Wasp's own action client gives up after ky's
+ * default 10s, which left the character saved on the server while the page reported a failure.
+ */
+async function generateCustomPersona(args: GenerateCustomPersonaArgs): Promise<PersonaWithScenario> {
+  try {
+    const json = await api.post("/operations/generate-custom-persona", { json: serialize(args), timeout: GENERATE_TIMEOUT_MS }).json();
+    return deserialize(json as Parameters<typeof deserialize>[0]) as PersonaWithScenario;
+  } catch (error) {
+    throw handleApiError(error);
+  } finally {
+    // A Wasp action refetches the queries that read the entities it changed; do the same for the new character,
+    // without making the caller wait for those refetches.
+    void queryClientInitialized.then((queryClient) => queryClient.invalidateQueries());
+  }
+}
+
+/** Generates a character and tracks whether one is being written. */
 export function useGenerateCharacter() {
   const [generating, setGenerating] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!generating) return;
-    setElapsed(0);
-    const timer = window.setInterval(() => setElapsed((seconds) => seconds + 1), 1000);
-    return () => window.clearInterval(timer);
-  }, [generating]);
 
   async function generate(args: Omit<GenerateCustomPersonaArgs, "userId">): Promise<PersonaWithScenario | null> {
     if (generating) return null;
@@ -68,5 +82,5 @@ export function useGenerateCharacter() {
     }
   }
 
-  return { generate, generating, elapsed, error, clearError: () => setError(null) };
+  return { generate, generating, error, clearError: () => setError(null) };
 }

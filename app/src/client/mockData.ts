@@ -2,9 +2,9 @@
  * Typed mock data for the UI while the backend operations are being built.
  *
  * Each page reads through one `getMock*` function below. To wire real data, replace that one line in the page, e.g.
- *   const dashboard = getMockDashboard();
+ *   const feedback = getMockFeedback(sessionId);
  * becomes
- *   const { data: dashboard } = useQuery(getDashboard);
+ *   const { data: feedback } = useQuery(getFeedback, { sessionId });
  * The view types here describe what each page needs, so the real operations can return the same shape.
  */
 import type { Difficulty, Evaluation, MoveEvaluation, Persona, Scenario, SkillName, Transcript } from "../shared/types";
@@ -39,17 +39,6 @@ export type SessionSummary = {
   startedAt: string; // ISO
   durationSec?: number;
   scores?: SkillScores;
-};
-
-export type DashboardData = {
-  profile: UserProfile;
-  skills: SkillScores;
-  /** Change since the previous session, per skill. */
-  skillDelta: SkillScores;
-  memory: Memory;
-  personas: Persona[];
-  recommended: Scenario;
-  sessions: SessionSummary[];
 };
 
 export type DateSessionData = {
@@ -100,7 +89,7 @@ export const personas: Persona[] = [
   },
   {
     id: "priya",
-    name: "Priya",
+    name: "Mei",
     age: 26,
     bio: "Startup founder running on cold brew. Changes topic fast and expects you to keep up.",
     personality: "High energy, distracted, a little blunt",
@@ -204,27 +193,6 @@ const sessions: SessionSummary[] = [
 ];
 
 // ---------- Accessors (swap these for real queries) ----------
-
-export function getMockDashboard(): DashboardData {
-  return {
-    profile: {
-      name: "Sam",
-      goals: ["Feel less nervous on first dates", "Keep conversations going"],
-      experience: "intermediate",
-      lookingFor: "Something serious",
-      focus: "I run out of things to say after the small talk.",
-    },
-    skills: evaluation.scores,
-    skillDelta: { listening: 0, engagement: 1, confidence: 2, flow: 1 },
-    memory: {
-      strengths: ["Asks thoughtful follow-up questions once warmed up", "Easygoing, self-aware humor"],
-      weaknesses: ["Misses emotional openings and changes topic", "Talks little about yourself, drifts into interview mode"],
-    },
-    personas,
-    recommended,
-    sessions,
-  };
-}
 
 export function getMockDateSession(sessionId: string): DateSessionData {
   const session = sessions.find((s) => s.id === sessionId);

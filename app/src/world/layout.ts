@@ -57,10 +57,10 @@ export const FALLBACK_PERSONA_MODEL = "Casual2_Female";
  * so extras that share the model keep their own look.
  */
 export const PERSONA_LOOK: Record<string, { skin: string; hair: string }> = {
-  maya: { skin: "#f3d0b6", hair: "#e6c46e" }, // white, blonde
-  theo: { skin: "#efc8a9", hair: "#dcb760" }, // white, blonde
-  priya: { skin: "#e8c39e", hair: "#151313" }, // Chinese, black hair
-  coach: { skin: "#f0c9aa", hair: "#5b3a24" }, // Riley: white, brown hair
+  maya: { skin: "#f3d0b6", hair: "#e6c46e" }, // white, blonde, like her video avatar
+  theo: { skin: "#efc8a9", hair: "#3a2a1f" }, // white, dark brown hair, like his video avatar
+  priya: { skin: "#e8c39e", hair: "#151313" }, // Mei: East Asian, long black hair (id kept as "priya" for past dates)
+  coach: { skin: "#f0c9aa", hair: "#7a5233" }, // Riley: white, light-brown hair, like his video avatar
 };
 
 /** A persona's plaza model: a generated character carries its own, stock personas use PERSONA_MODEL. */
@@ -124,6 +124,15 @@ export const seats = (t: Table) => ({
 /** How close the player has to be to a waiting persona to talk. */
 export const TALK_RADIUS = 3.2;
 
+/** The persona id of the dating coach, who waits at a table like the dates but gets their own marker. */
+export const COACH_ID = "coach";
+
+/**
+ * The studio: the east building (E, at x 25) whose door faces the plaza. Standing on the mat in front of its door
+ * opens your characters and past dates. `id` is what the player reports as nearby, alongside persona ids.
+ */
+export const STUDIO = { id: "studio", x: 17.4, z: 0, reach: 1.8, door: { x: 20, z: 0 } } as const;
+
 type Placed = { name: string; x: number; z: number; y?: number; yaw?: number; scale?: number };
 
 // KayKit buildings without their sidewalk slab: 6-10 m wide, entrance on +Z, modelled 0.5 m above their origin.
@@ -150,10 +159,18 @@ export const ROAD_TILES: Placed[] = [-30, -20, -10, 0, 10, 20, 30].map((x) => ({
 
 // KayKit cars' wheels reach 0.3 m below the model origin; lift them onto the road surface.
 const CAR_LIFT = ROAD_SURFACE + 0.3;
+/** Cars wrap from one end of the road to the other once past this x, out beyond the last road tile. */
+export const ROAD_HALF_LENGTH = 38;
+/** Every car drives at this speed in m/s, so cars sharing a lane keep their spacing and never run into each other. */
+export const CAR_SPEED = 5;
+/**
+ * Cars drive in the direction they face: the near lane heads east (yaw π/2), the far lane west (yaw -π/2).
+ * The two eastbound cars start half a loop apart, the widest gap their lane allows.
+ */
 export const CARS: Placed[] = [
   { name: "car_taxi", x: -12, z: 18.4, y: CAR_LIFT, yaw: Math.PI / 2 },
-  { name: "car_sedan", x: 4, z: 18.4, y: CAR_LIFT, yaw: Math.PI / 2 },
-  { name: "car_hatchback", x: 15, z: 23.6, y: CAR_LIFT, yaw: -Math.PI / 2 },
+  { name: "car_hatchback", x: -12 + ROAD_HALF_LENGTH, z: 18.4, y: CAR_LIFT, yaw: Math.PI / 2 },
+  { name: "car_sedan", x: 4, z: 23.6, y: CAR_LIFT, yaw: -Math.PI / 2 },
 ];
 
 export const TREES: Placed[] = [

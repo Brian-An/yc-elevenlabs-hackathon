@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo } from "react";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
-import type { Persona } from "../shared/types";
+import type { PersonaWithScenario } from "../server/dto";
 import { preloadCharacters } from "./Character";
 import type { Collider } from "./collision";
 import { createNavGrid } from "./navigation";
@@ -8,7 +8,8 @@ import type { WorldBus, WorldDate } from "./bus";
 import { DatePersona, Extra } from "./People";
 import { Player } from "./Player";
 import { Plaza } from "./Plaza";
-import { BOUNDS, CHARACTER_RADIUS, COLLIDERS, EXTRAS, FALLBACK_PERSONA_MODEL, PERSONA_MODEL, PLAYER, TABLES, personaModel, seats } from "./layout";
+import { Studio } from "./Studio";
+import { BOUNDS, CHARACTER_RADIUS, COLLIDERS, EXTRAS, STUDIO, FALLBACK_PERSONA_MODEL, PERSONA_MODEL, PLAYER, TABLES, personaModel, seats } from "./layout";
 
 preloadCharacters([PLAYER.model, ...Object.values(PERSONA_MODEL), FALLBACK_PERSONA_MODEL, ...EXTRAS.map((e) => e.model)]);
 
@@ -23,15 +24,18 @@ export default function WorldScene({
   nearby,
   onNearby,
   onReady,
+  ambientVoices = true,
 }: {
   /** Date personas in table order (the first takes the first table). */
-  personas: readonly Persona[];
+  personas: readonly PersonaWithScenario[];
   bus: WorldBus;
   date: WorldDate | null;
   nearby: string | null;
   onNearby: (personaId: string | null) => void;
   /** Called once every model has loaded and the first frame is drawn. */
   onReady: () => void;
+  /** Passers-by say lines as the player walks past. Off for the onboarding preview, and always off during a date. */
+  ambientVoices?: boolean;
 }) {
   const placed = useMemo(
     () => personas.slice(0, TABLES.length).map((persona, i) => ({ persona, table: TABLES[i]!, tableIndex: i })),
@@ -90,6 +94,7 @@ export default function WorldScene({
           <planeGeometry args={[60, 60]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
         </mesh>
+        <Studio nearby={nearby === STUDIO.id} />
         <Player bus={bus} date={date} waiting={waiting} nav={nav} onNearby={onNearby} />
         {placed.map(({ persona, table }) => (
           <DatePersona
@@ -104,7 +109,7 @@ export default function WorldScene({
           />
         ))}
         {EXTRAS.map((e, i) => (
-          <Extra key={i} index={i} model={e.model} start={e.start} bus={bus} nav={nav} />
+          <Extra key={i} index={i} model={e.model} start={e.start} bus={bus} nav={nav} chatty={ambientVoices && !date} />
         ))}
         <Ready onReady={onReady} />
       </Suspense>

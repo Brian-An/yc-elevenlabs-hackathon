@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Sparkles } from "lucide-react";
 import type { PersonaWithScenario } from "../server/dto";
 import type { PersonaProvenance } from "../shared/types";
 import { Badge } from "@/components/arc/badge/badge";
@@ -31,7 +30,6 @@ export function CharacterCard({ persona, actions, children }: { persona: Persona
           <h2 id={`character-${persona.id}`} className="font-heading text-2xl text-foreground">{persona.name}, {persona.age}</h2>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <Badge pill>{capitalize(persona.difficulty)}</Badge>
-            {custom && <Badge icon={<Sparkles className="size-3" aria-hidden="true" />} pill>AI-made</Badge>}
           </div>
         </div>
       </div>

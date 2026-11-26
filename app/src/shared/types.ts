@@ -36,6 +36,8 @@ export type Persona = {
   bio: string;
   personality: string;
   elevenLabsAgentId?: string;
+  /** Portrait: the preview of the video avatar this persona appears as, so the photo matches the call. */
+  photoUrl?: string;
   /** Set on characters a user generated. Stock personas take their look from src/world/layout.ts. */
   custom?: CustomPersonaDetails;
 };
@@ -58,6 +60,11 @@ export type CustomPersonaDetails = {
   createdAt: Date;
   deleted: boolean;
 };
+
+/** Longest a date's setting can be, so it fits on one line in cards and badges. */
+export const SETTING_MAX_LENGTH = 60;
+/** Longest a generated character's bio can be: one sentence, so the plaza card stays small. */
+export const BIO_MAX_LENGTH = 120;
 
 export type Scenario = {
   id: string;

@@ -120,15 +120,18 @@ export function TabsContent({ className, value, forceMount, children, ...props }
     const from = panelHeightRef.current;
     const to = node.offsetHeight;
     let controls: AnimationPlaybackControls | undefined;
+    let live = true;
     const release = () => { node.style.height = ""; node.style.overflow = ""; };
     if (from !== null && Math.abs(from - to) > 1 && !reduced) {
       if (to > from) node.style.overflow = "clip";
-      controls = animate(node, { height: [from, to] }, { ...motionTokens.spring.smooth, onComplete: release });
+      // Release a frame later: motion writes the last keyframe after onComplete, which would pin the panel at the
+      // height it had on arrival and clip anything that loads in afterwards.
+      controls = animate(node, { height: [from, to] }, { ...motionTokens.spring.smooth, onComplete: () => requestAnimationFrame(() => { if (live) release(); }) });
     }
     panelHeightRef.current = controls && from !== null ? from : to;
     const observer = new ResizeObserver(() => { panelHeightRef.current = node.offsetHeight; });
     observer.observe(node);
-    return () => { observer.disconnect(); controls?.stop(); release(); };
+    return () => { live = false; observer.disconnect(); controls?.stop(); release(); };
   }, [selected, reduced, forceMount, panelHeightRef, leavingRectRef]);
   if (forceMount) return <TabsPrimitive.Content {...props} value={value} forceMount className={classes}>{children}</TabsPrimitive.Content>;
   return <AnimatePresence initial={false} mode="popLayout" custom={direction}>

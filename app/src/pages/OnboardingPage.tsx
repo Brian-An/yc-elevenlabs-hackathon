@@ -21,6 +21,7 @@ import { LabeledSegments } from "@/components/LabeledSegments";
 import { ArrowLeft, Dices, PenLine, RefreshCw, Sparkles } from "lucide-react";
 import { Progress } from "@/components/arc/progress/progress";
 import { CharacterCard } from "@/components/CharacterCard";
+import { WorldIntro } from "@/components/WorldIntro";
 import { difficultyFor, useGenerateCharacter, useStartDate } from "@/client/practice";
 import { cn } from "@/lib/utils";
 import type { SkillName } from "../shared/types";
@@ -68,7 +69,8 @@ export function OnboardingPage() {
  */
 function OnboardingMode({ profile }: { profile: Profile }) {
   const [firstRun] = useState(profile.onboardedAt === null);
-  return firstRun ? <FirstRun profile={profile} /> : <OnboardingForm profile={profile} />;
+  if (!firstRun) return <OnboardingForm profile={profile} />;
+  return <><FirstRun profile={profile} /><WorldIntro /></>;
 }
 
 /** A first-date option: a portrait or icon beside the name. */
@@ -215,6 +217,8 @@ function FirstRun({ profile }: { profile: Profile }) {
   }
 
   const busy = saving !== null || characters.generating || dates.starting !== null;
+  // Saving the answers is the first part of creating the character, so the button reads "Creating…" through both.
+  const creating = characters.generating || saving === "save";
   const shownError = error ?? characters.error ?? dates.error;
   const title = draft ? "Meet your first date" : QUESTIONS[step];
 
@@ -226,12 +230,16 @@ function FirstRun({ profile }: { profile: Profile }) {
   return (
     <AppShell variant="focus">
       <div className="mx-auto grid max-w-md gap-8 sm:pt-6">
-        <div className="flex items-center gap-2">
-          {/* The arrow and Skip keep their place on every question, so the bar never shifts. */}
-          <Button variant="ghost" size="sm" aria-label="Back" className={cn("-ml-[calc(var(--space-3)+1px)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11", step === 0 && !draft && "invisible")}
-            disabled={busy} onClick={back}>
-            <ArrowLeft className="size-4" aria-hidden="true" />
-          </Button>
+        <div className="relative flex items-center gap-2">
+          {/* On wider screens the arrow sits outside the column, so the bar lines up with the heading and never shifts.
+              Phones have no room for that, so the arrow collapses on the first question instead.
+              The wrapper holds the positioning because Button's own styles set position: relative. */}
+          <span className={cn("-ml-[calc(var(--space-3)+1px)] flex sm:absolute sm:right-full sm:mr-2 sm:ml-0", step === 0 && !draft && "invisible max-sm:hidden")}>
+            <Button variant="ghost" size="sm" aria-label="Back" className="[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
+              disabled={busy} onClick={back}>
+              <ArrowLeft className="size-4" aria-hidden="true" />
+            </Button>
+          </span>
           {/* Meeting the generated date is the last stretch, so the bar only completes once they're on screen. */}
           <Progress className="flex-1" value={draft ? QUESTIONS.length + 1 : step + 1} max={QUESTIONS.length + 1} />
           <Button variant="ghost" size="sm" className="-mr-[calc(var(--space-3)+1px)] [@media(pointer:coarse)]:min-h-11" loading={saving === "skip"} disabled={busy} onClick={() => void skip()}>Skip</Button>
@@ -288,14 +296,14 @@ function FirstRun({ profile }: { profile: Profile }) {
             )}
             {picked === SURPRISE || picked === DESCRIBE ? (
               <div className="grid gap-2">
-                <Button size="lg" loading={characters.generating || saving === "save"} disabled={busy || (picked === DESCRIBE && description.trim().length < 3)}
-                  onClick={() => void create()}>
+                {/* While it works the label says so. aria-disabled rather than disabled keeps keyboard focus on the button. */}
+                <Button size="lg" aria-disabled={creating || undefined} aria-busy={creating || undefined}
+                  disabled={!creating && (busy || (picked === DESCRIBE && description.trim().length < 3))}
+                  onClick={() => { if (!creating) void create(); }}>
                   <Sparkles className="size-4" aria-hidden="true" />
-                  {picked === SURPRISE ? "Surprise me" : "Create"}
+                  {creating ? "Creating…" : picked === SURPRISE ? "Surprise me" : "Create"}
                 </Button>
-                <p role="status" aria-live="polite" className="text-center text-sm text-subtle tabular-nums empty:hidden">
-                  {characters.generating ? `Creating your date · ${characters.elapsed}s` : ""}
-                </p>
+                <p role="status" aria-live="polite" className="sr-only">{creating ? "Creating your date" : ""}</p>
                 {shownError && !characters.generating && <InlineError>{shownError}</InlineError>}
               </div>
             ) : (
@@ -351,7 +359,7 @@ function OnboardingForm({ profile }: { profile: Profile }) {
         preferences: { ...preferences, goals: form.goals, focusSkills: form.focusSkills, focusNote: form.focusNote.trim(),
           lookingFor: form.lookingFor, interestedIn: form.interestedIn },
       });
-      navigate(routes.DashboardRoute.build());
+      navigate(routes.WorldRoute.build());
     } catch {
       setError(true);
       setSaving(false);
@@ -399,7 +407,7 @@ function OnboardingForm({ profile }: { profile: Profile }) {
 
           {error && <Alert title="Couldn't save your profile" tone="danger">Your answers are still here. Try saving again.</Alert>}
           <div className="flex justify-end gap-3">
-            <Button type="button" disabled={saving} variant="ghost" onClick={() => navigate(routes.DashboardRoute.build())}>Cancel</Button>
+            <Button type="button" disabled={saving} variant="ghost" onClick={() => navigate(routes.WorldRoute.build())}>Cancel</Button>
             <Button type="submit" loading={saving}>Save</Button>
           </div>
         </form>
