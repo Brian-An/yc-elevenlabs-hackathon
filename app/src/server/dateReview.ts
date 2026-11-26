@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { DateReview, ReviewScores } from "../shared/dateReview";
-import type { EvidencedPoint, Persona, Scenario, SkillName, Transcript } from "../shared/types";
-import { demoEvaluation } from "../client/mockData";
+import type { Persona, Scenario, SkillName, Transcript } from "../shared/types";
 
 export const RUBRIC_VERSION = "whole-date-v2";
 const DEFAULT_MODEL = "claude-sonnet-4-6";
@@ -171,44 +170,50 @@ const messageSchema = z.object({
   usage: z.object({ input_tokens: z.number(), output_tokens: z.number() }).optional(),
 });
 
-// Maya's dates always get the demo date's feedback with a fixed low score, instead of a graded review.
+// Maya's dates always get the same scripted review for the demo, instead of a graded one.
 const FIXED_REVIEW_PERSONA = "maya";
-const FIXED_SKILL_SCORES: Record<SkillName, number> = { listening: 3, engagement: 2, confidence: 3, flow: 2 };
-const FIXED_STRENGTH_SKILLS: SkillName[] = ["engagement", "confidence"];
-const FIXED_WEAKNESS_SKILLS: SkillName[] = ["listening", "engagement"];
 
 /** Maya's fixed review, or null for any other character. It needs no provider, so ending the date stores it at once. */
 export function fixedDateReview(personaId: string, transcript: Transcript): DateReview | null {
-  if (personaId !== FIXED_REVIEW_PERSONA) return null;
+  if (personaId !== FIXED_REVIEW_PERSONA || !transcript.some((turn) => turn.speaker === "user" && turn.text.trim())) return null;
   return fixedReview(transcript, { transcriptHash: transcriptHash(transcript), rubricVersion: RUBRIC_VERSION });
 }
 
+/**
+ * The review written for the scripted demo date. Indices follow the script (her opener, then your nth reply),
+ * clamped to the turns this date actually had, and quotes are your own words at those turns.
+ */
 function fixedReview(transcript: Transcript, provenance: Pick<DateReview, "transcriptHash" | "rubricVersion">): DateReview {
   const userTurns = transcript.flatMap((turn, index) => (turn.speaker === "user" && turn.text.trim() ? [index] : []));
-  const last = userTurns.at(-1);
-  const prompt = last === undefined ? -1 : transcript.findLastIndex((turn, index) => index < last && turn.speaker === "agent" && turn.text.trim());
-  // Each point quotes one of the user's own replies, newest first, since the demo's quotes are from another conversation.
-  const points = (source: EvidencedPoint[], skills: SkillName[]) => source.flatMap(({ point }, i) => {
-    const turnIndex = userTurns.at(-1 - (i % Math.max(userTurns.length, 1)));
-    return turnIndex === undefined ? [] : [{ skill: skills[i] ?? "engagement", point, quote: transcript[turnIndex].text, turnIndex }];
-  });
-  const cited = userTurns.slice(-4);
+  const reply = (n: number) => userTurns[Math.min(n, userTurns.length - 1)];
+  const before = (userIndex: number) => Math.max(0, transcript.findLastIndex((turn, index) => index < userIndex && turn.speaker === "agent"));
+  const moment = (n: number, point: string) => ({ point, agentTurnIndex: before(reply(n)), userTurnIndex: reply(n) });
+  const weakness = (n: number, skill: SkillName, point: string) => ({ skill, point, quote: transcript[reply(n)].text, turnIndex: reply(n) });
+  const cited = [...new Set([0, 1, 2, 4].map(reply))];
+  const skill = (score: number | null) => ({ score, turnIndices: score === null ? [] : cited });
   return {
     ...provenance,
     model: null,
-    summary: demoEvaluation.summary,
-    skills: Object.fromEntries(Object.entries(FIXED_SKILL_SCORES).map(([skill, score]) => [skill, { score, turnIndices: cited }])) as DateReview["skills"],
-    overallScore: 25,
-    moments: [],
-    strengths: points(demoEvaluation.strengths, FIXED_STRENGTH_SKILLS),
-    weaknesses: points(demoEvaluation.weaknesses, FIXED_WEAKNESS_SKILLS),
-    practice: last !== undefined && prompt >= 0 ? {
+    summary: "You made comments about Maya's appearance and scent before escalating to a sexual remark, causing her to leave. The date ended almost immediately due to boundary violations.",
+    skills: { listening: skill(1), engagement: skill(1), confidence: skill(null), flow: skill(2) },
+    overallScore: 13,
+    moments: [
+      moment(1, "Maya tried to redirect to conversation after the compliment, but you commented on her scent instead of engaging."),
+      moment(2, "Maya asked to get to know each other, but you made a sexual remark that ended the date."),
+      moment(4, "After Maya said she was leaving, you asked her to come back rather than acknowledging her discomfort."),
+    ],
+    strengths: [],
+    weaknesses: [
+      weakness(1, "listening", "Maya signaled she wanted normal conversation, but you ignored her redirect twice."),
+      weakness(0, "engagement", "You made no attempt to respond to her cinnamon bun comment or Sunday question."),
+    ],
+    practice: {
       skill: "listening",
-      instruction: "Follow the thread they hand you before switching topics, and trade a detail about yourself for each question you ask.",
-      exampleReply: "Wait, you just got back from Lisbon? I've never been. What surprised you most?",
-      agentTurnIndex: prompt,
-      userTurnIndex: last,
-    } : null,
+      instruction: "When a date mentions something specific like food or a weekend habit, ask a follow-up or share your own take.",
+      exampleReply: "Cinnamon buns sound amazing — do you come here often, or is this a new spot for you?",
+      agentTurnIndex: before(reply(0)),
+      userTurnIndex: reply(0),
+    },
   };
 }
 

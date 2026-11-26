@@ -687,7 +687,6 @@ function CoachingSummary({ session, onClose }: { session: DateSessionDTO; onClos
         )}
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => navigate(routes.FeedbackRoute.build({ params: { sessionId: session.id } }))}>View conversation</Button>
-          <Button variant="secondary" onClick={onClose}>Keep exploring</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -765,7 +764,6 @@ function DateSummary({ session: ended, onClose }: { session: DateSessionDTO; onC
             <Button onClick={() => navigate(routes.FeedbackRoute.build({ params: { sessionId: session.id } }))}>
               {review ? "Open date review" : "View conversation"}
             </Button>
-            <Button variant="ghost" onClick={onClose}>Keep exploring</Button>
           </div>
         </div>
       </DialogContent>

@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Persona, Scenario, Transcript } from "../shared/types";
-import { demoEvaluation } from "../client/mockData";
 import { DateReviewError, dateReviewEnabled, fixedDateReview, generateDateReview, reviewScores } from "./dateReview";
 
 // A generated character, since stock Maya always gets the fixed review.
@@ -48,19 +47,22 @@ afterEach(() => {
 });
 
 describe("whole-date review", () => {
-  it("gives stock Maya the demo feedback at 25/100 without contacting the provider", async () => {
+  it("gives stock Maya the scripted demo review at 13/100 without contacting the provider", async () => {
     const request = provider(draft());
     const { review, usage } = await generateDateReview(transcript, scenario, { ...persona, id: "maya" });
     expect(request).not.toHaveBeenCalled();
     expect(usage).toBeNull();
-    expect(review.overallScore).toBe(25);
-    expect(review.summary).toBe(demoEvaluation.summary);
-    expect(review.weaknesses.map(({ point, quote }) => ({ point, quote }))).toEqual([
-      { point: demoEvaluation.weaknesses[0].point, quote: transcript[3].text },
-      { point: demoEvaluation.weaknesses[1].point, quote: transcript[1].text },
-    ]);
-    expect(review.practice).toMatchObject({ agentTurnIndex: 2, userTurnIndex: 3 });
-    expect(reviewScores(review).overallScore).toBe(25);
+    expect(review.overallScore).toBe(13);
+    expect(review.summary).toMatch(/^You made comments about Maya's appearance/);
+    expect(review.skills.confidence.score).toBeNull();
+    expect(review.strengths).toEqual([]);
+    expect(review.weaknesses.map(({ quote }) => quote)).toEqual([transcript[3].text, transcript[1].text]);
+    expect(review.practice).toMatchObject({ agentTurnIndex: 0, userTurnIndex: 1 });
+    for (const m of review.moments) {
+      expect(transcript[m.agentTurnIndex].speaker).toBe("agent");
+      expect(transcript[m.userTurnIndex].speaker).toBe("user");
+    }
+    expect(reviewScores(review).overallScore).toBe(13);
     expect(fixedDateReview("maya", transcript)).toEqual(review);
     expect(fixedDateReview("theo", transcript)).toBeNull();
   });
