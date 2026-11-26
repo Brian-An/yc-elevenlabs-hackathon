@@ -1,41 +1,43 @@
-// Matches generated characters to LiveAvatar video avatars. LiveAvatar lists avatars with only a name and a
-// preview image, so a background job describes each preview once with Claude's vision and stores it.
-// https://docs.liveavatar.com/api-reference/avatar/list-public-avatars
+// Matches generated characters to Anam video avatars. Anam lists avatars with a name and a preview image but
+// no structured appearance, so a background job describes each preview once with Claude's vision and stores it.
+// https://anam.ai/docs/api-reference/avatars/list-avatars
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { prisma } from "wasp/server";
 import { refreshAvatarCatalog as catalogQueue, type RefreshAvatarCatalog } from "wasp/server/jobs";
 import { z } from "zod";
 import { anthropic, anthropicEnabled, assertFinished, characterModel, FALLBACK_BETA } from "./anthropic";
 
-const LIVEAVATAR_API = "https://api.liveavatar.com/v1";
+const ANAM_API = "https://api.anam.ai/v1/avatars";
+const MAX_PAGES = 10;
 const TAG_BATCH = 100;
 const TAG_CONCURRENCY = 3;
 const RETRY_FAILED_MS = 24 * 60 * 60_000;
 
-/** Avatars are matched only for real sessions: sandbox sessions support a single fixed avatar. */
-export const avatarMatchingEnabled = () =>
-  Boolean(process.env.HEYGEN_API_KEY && process.env.HEYGEN_IS_SANDBOX === "false" && anthropicEnabled());
+export const avatarMatchingEnabled = () => Boolean(process.env.ANAM_API_KEY && anthropicEnabled());
 
 const avatarSchema = z.object({
   id: z.string(),
-  name: z.string(),
-  preview_url: z.string().nullish(),
-  status: z.string().optional(),
-  is_expired: z.boolean().optional(),
+  displayName: z.string(),
+  variantName: z.string().nullish(),
+  // A signed link that stays valid for at least an hour. The catalog sync refreshes it.
+  imageUrl: z.string().nullish(),
 });
-const pageSchema = z.object({ data: z.object({ results: z.array(avatarSchema), next: z.string().nullish() }) });
+const pageSchema = z.object({
+  data: z.array(avatarSchema),
+  meta: z.object({ currentPage: z.number(), lastPage: z.number() }),
+});
 
-async function listAvatars(path: "avatars/public" | "avatars"): Promise<z.infer<typeof avatarSchema>[]> {
-  const apiKey = process.env.HEYGEN_API_KEY!;
+/** Every realistic avatar the account can use: Anam's stock avatars and the account's own. */
+async function listAvatars(): Promise<z.infer<typeof avatarSchema>[]> {
   const avatars: z.infer<typeof avatarSchema>[] = [];
-  for (let page = 1; page <= 5; page++) {
-    const response = await fetch(`${LIVEAVATAR_API}/${path}?page=${page}&page_size=100`, {
-      headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(15_000),
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const response = await fetch(`${ANAM_API}?page=${page}&perPage=100&renderStyle=realistic`, {
+      headers: { Authorization: `Bearer ${process.env.ANAM_API_KEY}` }, signal: AbortSignal.timeout(15_000),
     });
-    if (!response.ok) throw new Error(`LiveAvatar ${path} returned ${response.status}`);
+    if (!response.ok) throw new Error(`Anam avatars returned ${response.status}`);
     const body = pageSchema.parse(await response.json());
-    avatars.push(...body.data.results);
-    if (!body.data.next) break;
+    avatars.push(...body.data);
+    if (body.meta.currentPage >= body.meta.lastPage) break;
   }
   return avatars;
 }
@@ -73,13 +75,13 @@ async function inBatches<T>(items: T[], size: number, run: (item: T) => Promise<
 /** Syncs the avatar list and describes up to TAG_BATCH untagged avatars. Safe to run concurrently. */
 export async function syncAvatarCatalog(): Promise<{ listed: number; tagged: number }> {
   if (!avatarMatchingEnabled()) return { listed: 0, tagged: 0 };
-  const listed = [...await listAvatars("avatars"), ...await listAvatars("avatars/public")]
-    .filter((avatar) => avatar.preview_url && (avatar.status ?? "ACTIVE") === "ACTIVE" && !avatar.is_expired);
+  const listed = (await listAvatars()).filter((avatar) => avatar.imageUrl);
   for (const avatar of listed) {
+    const name = avatar.variantName ? `${avatar.displayName} (${avatar.variantName})` : avatar.displayName;
     await prisma.avatarProfile.upsert({
       where: { avatarId: avatar.id },
-      create: { avatarId: avatar.id, name: avatar.name, previewUrl: avatar.preview_url! },
-      update: { name: avatar.name, previewUrl: avatar.preview_url! },
+      create: { avatarId: avatar.id, name, previewUrl: avatar.imageUrl! },
+      update: { name, previewUrl: avatar.imageUrl! },
     });
   }
   const pending = await prisma.avatarProfile.findMany({

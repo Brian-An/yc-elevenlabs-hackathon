@@ -32,9 +32,9 @@ import {
   elevenLabsMiddleware,
 } from "./src/server/elevenlabs" with { type: "ref" };
 import {
-  getHeyGenSessionToken,
-  heyGenMiddleware,
-} from "./src/server/heygen" with { type: "ref" };
+  getAnamSessionToken,
+  anamMiddleware,
+} from "./src/server/anam" with { type: "ref" };
 
 export default app({
   name: "bantr",
@@ -70,8 +70,9 @@ export default app({
     action(generateCustomPersona, { entities: ["User", "CustomPersona", "AvatarProfile"] }),
     action(updateCustomPersona, { entities: ["CustomPersona"] }),
     action(deleteCustomPersona, { entities: ["CustomPersona", "PersonaCallback"] }),
-    // Describes LiveAvatar avatars from their previews so generated characters get a matching video avatar.
-    job(refreshAvatarCatalog, { executor: "PgBoss", entities: ["AvatarProfile"], schedule: { cron: "0 * * * *" } }),
+    // Describes Anam avatars from their previews so generated characters get a matching video avatar. Anam's
+    // preview links last at least an hour, so a half-hourly sync keeps the stored links valid.
+    job(refreshAvatarCatalog, { executor: "PgBoss", entities: ["AvatarProfile"], schedule: { cron: "*/30 * * * *" } }),
 
     // Whole-date reviews. A ReviewJob row is the durable queue entry; runDateReview is its fast wake-up,
     // and the sweep recovers lost wake-ups, expired leases, and reviews waiting on configuration.
@@ -86,8 +87,8 @@ export default app({
     apiNamespace("/api/elevenlabs", { middlewareConfigFn: elevenLabsMiddleware }),
     api("GET", "/api/elevenlabs/signed-url", getElevenLabsSignedUrl),
 
-    // HeyGen LiveAvatar session token (real-time lip-synced video)
-    apiNamespace("/api/heygen", { middlewareConfigFn: heyGenMiddleware }),
-    api("GET", "/api/heygen/session-token", getHeyGenSessionToken),
+    // Anam session token (real-time lip-synced video of the ElevenLabs agent)
+    apiNamespace("/api/anam", { middlewareConfigFn: anamMiddleware }),
+    api("GET", "/api/anam/session-token", getAnamSessionToken),
   ],
 });

@@ -4,78 +4,10 @@
 // Without a dedicated agent, the server falls back to ELEVENLABS_AGENT_ID.
 import type { CustomPersona } from "wasp/entities";
 import { prisma } from "wasp/server";
-import type { Difficulty, Persona, PersonaLook, PersonaProvenance, Scenario, SkillName } from "../shared/types";
+import type { Difficulty, Persona, PersonaLook, PersonaProvenance, SkillName } from "../shared/types";
 import type { PersonaWithScenario } from "./dto";
 import { readJson } from "./serialize";
-
-type PersonaDef = Persona & { difficulty: Difficulty; defaultScenario: Scenario };
-
-const PERSONAS: PersonaDef[] = [
-  {
-    id: "maya",
-    name: "Maya",
-    age: 27,
-    bio: "UX designer who spends weekends at farmers' markets and is learning ceramics.",
-    personality:
-      "Warm, curious and encouraging. Asks follow-up questions and laughs easily. Forgiving of awkward pauses.",
-    difficulty: "easy",
-    defaultScenario: {
-      id: "maya-coffee",
-      personaId: "maya",
-      setting: "Sunday afternoon coffee shop, first date after matching online",
-      difficulty: "easy",
-      openingLine: "Hi! You found it okay? I've been eyeing their cinnamon buns since I walked in.",
-    },
-  },
-  {
-    id: "theo",
-    name: "Theo",
-    age: 31,
-    bio: "Line cook at a busy bistro, dry sense of humor, plays bass in a bar band.",
-    personality:
-      "Witty and a little guarded. Gives short answers until you show real interest, teases you to see if you can banter.",
-    difficulty: "medium",
-    defaultScenario: {
-      id: "theo-wine-bar",
-      personaId: "theo",
-      setting: "Dim wine bar on a weeknight, second date",
-      difficulty: "medium",
-      openingLine: "So. You came back for round two. Brave.",
-    },
-  },
-  {
-    id: "priya",
-    name: "Mei",
-    age: 29,
-    bio: "ER doctor just off a twelve-hour shift, runs marathons, has strong opinions about books.",
-    personality:
-      "Direct, sharp and easily bored. Challenges vague answers, changes topic if the conversation drags, respects confidence.",
-    difficulty: "hard",
-    defaultScenario: {
-      id: "priya-rooftop",
-      personaId: "priya",
-      setting: "Crowded rooftop bar after her shift, first date",
-      difficulty: "hard",
-      openingLine: "Sorry I'm late, the ER was chaos. Tell me something interesting before I fall asleep.",
-    },
-  },
-  {
-    id: "coach",
-    name: "Riley",
-    age: 34,
-    bio: "Dating coach who has helped hundreds of people build real confidence and connection skills.",
-    personality:
-      "Encouraging, direct and practical. Gives concrete, actionable feedback instead of vague compliments. Asks good follow-up questions before giving advice.",
-    difficulty: "easy",
-    defaultScenario: {
-      id: "coach-chat",
-      personaId: "coach",
-      setting: "A casual coaching chat, not a date -- talk through what's been going on with dating",
-      difficulty: "easy",
-      openingLine: "Hey, good to see you! So, what's been going on with dating lately?",
-    },
-  },
-];
+import { PERSONAS, type PersonaDef } from "./stockPersonas";
 
 function withAgentId(p: PersonaDef): PersonaWithScenario {
   const agentId = process.env[`ELEVENLABS_AGENT_ID_${p.id.toUpperCase()}`];
@@ -97,7 +29,7 @@ export type ResolvedPersona = {
   persona: PersonaWithScenario;
   /** ElevenLabs voice to override the agent's own, for generated characters. */
   voiceId: string | null;
-  /** LiveAvatar avatar matched to a generated character. */
+  /** Anam avatar matched to a generated character. */
   avatarId: string | null;
   /** The story or choice the character brings into the conversation. */
   direction: string | null;
@@ -134,8 +66,8 @@ export function fromCustomPersona(row: CustomPersona, avatarPreviewUrl: string |
 const stockResolved = (persona: PersonaWithScenario): ResolvedPersona =>
   ({ persona, voiceId: null, avatarId: null, direction: null });
 
-/** The LiveAvatar avatar a stock persona appears as on a call, from HEYGEN_AVATAR_ID_<ID>. */
-const stockAvatarId = (personaId: string) => process.env[`HEYGEN_AVATAR_ID_${personaId.toUpperCase()}`] || undefined;
+/** The Anam avatar a stock persona appears as on a call, from ANAM_AVATAR_ID_<ID>. */
+const stockAvatarId = (personaId: string) => process.env[`ANAM_AVATAR_ID_${personaId.toUpperCase()}`] || undefined;
 
 /** Each stock persona's portrait: the preview of the video avatar it appears as, by persona id. */
 async function stockPhotos(): Promise<Map<string, string>> {
