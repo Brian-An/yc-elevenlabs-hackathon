@@ -136,8 +136,7 @@ const sampleMoves: MoveEvaluation[] = [
   { turnIndex: 5, classification: "great", confidence: 0.82, scores: { listening: 9.1, engagement: 9.0, confidence: 6.9, flow: 8.3 } },
 ];
 
-/** The demo date with Maya. Live dates with Maya reuse its feedback (see fixedDateReview on the server). */
-export const demoEvaluation: Evaluation = {
+const evaluation: Evaluation = {
   scores: { listening: 5, engagement: 7, confidence: 6, flow: 6 },
   strengths: [
     {
@@ -171,7 +170,7 @@ const sessions: SessionSummary[] = [
     status: "completed",
     startedAt: "2026-11-22T10:12:00Z",
     durationSec: 412,
-    scores: demoEvaluation.scores,
+    scores: evaluation.scores,
   },
   {
     id: "s-102",
@@ -209,7 +208,7 @@ export function getMockFeedback(sessionId: string): FeedbackData {
   const session = sessions.find((s) => s.id === sessionId) ?? sessions[0]!;
   return {
     session: { ...session, id: sessionId },
-    evaluation: demoEvaluation,
+    evaluation,
     transcript: sampleTranscript,
     moves: sampleMoves,
     previousScores: sessions[1]!.scores,

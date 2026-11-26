@@ -29,8 +29,7 @@ import { pendingCallback, updateCallbacks } from "./callbacks";
 import { enqueueReview, latestReviewJob, MAX_ATTEMPTS, toReviewJobDTO, wakeReview } from "./reviewJobs";
 import { mergeTurns } from "./transcript";
 import { generateNextScenario, SKILLS } from "./evaluator";
-import { getMemory, saveReviewMemory } from "./memory";
-import { fixedDateReview, reviewScores } from "./dateReview";
+import { getMemory } from "./memory";
 import { gradePendingMoves, gradePendingMovesInBackground, movesForTranscript } from "./moves";
 import { listPersonasFor, personaLookup, resolvePersona } from "./personas";
 import { asJson, readJson, summaryColumns, toSessionDTO, toSessionSummary, transcriptColumns } from "./serialize";
@@ -176,15 +175,6 @@ async function freezeSession(row: DateSession, supplied: Transcript | undefined)
     const eligible = frozen.kind === "date" && frozen.source === "live" && transcript.some((turn) => turn.speaker === "user");
     if (!eligible) return tx.dateSession.update({ where: { id: row.id }, data: { status: "evaluated", reviewStatus: "skipped" } });
     await updateCallbacks({ ...frozen, transcript }, tx);
-    // A fixed review is ready now, so the end-of-date summary shows it without waiting on a job.
-    const fixed = fixedDateReview(frozen.personaId, transcript);
-    if (fixed) {
-      await saveReviewMemory(tx, frozen.userId, fixed, { sessionId: frozen.id, personaId: frozen.personaId, endedAt: frozen.endedAt! });
-      return tx.dateSession.update({
-        where: { id: row.id },
-        data: { status: "evaluated", reviewStatus: "ready", review: asJson(fixed), reviewScores: asJson(reviewScores(fixed)) },
-      });
-    }
     await enqueueReview(tx, frozen);
     return tx.dateSession.update({ where: { id: row.id }, data: { reviewStatus: "pending" } });
   });

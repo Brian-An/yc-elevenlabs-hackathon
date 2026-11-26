@@ -170,58 +170,9 @@ const messageSchema = z.object({
   usage: z.object({ input_tokens: z.number(), output_tokens: z.number() }).optional(),
 });
 
-// Maya's dates always get the same scripted review for the demo, instead of a graded one.
-const FIXED_REVIEW_PERSONA = "maya";
-
-/** Maya's fixed review, or null for any other character. It needs no provider, so ending the date stores it at once. */
-export function fixedDateReview(personaId: string, transcript: Transcript): DateReview | null {
-  if (personaId !== FIXED_REVIEW_PERSONA || !transcript.some((turn) => turn.speaker === "user" && turn.text.trim())) return null;
-  return fixedReview(transcript, { transcriptHash: transcriptHash(transcript), rubricVersion: RUBRIC_VERSION });
-}
-
-/**
- * The review written for the scripted demo date. Indices follow the script (her opener, then your nth reply),
- * clamped to the turns this date actually had, and quotes are your own words at those turns.
- */
-function fixedReview(transcript: Transcript, provenance: Pick<DateReview, "transcriptHash" | "rubricVersion">): DateReview {
-  const userTurns = transcript.flatMap((turn, index) => (turn.speaker === "user" && turn.text.trim() ? [index] : []));
-  const reply = (n: number) => userTurns[Math.min(n, userTurns.length - 1)];
-  const before = (userIndex: number) => Math.max(0, transcript.findLastIndex((turn, index) => index < userIndex && turn.speaker === "agent"));
-  const moment = (n: number, point: string) => ({ point, agentTurnIndex: before(reply(n)), userTurnIndex: reply(n) });
-  const weakness = (n: number, skill: SkillName, point: string) => ({ skill, point, quote: transcript[reply(n)].text, turnIndex: reply(n) });
-  const cited = [...new Set([0, 1, 2, 4].map(reply))];
-  const skill = (score: number | null) => ({ score, turnIndices: score === null ? [] : cited });
-  return {
-    ...provenance,
-    model: null,
-    summary: "You made comments about Maya's appearance and scent before escalating to a sexual remark, causing her to leave. The date ended almost immediately due to boundary violations.",
-    skills: { listening: skill(1), engagement: skill(1), confidence: skill(null), flow: skill(2) },
-    overallScore: 13,
-    moments: [
-      moment(1, "Maya tried to redirect to conversation after the compliment, but you commented on her scent instead of engaging."),
-      moment(2, "Maya asked to get to know each other, but you made a sexual remark that ended the date."),
-      moment(4, "After Maya said she was leaving, you asked her to come back rather than acknowledging her discomfort."),
-    ],
-    strengths: [],
-    weaknesses: [
-      weakness(1, "listening", "Maya signaled she wanted normal conversation, but you ignored her redirect twice."),
-      weakness(0, "engagement", "You made no attempt to respond to her cinnamon bun comment or Sunday question."),
-    ],
-    practice: {
-      skill: "listening",
-      instruction: "When a date mentions something specific like food or a weekend habit, ask a follow-up or share your own take.",
-      exampleReply: "Cinnamon buns sound amazing — do you come here often, or is this a new spot for you?",
-      agentTurnIndex: before(reply(0)),
-      userTurnIndex: reply(0),
-    },
-  };
-}
-
 export async function generateDateReview(transcript: Transcript, scenario: Scenario, persona: Persona): Promise<DateReviewResult> {
   const turns = numberedTurns(transcript);
   const provenance = { transcriptHash: transcriptHash(transcript), rubricVersion: RUBRIC_VERSION };
-  const fixed = fixedDateReview(persona.id, transcript);
-  if (fixed) return { review: fixed, usage: null };
   if (!reviewNeedsInference(transcript)) {
     const unscored = () => ({ score: null, turnIndices: [] });
     const review: DateReview = {
