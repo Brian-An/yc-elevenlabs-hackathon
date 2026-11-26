@@ -1,0 +1,24 @@
+.gitignore
+  s_eea00e8c20de15::t_255676b17eab76 3-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "43e9307b8b83c593769b07252cef93929a887059",
+  "prompts": {},
+  "humans": {
+    "h_1a0e607fe5f58f": {
+      "author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_eea00e8c20de15": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f7a40b51-6cb2-46ae-8b35-6c30e802749b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Dawson <dawsonxiong@gmail.com>"
+    }
+  }
+}
