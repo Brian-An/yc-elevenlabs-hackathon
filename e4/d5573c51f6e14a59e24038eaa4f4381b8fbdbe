@@ -1,0 +1,87 @@
+app/src/server/anam.ts
+  s_4771526fcb9f94::t_1092a656871426 1-16,20-69
+  s_4771526fcb9f94::t_3654bdf963ac56 17-19
+app/src/server/characterGen.ts
+  s_4771526fcb9f94::t_ae4ee752fa28e1 44-52
+app/src/server/elevenlabs.ts
+  s_4771526fcb9f94::t_0a44fc427baccf 48-49
+  s_4771526fcb9f94::t_afe9804cd4bd21 14-29,35,45,47
+app/src/client/useAvatarSession.ts
+  s_4771526fcb9f94::t_c4ec26533a9e76 2-6,9,12,21-26,47-48,50-51,62-64,66-73,76,87-89,92-100,107,111-115,118,121-126,128-134,136,138-143,146,150,158,165,172-176,179-183,192
+app/src/server/sessionBrief.ts
+  s_4771526fcb9f94::t_e6a166d68327e9 8
+  s_4771526fcb9f94::t_ca342591e28497 4-5,16
+app/src/components/AvatarStage.tsx
+  s_4771526fcb9f94::t_4562c1bf45da99 1,6-8,11,15-18,31,41,44-45,59-75,84,87-90,92-102,104-108
+  s_4771526fcb9f94::t_e94717c1bf695f 103
+app/scripts/naturalness-eval.mjs
+  s_4771526fcb9f94::t_978fbdd4dae575 1-173
+app/scripts/elevenlabs-agents.mjs
+  s_4771526fcb9f94::t_9e49afe323d78e 80
+  s_4771526fcb9f94::t_ba46e53dffd496 1-79,81-129
+app/src/server/sessionVariables.ts
+  s_4771526fcb9f94::t_8ef11b98453b94 26
+  s_4771526fcb9f94::t_af59a3bddc3b44 1-25,27-83
+app/src/pages/WorldPage.tsx
+  s_4771526fcb9f94::t_8640238fadba85 561-562
+  s_4771526fcb9f94::t_c04a7861221f9c 554-555
+  s_4771526fcb9f94::t_444b07bf38fe4e 431,596,607
+app/prompts/elevenlabs/session-v2.md
+  s_4771526fcb9f94::t_21cef30efce7d1 1-11,16-21,23-24,38-50
+  s_4771526fcb9f94::t_7b489b0f27462e 12-15
+  s_4771526fcb9f94::t_fe4d6c5e9e7c07 22,25-37
+  s_4771526fcb9f94::t_e256280455f6d7 51-52
+README.md
+  s_4771526fcb9f94::t_47b9fad71998e6 8,16,24,30-41
+app/.env.server.example
+  s_4771526fcb9f94::t_d473d76d37fe60 7,9,11,16,29-38
+app/main.wasp.ts
+  s_4771526fcb9f94::t_9f9494fab436e5 35-37,73-75,90-92
+app/migrations/20261125180000_anam_avatars/migration.sql
+  s_4771526fcb9f94::t_08a0e60487f2a8 1-5
+app/package-lock.json
+  s_4771526fcb9f94::t_1910a6424b2157 13,273-281
+app/package.json
+  s_4771526fcb9f94::t_2f41ad20eb2d28 9
+app/schema.prisma
+  s_4771526fcb9f94::t_c3a61fa31a6c1a 120,130
+app/src/client/useDateConversation.ts
+  s_4771526fcb9f94::t_baf772987a318f 34
+app/src/pages/DatePage.tsx
+  s_4771526fcb9f94::t_af33ea2bd9d66a 84
+app/src/server/anam.test.ts
+  s_4771526fcb9f94::t_5de2fe6ac00704 2,9-10,13-16,18,20-22,35,39,43-49,51-65,76-79,82
+app/src/server/avatarCatalog.ts
+  s_4771526fcb9f94::t_75e6e18b8e1107 1-3,10-11,16,20-27,30-31,33-35,37,39-40,78,80,83-84
+app/src/server/customPersonas.db.test.ts
+  s_4771526fcb9f94::t_91217e51af6a50 83
+app/src/server/dto.ts
+  s_4771526fcb9f94::t_b3aaf5f618409f 102
+app/src/server/personas.ts
+  s_4771526fcb9f94::t_1b5abab17121d5 7,10,32
+app/src/server/serialize.ts
+  s_4771526fcb9f94::t_2165ea21b7a20a 7,57
+app/src/server/stockPersonas.ts
+  s_4771526fcb9f94::t_c6923dbafa38d9 1-40,42-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4d5573c51f6e14a59e24038eaa4f4381b8fbdbe",
+  "prompts": {},
+  "humans": {
+    "h_3f7c194ad24a0c": {
+      "author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  },
+  "sessions": {
+    "s_4771526fcb9f94": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "374856cf-d51c-4fec-a98e-d0afe6209f71",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "brian-an <brian.an0906@hotmail.com>"
+    }
+  }
+}
