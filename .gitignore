@@ -1,2 +1,5 @@
 # Local secrets written by `elevenlabs onboard`
 /.env.local
+
+# Claude desktop app dev-server config; points at a local Node install
+/.claude/launch.json
